@@ -3,8 +3,3 @@ controllers:
         path: ../src/Controller/
         namespace: App\Controller
     type: attribute
-
-api_platform:
-    resource: .
-    type: api_platform
-    prefix: /api

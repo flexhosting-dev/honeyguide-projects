@@ -1,0 +1,110 @@
+{% extends 'layout.html.twig' %}
+
+{% block title %}{{ task.title }} - Zoho Projects Clone{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="mb-8">
+        <a href="{{ path('app_project_show', {id: project.id}) }}" class="inline-flex items-center text-sm text-gray-500 hover:text-gray-700">
+            <svg class="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+            </svg>
+            Back to {{ project.name }}
+        </a>
+    </div>
+
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+            {# Header #}
+            <div class="flex items-start justify-between">
+                <div class="flex-1">
+                    <div class="flex items-center space-x-3">
+                        <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
+                            {% if task.status.value == 'completed' %}bg-green-100 text-green-700
+                            {% elseif task.status.value == 'in_progress' %}bg-blue-100 text-blue-700
+                            {% elseif task.status.value == 'in_review' %}bg-yellow-100 text-yellow-700
+                            {% else %}bg-gray-100 text-gray-700{% endif %}">
+                            {{ task.status.label }}
+                        </span>
+                        <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
+                            {% if task.priority.value == 'urgent' %}bg-red-100 text-red-700
+                            {% elseif task.priority.value == 'high' %}bg-orange-100 text-orange-700
+                            {% elseif task.priority.value == 'medium' %}bg-yellow-100 text-yellow-700
+                            {% else %}bg-gray-100 text-gray-700{% endif %}">
+                            {{ task.priority.label }} Priority
+                        </span>
+                    </div>
+                    <h1 class="mt-2 text-2xl font-bold text-gray-900">{{ task.title }}</h1>
+                    <p class="mt-1 text-sm text-gray-500">
+                        {{ project.name }} / {{ task.milestone.name }}
+                    </p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <a href="{{ path('app_task_edit', {id: task.id}) }}"
+                       class="inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+                        Edit
+                    </a>
+                </div>
+            </div>
+
+            {# Description #}
+            {% if task.description %}
+                <div class="mt-6">
+                    <h3 class="text-sm font-medium text-gray-900">Description</h3>
+                    <p class="mt-2 text-sm text-gray-600 whitespace-pre-wrap">{{ task.description }}</p>
+                </div>
+            {% endif %}
+
+            {# Details #}
+            <div class="mt-6 border-t border-gray-200 pt-6">
+                <dl class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    {% if task.dueDate %}
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500">Due Date</dt>
+                            <dd class="mt-1 text-sm {{ task.isOverdue ? 'text-red-600 font-medium' : 'text-gray-900' }}">
+                                {{ task.dueDate|date('M d, Y') }}
+                                {% if task.isOverdue %}(Overdue){% endif %}
+                            </dd>
+                        </div>
+                    {% endif %}
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Created</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ task.createdAt|date('M d, Y H:i') }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Updated</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ task.updatedAt|date('M d, Y H:i') }}</dd>
+                    </div>
+                </dl>
+            </div>
+
+            {# Assignees #}
+            <div class="mt-6 border-t border-gray-200 pt-6">
+                <h3 class="text-sm font-medium text-gray-900">Assignees</h3>
+                {% if task.assignees|length > 0 %}
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        {% for assignee in task.assignees %}
+                            <span class="inline-flex items-center rounded-full bg-gray-100 py-1 pl-2 pr-3 text-sm font-medium text-gray-800">
+                                <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary-100 mr-2">
+                                    <span class="text-xs font-medium text-primary-700">
+                                        {{ assignee.user.firstName|slice(0, 1)|upper }}{{ assignee.user.lastName|slice(0, 1)|upper }}
+                                    </span>
+                                </span>
+                                {{ assignee.user.fullName }}
+                            </span>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="mt-2 text-sm text-gray-500">No assignees yet.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        {# Comments Section #}
+        <div class="border-t border-gray-200 px-4 py-5 sm:p-6">
+            <h3 class="text-base font-semibold text-gray-900 mb-4">Comments</h3>
+            {% include 'comment/_list.html.twig' with {task: task, comments: task.comments} %}
+        </div>
+    </div>
+</div>
+{% endblock %}

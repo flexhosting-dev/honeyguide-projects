@@ -1,0 +1,89 @@
+{# Project Card Component #}
+{% set colors = ['green', 'blue', 'purple', 'orange', 'yellow', 'pink'] %}
+{% set colorIndex = loop is defined ? loop.index0 % 6 : 0 %}
+{% set accentColors = {
+    'green': { 'bg': 'bg-green-100', 'text': 'text-green-700', 'progress': 'bg-green-500' },
+    'blue': { 'bg': 'bg-blue-100', 'text': 'text-blue-700', 'progress': 'bg-blue-500' },
+    'purple': { 'bg': 'bg-purple-100', 'text': 'text-purple-700', 'progress': 'bg-purple-500' },
+    'orange': { 'bg': 'bg-orange-100', 'text': 'text-orange-700', 'progress': 'bg-orange-500' },
+    'yellow': { 'bg': 'bg-yellow-100', 'text': 'text-yellow-700', 'progress': 'bg-yellow-500' },
+    'pink': { 'bg': 'bg-pink-100', 'text': 'text-pink-700', 'progress': 'bg-pink-500' }
+} %}
+{% set color = colors[colorIndex] %}
+{% set accent = accentColors[color] %}
+
+<div class="card-accent-{{ color }} relative flex flex-col rounded-xl shadow-soft hover:shadow-md transition-all">
+    <div class="flex flex-1 flex-col p-5">
+        <div class="flex items-start justify-between">
+            <div class="flex items-center">
+                <span class="inline-flex h-11 w-11 items-center justify-center rounded-xl {{ accent.bg }}">
+                    <span class="text-lg font-semibold {{ accent.text }}">{{ project.name|slice(0, 1)|upper }}</span>
+                </span>
+                <div class="ml-3">
+                    <h3 class="text-sm font-semibold text-gray-900">
+                        <a href="{{ path('app_project_show', {id: project.id}) }}" class="hover:text-primary-600">
+                            {{ project.name }}
+                        </a>
+                    </h3>
+                    <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium mt-1
+                        {% if project.status.value == 'active' %}bg-green-100 text-green-700
+                        {% elseif project.status.value == 'on_hold' %}bg-yellow-100 text-yellow-700
+                        {% elseif project.status.value == 'completed' %}bg-blue-100 text-blue-700
+                        {% else %}bg-gray-100 text-gray-700{% endif %}">
+                        {{ project.status.label }}
+                    </span>
+                </div>
+            </div>
+
+            <div class="relative" data-controller="dropdown">
+                <button type="button" data-action="click->dropdown#toggle" class="-m-2.5 block p-2.5 text-gray-400 hover:text-gray-500">
+                    <span class="sr-only">Options</span>
+                    <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M3 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM8.5 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM15.5 8.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3z" />
+                    </svg>
+                </button>
+                <div data-dropdown-target="menu" class="hidden absolute right-0 z-10 mt-2 w-32 origin-top-right rounded-md bg-white py-2 shadow-lg ring-1 ring-gray-900/5">
+                    <a href="{{ path('app_project_show', {id: project.id}) }}" class="block px-3 py-1 text-sm leading-6 text-gray-900 hover:bg-gray-50">View</a>
+                    <a href="{{ path('app_project_edit', {id: project.id}) }}" class="block px-3 py-1 text-sm leading-6 text-gray-900 hover:bg-gray-50">Edit</a>
+                </div>
+            </div>
+        </div>
+
+        {% if project.description %}
+            <p class="mt-3 text-sm text-gray-500 line-clamp-2">{{ project.description }}</p>
+        {% endif %}
+
+        {# Progress Bar #}
+        <div class="mt-4">
+            <div class="flex items-center justify-between text-sm">
+                <span class="text-gray-500">Progress</span>
+                <span class="font-medium text-gray-900">{{ project.progress }}%</span>
+            </div>
+            <div class="mt-2 w-full bg-gray-200/50 rounded-full h-2">
+                <div class="{{ accent.progress }} h-2 rounded-full transition-all duration-300" style="width: {{ project.progress }}%"></div>
+            </div>
+        </div>
+
+        {# Stats #}
+        <div class="mt-4 flex items-center justify-between border-t border-gray-100 pt-4">
+            <div class="flex items-center text-sm text-gray-500">
+                <svg class="mr-1.5 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v1.5M3 21v-6m0 0 2.77-.693a9 9 0 0 1 6.208.682l.108.054a9 9 0 0 0 6.086.71l3.114-.732a48.524 48.524 0 0 1-.005-10.499l-3.11.732a9 9 0 0 1-6.085-.711l-.108-.054a9 9 0 0 0-6.208-.682L3 4.5M3 15V4.5" />
+                </svg>
+                {{ project.milestoneCount }}
+            </div>
+            <div class="flex items-center text-sm text-gray-500">
+                <svg class="mr-1.5 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
+                {{ project.completedTaskCount }}/{{ project.taskCount }}
+            </div>
+            <div class="flex items-center text-sm text-gray-500">
+                <svg class="mr-1.5 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+                </svg>
+                {{ project.memberCount }}
+            </div>
+        </div>
+    </div>
+</div>

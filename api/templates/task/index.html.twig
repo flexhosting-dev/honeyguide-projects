@@ -1,0 +1,302 @@
+{% extends 'layout.html.twig' %}
+
+{% block title %}My Tasks - Zoho Projects Clone{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    {# Header #}
+    <div class="sm:flex sm:items-center sm:justify-between">
+        <div>
+            <h1 class="text-xl font-semibold text-gray-900">My Tasks</h1>
+            <p class="mt-2 text-sm text-gray-700">All tasks assigned to you across all projects.</p>
+        </div>
+    </div>
+
+    {% if tasks|length > 0 %}
+        {# Kanban Board #}
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-4">
+            {# To Do Column #}
+            <div class="kanban-column rounded-lg bg-gray-100 p-4 flex flex-col" data-status="todo"
+                 ondragover="kanbanDragOver(event)"
+                 ondragleave="kanbanDragLeave(event)"
+                 ondrop="kanbanDrop(event, 'todo')">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-semibold text-gray-700">To Do</h3>
+                    <span class="kanban-count inline-flex items-center justify-center h-6 w-6 rounded-full bg-gray-200 text-xs font-medium text-gray-600">
+                        {{ tasksByStatus.todo|length }}
+                    </span>
+                </div>
+                <div class="kanban-dropzone space-y-3 flex-1">
+                    {% for task in tasksByStatus.todo %}
+                        {% include 'task/_card.html.twig' with {task: task, draggable: true} %}
+                    {% endfor %}
+                </div>
+            </div>
+
+            {# In Progress Column #}
+            <div class="kanban-column rounded-lg bg-blue-50 p-4 flex flex-col" data-status="in_progress"
+                 ondragover="kanbanDragOver(event)"
+                 ondragleave="kanbanDragLeave(event)"
+                 ondrop="kanbanDrop(event, 'in_progress')">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-semibold text-blue-700">In Progress</h3>
+                    <span class="kanban-count inline-flex items-center justify-center h-6 w-6 rounded-full bg-blue-100 text-xs font-medium text-blue-600">
+                        {{ tasksByStatus.in_progress|length }}
+                    </span>
+                </div>
+                <div class="kanban-dropzone space-y-3 flex-1">
+                    {% for task in tasksByStatus.in_progress %}
+                        {% include 'task/_card.html.twig' with {task: task, draggable: true} %}
+                    {% endfor %}
+                </div>
+            </div>
+
+            {# In Review Column #}
+            <div class="kanban-column rounded-lg bg-yellow-50 p-4 flex flex-col" data-status="in_review"
+                 ondragover="kanbanDragOver(event)"
+                 ondragleave="kanbanDragLeave(event)"
+                 ondrop="kanbanDrop(event, 'in_review')">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-semibold text-yellow-700">In Review</h3>
+                    <span class="kanban-count inline-flex items-center justify-center h-6 w-6 rounded-full bg-yellow-100 text-xs font-medium text-yellow-600">
+                        {{ tasksByStatus.in_review|length }}
+                    </span>
+                </div>
+                <div class="kanban-dropzone space-y-3 flex-1">
+                    {% for task in tasksByStatus.in_review %}
+                        {% include 'task/_card.html.twig' with {task: task, draggable: true} %}
+                    {% endfor %}
+                </div>
+            </div>
+
+            {# Completed Column #}
+            <div class="kanban-column rounded-lg bg-green-50 p-4 flex flex-col" data-status="completed"
+                 ondragover="kanbanDragOver(event)"
+                 ondragleave="kanbanDragLeave(event)"
+                 ondrop="kanbanDrop(event, 'completed')">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-semibold text-green-700">Completed</h3>
+                    <span class="kanban-count inline-flex items-center justify-center h-6 w-6 rounded-full bg-green-100 text-xs font-medium text-green-600">
+                        {{ tasksByStatus.completed|length }}
+                    </span>
+                </div>
+                <div class="kanban-dropzone space-y-3 flex-1">
+                    {% for task in tasksByStatus.completed %}
+                        {% include 'task/_card.html.twig' with {task: task, draggable: true} %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <script>
+        let draggedCard = null;
+        let dropPlaceholder = null;
+
+        function createDropPlaceholder() {
+            const placeholder = document.createElement('div');
+            placeholder.className = 'drop-placeholder';
+            placeholder.innerHTML = '<span>Drop your card here</span>';
+            return placeholder;
+        }
+
+        function kanbanDragStart(event, taskId) {
+            draggedCard = event.target;
+            event.target.classList.add('opacity-40', 'scale-95');
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', taskId);
+
+            // Create placeholder
+            dropPlaceholder = createDropPlaceholder();
+        }
+
+        function kanbanDragEnd(event) {
+            event.target.classList.remove('opacity-40', 'scale-95');
+
+            // Remove placeholder
+            if (dropPlaceholder && dropPlaceholder.parentNode) {
+                dropPlaceholder.remove();
+            }
+            dropPlaceholder = null;
+            draggedCard = null;
+        }
+
+        function getInsertPosition(dropzone, clientY) {
+            const cards = [...dropzone.querySelectorAll('[data-task-id]')].filter(c => c !== draggedCard);
+
+            for (const card of cards) {
+                const rect = card.getBoundingClientRect();
+                const midY = rect.top + rect.height / 2;
+
+                if (clientY < midY) {
+                    return { insertBefore: card, position: 'before' };
+                }
+            }
+
+            return { insertBefore: null, position: 'end' };
+        }
+
+        function kanbanDragOver(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.dataTransfer.dropEffect = 'move';
+
+            const column = event.currentTarget;
+            const dropzone = column.querySelector('.kanban-dropzone');
+
+            if (!dropPlaceholder || !dropzone) return;
+
+            const { insertBefore } = getInsertPosition(dropzone, event.clientY);
+
+            // Move placeholder to correct position
+            if (insertBefore) {
+                if (dropPlaceholder.nextSibling !== insertBefore) {
+                    dropzone.insertBefore(dropPlaceholder, insertBefore);
+                }
+            } else {
+                // Append at end
+                if (dropPlaceholder.parentNode !== dropzone || dropPlaceholder.nextSibling) {
+                    dropzone.appendChild(dropPlaceholder);
+                }
+            }
+        }
+
+        function kanbanDragLeave(event) {
+            const relatedTarget = event.relatedTarget;
+            const column = event.currentTarget;
+
+            // Only remove if actually leaving the column
+            if (!column.contains(relatedTarget)) {
+                if (dropPlaceholder && dropPlaceholder.parentNode) {
+                    dropPlaceholder.remove();
+                }
+            }
+        }
+
+        async function kanbanDrop(event, newStatus) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const column = event.currentTarget;
+            const dropzone = column.querySelector('.kanban-dropzone');
+
+            const taskId = event.dataTransfer.getData('text/plain');
+            const card = document.querySelector(`[data-task-id="${taskId}"]`);
+
+            if (!card || !dropzone) return;
+
+            // Get the current status from the card's parent column
+            const currentColumn = card.closest('.kanban-column');
+            const currentStatus = currentColumn ? currentColumn.dataset.status : null;
+
+            // Insert card at placeholder position
+            if (dropPlaceholder && dropPlaceholder.parentNode === dropzone) {
+                dropzone.insertBefore(card, dropPlaceholder);
+                dropPlaceholder.remove();
+            } else {
+                dropzone.appendChild(card);
+            }
+            dropPlaceholder = null;
+
+            // Update counts
+            updateColumnCounts();
+
+            // Get task title for notification
+            const taskTitle = card.querySelector('h4 a')?.textContent?.trim() || 'Task';
+
+            // If same column, just show reorder feedback
+            if (currentStatus === newStatus) {
+                Toastr.success('Task Reordered', `"${taskTitle}" position updated`);
+                return;
+            }
+
+            // Show loading indicator on card
+            card.classList.add('opacity-70');
+            const loadingOverlay = document.createElement('div');
+            loadingOverlay.className = 'absolute inset-0 bg-white/50 flex items-center justify-center rounded-lg';
+            loadingOverlay.innerHTML = '<svg class="animate-spin h-5 w-5 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
+            card.style.position = 'relative';
+            card.appendChild(loadingOverlay);
+
+            const statusLabels = {
+                'todo': 'To Do',
+                'in_progress': 'In Progress',
+                'in_review': 'In Review',
+                'completed': 'Completed'
+            };
+
+            try {
+                const response = await fetch(`/tasks/${taskId}/status`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({ status: newStatus })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to update status');
+                }
+
+                // Success - remove loading state
+                card.classList.remove('opacity-70');
+                loadingOverlay.remove();
+
+                // Show success toastr
+                Toastr.success('Task Updated', `"${taskTitle}" moved to ${statusLabels[newStatus] || newStatus}`);
+
+            } catch (error) {
+                console.error('Error updating task status:', error);
+
+                // Revert: move card back to original column
+                if (currentColumn) {
+                    currentColumn.querySelector('.kanban-dropzone').appendChild(card);
+                    updateColumnCounts();
+                }
+
+                // Show error state
+                card.classList.remove('opacity-70');
+                loadingOverlay.remove();
+
+                // Show error toastr
+                Toastr.error('Update Failed', 'Could not update task status. Please try again.');
+            }
+        }
+
+        function updateColumnCounts() {
+            document.querySelectorAll('.kanban-column').forEach(column => {
+                const count = column.querySelectorAll('.kanban-dropzone [data-task-id]').length;
+                const countEl = column.querySelector('.kanban-count');
+                if (countEl) {
+                    countEl.textContent = count;
+                }
+            });
+        }
+        </script>
+
+        <style>
+        .drop-placeholder {
+            background: #f9fafb;
+            border: 1px dashed #d1d5db;
+            border-radius: 0.5rem;
+            padding: 1.25rem 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 70px;
+        }
+        .drop-placeholder span {
+            color: #9ca3af;
+            font-size: 0.8125rem;
+            font-weight: 400;
+        }
+        </style>
+    {% else %}
+        {% include 'components/_empty_state.html.twig' with {
+            icon: 'task',
+            title: 'No tasks assigned',
+            description: 'Tasks assigned to you will appear here.'
+        } %}
+    {% endif %}
+</div>
+{% endblock %}

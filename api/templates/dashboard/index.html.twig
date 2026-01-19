@@ -1,0 +1,202 @@
+{% extends 'layout.html.twig' %}
+
+{% block title %}Dashboard - Zoho Projects Clone{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    {# Stats Grid with accent cards #}
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {# Total Projects #}
+        <div class="card-accent-green rounded-lg px-5 py-5 shadow-soft">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="rounded-lg bg-green-100 p-3">
+                        <svg class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
+                        </svg>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Total Projects</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ stats.totalProjects }}</p>
+                </div>
+            </div>
+        </div>
+
+        {# Total Tasks #}
+        <div class="card-accent-blue rounded-lg px-5 py-5 shadow-soft">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="rounded-lg bg-blue-100 p-3">
+                        <svg class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                        </svg>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Total Tasks</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ stats.totalTasks }}</p>
+                </div>
+            </div>
+        </div>
+
+        {# Completed Tasks #}
+        <div class="card-accent-purple rounded-lg px-5 py-5 shadow-soft">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="rounded-lg bg-purple-100 p-3">
+                        <svg class="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M11.35 3.836c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m8.9-4.414c.376.023.75.05 1.124.08 1.131.094 1.976 1.057 1.976 2.192V16.5A2.25 2.25 0 0 1 18 18.75h-2.25m-7.5-10.5H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V18.75m-7.5-10.5h6.375c.621 0 1.125.504 1.125 1.125v9.375m-8.25-3 1.5 1.5 3-3.75" />
+                        </svg>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Completed</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ stats.completedTasks }}</p>
+                </div>
+            </div>
+        </div>
+
+        {# Overdue Tasks #}
+        <div class="card-accent-orange rounded-lg px-5 py-5 shadow-soft">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="rounded-lg bg-orange-100 p-3">
+                        <svg class="h-6 w-6 text-orange-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                        </svg>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Overdue</p>
+                    <p class="text-2xl font-bold {{ stats.overdueTasks > 0 ? 'text-orange-600' : 'text-gray-900' }}">{{ stats.overdueTasks }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-2">
+        {# Upcoming Tasks #}
+        <div class="bg-white/80 backdrop-blur-sm shadow-soft rounded-xl overflow-hidden">
+            <div class="px-5 py-4 border-b border-gray-100">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-base font-semibold text-gray-900">Upcoming Tasks</h3>
+                    <a href="{{ path('app_task_my_tasks') }}" class="text-sm font-medium text-primary-600 hover:text-primary-500">View all</a>
+                </div>
+            </div>
+            <div class="p-5">
+                {% if upcomingTasks|length > 0 %}
+                    <div class="space-y-3">
+                        {% set colors = ['green', 'blue', 'yellow', 'orange', 'purple', 'pink'] %}
+                        {% for task in upcomingTasks %}
+                            <div class="card-accent-{{ colors[loop.index0 % 6] }} rounded-lg p-4">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium text-gray-900 truncate">{{ task.title }}</p>
+                                        <p class="text-xs text-gray-500 mt-0.5">{{ task.project.name }}</p>
+                                    </div>
+                                    <div class="flex items-center space-x-2 ml-4">
+                                        <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
+                                            {% if task.priority.value == 'urgent' %}bg-red-100 text-red-700
+                                            {% elseif task.priority.value == 'high' %}bg-orange-100 text-orange-700
+                                            {% else %}bg-gray-100 text-gray-600{% endif %}">
+                                            {{ task.priority.label }}
+                                        </span>
+                                        <span class="text-xs text-gray-500">{{ task.dueDate|date('M d') }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-8">
+                        <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-100 mb-3">
+                            <svg class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                            </svg>
+                        </div>
+                        <p class="text-sm text-gray-500">No upcoming tasks for this week</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {# Recent Activity #}
+        <div class="bg-white/80 backdrop-blur-sm shadow-soft rounded-xl overflow-hidden">
+            <div class="px-5 py-4 border-b border-gray-100">
+                <h3 class="text-base font-semibold text-gray-900">Recent Activity</h3>
+            </div>
+            <div class="p-5">
+                {% if recentActivities|length > 0 %}
+                    <div class="flow-root">
+                        <ul role="list" class="-mb-8">
+                            {% for activity in recentActivities %}
+                                <li>
+                                    <div class="relative pb-8">
+                                        {% if not loop.last %}
+                                            <span class="absolute left-4 top-4 -ml-px h-full w-0.5 bg-gradient-to-b from-green-200 to-blue-200" aria-hidden="true"></span>
+                                        {% endif %}
+                                        <div class="relative flex space-x-3">
+                                            <div>
+                                                <span class="h-8 w-8 rounded-full bg-gradient-to-br from-green-100 to-blue-100 flex items-center justify-center ring-4 ring-white">
+                                                    <span class="text-xs font-medium text-gray-700">
+                                                        {{ activity.user.firstName|slice(0, 1)|upper }}{{ activity.user.lastName|slice(0, 1)|upper }}
+                                                    </span>
+                                                </span>
+                                            </div>
+                                            <div class="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
+                                                <div>
+                                                    <p class="text-sm text-gray-600">{{ activity.description }}</p>
+                                                </div>
+                                                <div class="whitespace-nowrap text-right text-xs text-gray-400">
+                                                    <time>{{ activity.createdAt|date('M d, H:i') }}</time>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% else %}
+                    <div class="text-center py-8">
+                        <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-100 mb-3">
+                            <svg class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                            </svg>
+                        </div>
+                        <p class="text-sm text-gray-500">No recent activity</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {# Task Status Overview #}
+    <div class="bg-white/80 backdrop-blur-sm shadow-soft rounded-xl overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-100">
+            <h3 class="text-base font-semibold text-gray-900">Tasks by Status</h3>
+        </div>
+        <div class="p-5">
+            <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <div class="card-accent-blue rounded-lg p-4 text-center">
+                    <p class="text-2xl font-bold text-gray-900">{{ tasksByStatus.todo }}</p>
+                    <p class="text-sm text-gray-600">To Do</p>
+                </div>
+                <div class="card-accent-purple rounded-lg p-4 text-center">
+                    <p class="text-2xl font-bold text-blue-600">{{ tasksByStatus.in_progress }}</p>
+                    <p class="text-sm text-gray-600">In Progress</p>
+                </div>
+                <div class="card-accent-yellow rounded-lg p-4 text-center">
+                    <p class="text-2xl font-bold text-yellow-600">{{ tasksByStatus.in_review }}</p>
+                    <p class="text-sm text-gray-600">In Review</p>
+                </div>
+                <div class="card-accent-green rounded-lg p-4 text-center">
+                    <p class="text-2xl font-bold text-green-600">{{ tasksByStatus.completed }}</p>
+                    <p class="text-sm text-gray-600">Completed</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

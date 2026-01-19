@@ -1,0 +1,92 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Create Account - Zoho Projects Clone{% endblock %}
+
+{% block body %}
+<div class="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-gray-50">
+    <div class="sm:mx-auto sm:w-full sm:max-w-md">
+        <div class="text-center">
+            <span class="text-4xl">📋</span>
+        </div>
+        <h2 class="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
+            Create your account
+        </h2>
+        <p class="mt-2 text-center text-sm text-gray-600">
+            Already have an account?
+            <a href="{{ path('app_login') }}" class="font-medium text-primary-600 hover:text-primary-500">
+                Sign in
+            </a>
+        </p>
+    </div>
+
+    <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+        <div class="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+            {{ form_start(registrationForm, {'attr': {'class': 'space-y-6'}}) }}
+
+                {% if registrationForm.vars.errors|length > 0 %}
+                    <div data-controller="flash" class="rounded-md bg-red-50 p-4">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                            <div class="ml-3">
+                                {{ form_errors(registrationForm) }}
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        {{ form_label(registrationForm.firstName, null, {'label_attr': {'class': 'block text-sm font-medium leading-6 text-gray-900'}}) }}
+                        <div class="mt-2">
+                            {{ form_widget(registrationForm.firstName) }}
+                        </div>
+                        {{ form_errors(registrationForm.firstName) }}
+                    </div>
+
+                    <div>
+                        {{ form_label(registrationForm.lastName, null, {'label_attr': {'class': 'block text-sm font-medium leading-6 text-gray-900'}}) }}
+                        <div class="mt-2">
+                            {{ form_widget(registrationForm.lastName) }}
+                        </div>
+                        {{ form_errors(registrationForm.lastName) }}
+                    </div>
+                </div>
+
+                <div>
+                    {{ form_label(registrationForm.email, null, {'label_attr': {'class': 'block text-sm font-medium leading-6 text-gray-900'}}) }}
+                    <div class="mt-2">
+                        {{ form_widget(registrationForm.email) }}
+                    </div>
+                    {{ form_errors(registrationForm.email) }}
+                </div>
+
+                <div>
+                    {{ form_label(registrationForm.plainPassword.first, null, {'label_attr': {'class': 'block text-sm font-medium leading-6 text-gray-900'}}) }}
+                    <div class="mt-2">
+                        {{ form_widget(registrationForm.plainPassword.first) }}
+                    </div>
+                </div>
+
+                <div>
+                    {{ form_label(registrationForm.plainPassword.second, null, {'label_attr': {'class': 'block text-sm font-medium leading-6 text-gray-900'}}) }}
+                    <div class="mt-2">
+                        {{ form_widget(registrationForm.plainPassword.second) }}
+                    </div>
+                    {{ form_errors(registrationForm.plainPassword) }}
+                </div>
+
+                <div>
+                    <button type="submit"
+                            class="flex w-full justify-center rounded-md bg-primary-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-primary-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600">
+                        Create account
+                    </button>
+                </div>
+            {{ form_end(registrationForm) }}
+        </div>
+    </div>
+</div>
+{% endblock %}

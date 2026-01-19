@@ -2,89 +2,53 @@
 
 namespace App\Entity;
 
-use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
-use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
-use ApiPlatform\Metadata\ApiFilter;
-use ApiPlatform\Metadata\ApiResource;
-use ApiPlatform\Metadata\Delete;
-use ApiPlatform\Metadata\Get;
-use ApiPlatform\Metadata\GetCollection;
-use ApiPlatform\Metadata\Patch;
-use ApiPlatform\Metadata\Post;
 use App\Enum\ProjectStatus;
 use App\Repository\ProjectRepository;
-use App\State\Processor\ProjectProcessor;
-use App\State\Provider\ProjectCollectionProvider;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
-use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: ProjectRepository::class)]
 #[ORM\HasLifecycleCallbacks]
-#[ApiResource(
-    operations: [
-        new GetCollection(provider: ProjectCollectionProvider::class),
-        new Post(processor: ProjectProcessor::class, security: "is_granted('ROLE_USER')"),
-        new Get(security: "is_granted('PROJECT_VIEW', object)"),
-        new Patch(security: "is_granted('PROJECT_EDIT', object)", processor: ProjectProcessor::class),
-        new Delete(security: "is_granted('PROJECT_DELETE', object)"),
-    ],
-    normalizationContext: ['groups' => ['project:read']],
-    denormalizationContext: ['groups' => ['project:write']],
-    order: ['createdAt' => 'DESC'],
-)]
-#[ApiFilter(SearchFilter::class, properties: ['name' => 'partial', 'status' => 'exact'])]
-#[ApiFilter(OrderFilter::class, properties: ['name', 'createdAt', 'startDate', 'endDate'])]
 class Project
 {
     #[ORM\Id]
     #[ORM\Column(type: 'uuid', unique: true)]
-    #[Groups(['project:read', 'task:read', 'milestone:read'])]
     private UuidInterface $id;
 
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank]
     #[Assert\Length(min: 1, max: 255)]
-    #[Groups(['project:read', 'project:write', 'task:read', 'milestone:read'])]
     private string $name;
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
-    #[Groups(['project:read', 'project:write'])]
     private ?string $description = null;
 
     #[ORM\Column(type: 'string', enumType: ProjectStatus::class)]
-    #[Groups(['project:read', 'project:write'])]
     private ProjectStatus $status = ProjectStatus::ACTIVE;
 
     #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
-    #[Groups(['project:read', 'project:write'])]
     private ?\DateTimeImmutable $startDate = null;
 
     #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
-    #[Groups(['project:read', 'project:write'])]
     private ?\DateTimeImmutable $endDate = null;
 
     #[ORM\ManyToOne(targetEntity: User::class, inversedBy: 'ownedProjects')]
     #[ORM\JoinColumn(nullable: false)]
-    #[Groups(['project:read'])]
     private User $owner;
 
     #[ORM\Column]
-    #[Groups(['project:read'])]
     private \DateTimeImmutable $createdAt;
 
     #[ORM\Column]
-    #[Groups(['project:read'])]
     private \DateTimeImmutable $updatedAt;
 
     /** @var Collection<int, ProjectMember> */
     #[ORM\OneToMany(targetEntity: ProjectMember::class, mappedBy: 'project', orphanRemoval: true, cascade: ['persist'])]
-    #[Groups(['project:read'])]
     private Collection $members;
 
     /** @var Collection<int, Milestone> */
@@ -234,15 +198,40 @@ class Project
         return $this->activities;
     }
 
-    #[Groups(['project:read'])]
     public function getMemberCount(): int
     {
         return $this->members->count();
     }
 
-    #[Groups(['project:read'])]
     public function getMilestoneCount(): int
     {
         return $this->milestones->count();
+    }
+
+    public function getTaskCount(): int
+    {
+        $count = 0;
+        foreach ($this->milestones as $milestone) {
+            $count += $milestone->getTaskCount();
+        }
+        return $count;
+    }
+
+    public function getCompletedTaskCount(): int
+    {
+        $count = 0;
+        foreach ($this->milestones as $milestone) {
+            $count += $milestone->getCompletedTaskCount();
+        }
+        return $count;
+    }
+
+    public function getProgress(): int
+    {
+        $total = $this->getTaskCount();
+        if ($total === 0) {
+            return 0;
+        }
+        return (int) round(($this->getCompletedTaskCount() / $total) * 100);
     }
 }

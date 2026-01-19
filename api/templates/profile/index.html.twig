@@ -1,0 +1,129 @@
+{% extends 'layout.html.twig' %}
+
+{% block title %}Settings - Zoho Projects Clone{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-8">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">Settings</h1>
+        <p class="mt-1 text-sm text-gray-500">Manage your account settings and preferences.</p>
+    </div>
+
+    {# Profile Information #}
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+            <h3 class="text-lg font-semibold text-gray-900">Profile Information</h3>
+            <p class="mt-1 text-sm text-gray-500">Update your account's profile information and email address.</p>
+
+            <div class="mt-6">
+                {{ form_start(form, {'attr': {'class': 'space-y-6'}}) }}
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        {{ form_label(form.firstName, null, {'label_attr': {'class': 'block text-sm font-medium leading-6 text-gray-900'}}) }}
+                        <div class="mt-2">
+                            {{ form_widget(form.firstName) }}
+                        </div>
+                        {{ form_errors(form.firstName) }}
+                    </div>
+
+                    <div>
+                        {{ form_label(form.lastName, null, {'label_attr': {'class': 'block text-sm font-medium leading-6 text-gray-900'}}) }}
+                        <div class="mt-2">
+                            {{ form_widget(form.lastName) }}
+                        </div>
+                        {{ form_errors(form.lastName) }}
+                    </div>
+                </div>
+
+                <div>
+                    {{ form_label(form.email, null, {'label_attr': {'class': 'block text-sm font-medium leading-6 text-gray-900'}}) }}
+                    <div class="mt-2">
+                        {{ form_widget(form.email) }}
+                    </div>
+                    {{ form_errors(form.email) }}
+                </div>
+
+                <div class="flex justify-end">
+                    <button type="submit"
+                            class="rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500">
+                        Save Changes
+                    </button>
+                </div>
+
+                {{ form_end(form) }}
+            </div>
+        </div>
+    </div>
+
+    {# Change Password #}
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+            <h3 class="text-lg font-semibold text-gray-900">Change Password</h3>
+            <p class="mt-1 text-sm text-gray-500">Ensure your account is using a long, random password to stay secure.</p>
+
+            <div class="mt-6">
+                <form action="{{ path('app_profile_password') }}" method="post" class="space-y-6">
+                    <div>
+                        <label for="current_password" class="block text-sm font-medium leading-6 text-gray-900">Current Password</label>
+                        <div class="mt-2">
+                            <input type="password" name="current_password" id="current_password" required
+                                   class="block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm sm:leading-6">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="new_password" class="block text-sm font-medium leading-6 text-gray-900">New Password</label>
+                            <div class="mt-2">
+                                <input type="password" name="new_password" id="new_password" required minlength="8"
+                                       class="block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm sm:leading-6">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="confirm_password" class="block text-sm font-medium leading-6 text-gray-900">Confirm Password</label>
+                            <div class="mt-2">
+                                <input type="password" name="confirm_password" id="confirm_password" required minlength="8"
+                                       class="block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm sm:leading-6">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end">
+                        <button type="submit"
+                                class="rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500">
+                            Update Password
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    {# Account Information #}
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+            <h3 class="text-lg font-semibold text-gray-900">Account Information</h3>
+            <dl class="mt-4 divide-y divide-gray-200">
+                <div class="py-4 sm:grid sm:grid-cols-3 sm:gap-4">
+                    <dt class="text-sm font-medium text-gray-500">Account created</dt>
+                    <dd class="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">{{ app.user.createdAt|date('F d, Y') }}</dd>
+                </div>
+                <div class="py-4 sm:grid sm:grid-cols-3 sm:gap-4">
+                    <dt class="text-sm font-medium text-gray-500">Last updated</dt>
+                    <dd class="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">{{ app.user.updatedAt|date('F d, Y') }}</dd>
+                </div>
+                <div class="py-4 sm:grid sm:grid-cols-3 sm:gap-4">
+                    <dt class="text-sm font-medium text-gray-500">Account status</dt>
+                    <dd class="mt-1 text-sm sm:col-span-2 sm:mt-0">
+                        <span class="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
+                            Active
+                        </span>
+                    </dd>
+                </div>
+            </dl>
+        </div>
+    </div>
+</div>
+{% endblock %}

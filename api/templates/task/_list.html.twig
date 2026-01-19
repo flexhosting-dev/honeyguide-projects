@@ -1,0 +1,99 @@
+{# Task List View #}
+<div class="bg-white shadow rounded-lg overflow-hidden">
+    {% if tasks|length > 0 %}
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500 sm:pl-6">Task</th>
+                    <th scope="col" class="px-3 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
+                    <th scope="col" class="px-3 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Priority</th>
+                    <th scope="col" class="px-3 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Milestone</th>
+                    <th scope="col" class="px-3 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Due Date</th>
+                    <th scope="col" class="px-3 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Assignee</th>
+                    <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6">
+                        <span class="sr-only">Actions</span>
+                    </th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 bg-white">
+                {% for task in tasks %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="whitespace-nowrap py-4 pl-4 pr-3 sm:pl-6">
+                            <a href="{{ path('app_task_show', {id: task.id}) }}" class="text-sm font-medium text-gray-900 hover:text-primary-600">
+                                {{ task.title }}
+                            </a>
+                            {% if task.description %}
+                                <p class="text-xs text-gray-500 truncate max-w-xs">{{ task.description|slice(0, 50) }}{% if task.description|length > 50 %}...{% endif %}</p>
+                            {% endif %}
+                        </td>
+                        <td class="whitespace-nowrap px-3 py-4">
+                            <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
+                                {% if task.status.value == 'open' %}bg-gray-100 text-gray-700
+                                {% elseif task.status.value == 'in_progress' %}bg-blue-100 text-blue-700
+                                {% elseif task.status.value == 'completed' %}bg-green-100 text-green-700
+                                {% elseif task.status.value == 'on_hold' %}bg-yellow-100 text-yellow-700
+                                {% else %}bg-gray-100 text-gray-700{% endif %}">
+                                {{ task.status.label }}
+                            </span>
+                        </td>
+                        <td class="whitespace-nowrap px-3 py-4">
+                            <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
+                                {% if task.priority.value == 'low' %}bg-gray-100 text-gray-700
+                                {% elseif task.priority.value == 'medium' %}bg-blue-100 text-blue-700
+                                {% elseif task.priority.value == 'high' %}bg-orange-100 text-orange-700
+                                {% elseif task.priority.value == 'urgent' %}bg-red-100 text-red-700
+                                {% else %}bg-gray-100 text-gray-700{% endif %}">
+                                {{ task.priority.label }}
+                            </span>
+                        </td>
+                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                            {{ task.milestone.name }}
+                        </td>
+                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                            {% if task.dueDate %}
+                                <span class="{% if task.dueDate < date() and task.status.value != 'completed' %}text-red-600 font-medium{% endif %}">
+                                    {{ task.dueDate|date('M d, Y') }}
+                                </span>
+                            {% else %}
+                                <span class="text-gray-400">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                            {% if task.assignees|length > 0 %}
+                                <div class="flex -space-x-1">
+                                    {% for assignee in task.assignees|slice(0, 3) %}
+                                        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 ring-2 ring-white" title="{{ assignee.user.fullName }}">
+                                            <span class="text-xs font-medium text-gray-600">
+                                                {{ assignee.user.firstName|slice(0, 1)|upper }}
+                                            </span>
+                                        </span>
+                                    {% endfor %}
+                                    {% if task.assignees|length > 3 %}
+                                        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 ring-2 ring-white">
+                                            <span class="text-xs font-medium text-gray-600">+{{ task.assignees|length - 3 }}</span>
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <span class="text-gray-400">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                            <a href="{{ path('app_task_edit', {id: task.id}) }}" class="text-primary-600 hover:text-primary-900">Edit</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="px-4 py-12">
+            {% include 'components/_empty_state.html.twig' with {
+                icon: 'task',
+                title: 'No tasks yet',
+                description: 'Get started by creating a milestone and adding tasks to it.',
+                action_url: path('app_milestone_new', {projectId: project.id}),
+                action_label: 'New Milestone'
+            } %}
+        </div>
+    {% endif %}
+</div>

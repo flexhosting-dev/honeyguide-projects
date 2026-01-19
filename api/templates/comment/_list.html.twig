@@ -1,0 +1,75 @@
+{# Comments List Partial #}
+<div class="space-y-6">
+    {# Add Comment Form #}
+    <form action="{{ path('app_comment_add', {taskId: task.id}) }}" method="post" class="flex items-start space-x-4">
+        <div class="flex-shrink-0">
+            <span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary-100">
+                <span class="text-sm font-medium text-primary-700">
+                    {{ app.user.firstName|slice(0, 1)|upper }}{{ app.user.lastName|slice(0, 1)|upper }}
+                </span>
+            </span>
+        </div>
+        <div class="min-w-0 flex-1">
+            <textarea name="comment[content]" rows="3" required
+                      class="block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm sm:leading-6"
+                      placeholder="Add a comment..."></textarea>
+            <div class="mt-2 flex justify-end">
+                <button type="submit"
+                        class="inline-flex items-center rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500">
+                    Post Comment
+                </button>
+            </div>
+        </div>
+    </form>
+
+    {# Comments List #}
+    {% if comments|length > 0 %}
+        <div class="space-y-4">
+            {% for comment in comments|reverse %}
+                <div class="flex space-x-4">
+                    <div class="flex-shrink-0">
+                        <span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gray-100">
+                            <span class="text-sm font-medium text-gray-600">
+                                {{ comment.author.firstName|slice(0, 1)|upper }}{{ comment.author.lastName|slice(0, 1)|upper }}
+                            </span>
+                        </span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <span class="text-sm font-medium text-gray-900">{{ comment.author.fullName }}</span>
+                                <span class="ml-2 text-sm text-gray-500">
+                                    {{ comment.createdAt|date('M d, Y H:i') }}
+                                    {% if comment.isEdited %}
+                                        <span class="text-xs text-gray-400">(edited)</span>
+                                    {% endif %}
+                                </span>
+                            </div>
+                            {% if comment.author.id.toString() == app.user.id.toString() %}
+                                <div class="relative" data-controller="dropdown">
+                                    <button type="button" data-action="click->dropdown#toggle" class="-m-2 p-2 text-gray-400 hover:text-gray-500">
+                                        <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                            <path d="M3 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM8.5 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM15.5 8.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3z" />
+                                        </svg>
+                                    </button>
+                                    <div data-dropdown-target="menu" class="hidden absolute right-0 z-10 mt-2 w-32 origin-top-right rounded-md bg-white py-2 shadow-lg ring-1 ring-gray-900/5">
+                                        <form action="{{ path('app_comment_delete', {id: comment.id}) }}" method="post"
+                                              data-controller="confirm" data-confirm-message-value="Delete this comment?">
+                                            <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ comment.id) }}">
+                                            <button type="submit" data-action="confirm#confirm" class="block w-full text-left px-3 py-1 text-sm text-red-600 hover:bg-gray-50">
+                                                Delete
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <p class="mt-2 text-sm text-gray-600 whitespace-pre-wrap">{{ comment.content }}</p>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="text-center text-sm text-gray-500 py-4">No comments yet. Be the first to comment!</p>
+    {% endif %}
+</div>

@@ -1,0 +1,57 @@
+{# Project Form Partial #}
+{{ form_start(form, {'attr': {'class': 'space-y-6'}}) }}
+
+<div>
+    {{ form_label(form.name, null, {'label_attr': {'class': 'block text-sm font-medium leading-6 text-gray-900'}}) }}
+    <div class="mt-2">
+        {{ form_widget(form.name) }}
+    </div>
+    {{ form_errors(form.name) }}
+</div>
+
+<div>
+    {{ form_label(form.description, null, {'label_attr': {'class': 'block text-sm font-medium leading-6 text-gray-900'}}) }}
+    <div class="mt-2">
+        {{ form_widget(form.description) }}
+    </div>
+    {{ form_errors(form.description) }}
+</div>
+
+<div>
+    {{ form_label(form.status, null, {'label_attr': {'class': 'block text-sm font-medium leading-6 text-gray-900'}}) }}
+    <div class="mt-2">
+        {{ form_widget(form.status) }}
+    </div>
+    {{ form_errors(form.status) }}
+</div>
+
+<div class="grid grid-cols-2 gap-4">
+    <div>
+        {{ form_label(form.startDate, null, {'label_attr': {'class': 'block text-sm font-medium leading-6 text-gray-900'}}) }}
+        <div class="mt-2">
+            {{ form_widget(form.startDate) }}
+        </div>
+        {{ form_errors(form.startDate) }}
+    </div>
+
+    <div>
+        {{ form_label(form.endDate, null, {'label_attr': {'class': 'block text-sm font-medium leading-6 text-gray-900'}}) }}
+        <div class="mt-2">
+            {{ form_widget(form.endDate) }}
+        </div>
+        {{ form_errors(form.endDate) }}
+    </div>
+</div>
+
+<div class="flex justify-end gap-3 pt-4">
+    <a href="{{ app.request.headers.get('referer') ?: path('app_project_index') }}"
+       class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+        Cancel
+    </a>
+    <button type="submit"
+            class="rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600">
+        {{ button_text }}
+    </button>
+</div>
+
+{{ form_end(form) }}

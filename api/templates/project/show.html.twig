@@ -1,0 +1,247 @@
+{% extends 'layout.html.twig' %}
+
+{% block title %}{{ project.name }} - Zoho Projects Clone{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    {# Header #}
+    <div class="lg:flex lg:items-center lg:justify-between">
+        <div class="min-w-0 flex-1">
+            <nav class="flex" aria-label="Breadcrumb">
+                <ol role="list" class="flex items-center space-x-4">
+                    <li>
+                        <a href="{{ path('app_project_index') }}" class="text-sm font-medium text-gray-500 hover:text-gray-700">Projects</a>
+                    </li>
+                    <li>
+                        <div class="flex items-center">
+                            <svg class="h-5 w-5 flex-shrink-0 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd" />
+                            </svg>
+                            <span class="ml-4 text-sm font-medium text-gray-500">{{ project.name }}</span>
+                        </div>
+                    </li>
+                </ol>
+            </nav>
+            <h2 class="mt-2 text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
+                {{ project.name }}
+            </h2>
+            <div class="mt-1 flex flex-col sm:mt-0 sm:flex-row sm:flex-wrap sm:space-x-6">
+                <div class="mt-2 flex items-center text-sm text-gray-500">
+                    <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
+                        {% if project.status.value == 'active' %}bg-green-100 text-green-700
+                        {% elseif project.status.value == 'on_hold' %}bg-yellow-100 text-yellow-700
+                        {% elseif project.status.value == 'completed' %}bg-blue-100 text-blue-700
+                        {% else %}bg-gray-100 text-gray-700{% endif %}">
+                        {{ project.status.label }}
+                    </span>
+                </div>
+                <div class="mt-2 flex items-center text-sm text-gray-500">
+                    <svg class="mr-1.5 h-5 w-5 flex-shrink-0 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M5.75 2a.75.75 0 01.75.75V4h7V2.75a.75.75 0 011.5 0V4h.25A2.75 2.75 0 0118 6.75v8.5A2.75 2.75 0 0115.25 18H4.75A2.75 2.75 0 012 15.25v-8.5A2.75 2.75 0 014.75 4H5V2.75A.75.75 0 015.75 2zm-1 5.5c-.69 0-1.25.56-1.25 1.25v6.5c0 .69.56 1.25 1.25 1.25h10.5c.69 0 1.25-.56 1.25-1.25v-6.5c0-.69-.56-1.25-1.25-1.25H4.75z" />
+                    </svg>
+                    Created {{ project.createdAt|date('M d, Y') }}
+                </div>
+            </div>
+        </div>
+        <div class="mt-5 flex lg:ml-4 lg:mt-0">
+            <a href="{{ path('app_project_edit', {id: project.id}) }}"
+               class="inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+                <svg class="-ml-0.5 mr-1.5 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
+                </svg>
+                Edit
+            </a>
+        </div>
+    </div>
+
+    {# Tabs #}
+    <div id="project-tabs">
+        {# Main Navigation Tabs - Order: Milestones, Tasks, Members, Activity #}
+        <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-soft border border-gray-200/50 p-1.5 inline-flex space-x-1">
+            {# Milestones Tab - grid icon #}
+            <button type="button" onclick="showTab(0)" id="tab-0"
+                    class="tab-btn inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg border-primary-500 text-primary-600 bg-primary-50 border">
+                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
+                </svg>
+                Milestones
+            </button>
+            {# Tasks Tab - checkmark icon #}
+            <button type="button" onclick="showTab(1)" id="tab-1"
+                    class="tab-btn inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 border border-transparent">
+                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
+                Tasks
+            </button>
+            {# Members Tab #}
+            <button type="button" onclick="showTab(2)" id="tab-2"
+                    class="tab-btn inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 border border-transparent">
+                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
+                </svg>
+                Members
+            </button>
+            {# Activity Tab - pulse/chart icon #}
+            <button type="button" onclick="showTab(3)" id="tab-3"
+                    class="tab-btn inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 border border-transparent">
+                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5m.75-9 3-3 2.148 2.148A12.061 12.061 0 0 1 16.5 7.605" />
+                </svg>
+                Activity
+            </button>
+        </div>
+
+        {# Milestones Panel (First) #}
+        <div id="panel-0" class="tab-panel pt-4">
+            {% include 'milestone/_list.html.twig' with {project: project, milestones: project.milestones} %}
+        </div>
+
+        {# Tasks Panel (Second) #}
+        <div id="panel-1" class="tab-panel hidden pt-4">
+            {# List/Kanban Toggle + Add Task Button #}
+            <div class="mb-4 flex items-center justify-between">
+                <div class="inline-flex rounded-lg bg-gray-100 p-1">
+                    <button type="button" onclick="showView(0)" id="view-btn-0"
+                            class="view-btn inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md bg-white text-primary-600 shadow-sm">
+                        <svg class="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM3.75 12h.007v.008H3.75V12Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm-.375 5.25h.007v.008H3.75v-.008Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                        </svg>
+                        List
+                    </button>
+                    <button type="button" onclick="showView(1)" id="view-btn-1"
+                            class="view-btn inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md text-gray-600 hover:text-gray-900">
+                        <svg class="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 4.5v15m6-15v15m-10.875 0h15.75c.621 0 1.125-.504 1.125-1.125V5.625c0-.621-.504-1.125-1.125-1.125H4.125C3.504 4.5 3 5.004 3 5.625v12.75c0 .621.504 1.125 1.125 1.125Z" />
+                        </svg>
+                        Kanban
+                    </button>
+                </div>
+{% if project.milestones|length > 0 %}
+                <a href="{{ path('app_task_new_for_project', {projectId: project.id}) }}"
+                   class="inline-flex items-center rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500">
+                    <svg class="-ml-0.5 mr-1.5 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+                    </svg>
+                    Add Task
+                </a>
+                {% else %}
+                <a href="{{ path('app_milestone_new', {projectId: project.id}) }}"
+                   class="inline-flex items-center rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500">
+                    <svg class="-ml-0.5 mr-1.5 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+                    </svg>
+                    Add Milestone First
+                </a>
+                {% endif %}
+            </div>
+
+            {# Task Views #}
+            <div id="view-panel-0" class="view-panel">
+                {% include 'task/_list.html.twig' with {project: project, tasks: tasks} %}
+            </div>
+            <div id="view-panel-1" class="view-panel hidden">
+                {% include 'task/_kanban.html.twig' with {project: project, tasks: tasks} %}
+            </div>
+        </div>
+
+        {# Members Panel (Third) #}
+        <div id="panel-2" class="tab-panel hidden pt-4">
+            {% include 'member/_list.html.twig' with {project: project, members: project.members} %}
+        </div>
+
+        {# Activity Panel (Fourth) #}
+        <div id="panel-3" class="tab-panel hidden pt-4">
+            <div class="bg-white/80 backdrop-blur-sm shadow-soft rounded-xl">
+                <div class="px-4 py-5 sm:p-6">
+                    {% if project.activities|length > 0 %}
+                        <div class="flow-root">
+                            <ul role="list" class="-mb-8">
+                                {% for activity in project.activities|slice(0, 20) %}
+                                    <li>
+                                        <div class="relative pb-8">
+                                            {% if not loop.last %}
+                                                <span class="absolute left-4 top-4 -ml-px h-full w-0.5 bg-gradient-to-b from-green-200 to-blue-200" aria-hidden="true"></span>
+                                            {% endif %}
+                                            <div class="relative flex space-x-3">
+                                                <div>
+                                                    <span class="h-8 w-8 rounded-full bg-gradient-to-br from-green-100 to-blue-100 flex items-center justify-center ring-4 ring-white">
+                                                        <span class="text-xs font-medium text-gray-700">
+                                                            {{ activity.user.firstName|slice(0, 1)|upper }}{{ activity.user.lastName|slice(0, 1)|upper }}
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                                <div class="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
+                                                    <div>
+                                                        <p class="text-sm text-gray-600">{{ activity.description }}</p>
+                                                    </div>
+                                                    <div class="whitespace-nowrap text-right text-xs text-gray-400">
+                                                        <time>{{ activity.createdAt|date('M d, H:i') }}</time>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% else %}
+                        {% include 'components/_empty_state.html.twig' with {
+                            icon: 'comment',
+                            title: 'No activity yet',
+                            description: 'Activity will appear here as team members work on this project.'
+                        } %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showTab(index) {
+    // Update tab buttons
+    document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+        if (i === index) {
+            btn.classList.remove('text-gray-600', 'hover:bg-gray-50', 'border-transparent');
+            btn.classList.add('border-primary-500', 'text-primary-600', 'bg-primary-50', 'border');
+        } else {
+            btn.classList.remove('border-primary-500', 'text-primary-600', 'bg-primary-50', 'border');
+            btn.classList.add('text-gray-600', 'hover:bg-gray-50', 'border-transparent');
+        }
+    });
+
+    // Update panels
+    document.querySelectorAll('.tab-panel').forEach((panel, i) => {
+        if (i === index) {
+            panel.classList.remove('hidden');
+        } else {
+            panel.classList.add('hidden');
+        }
+    });
+}
+
+function showView(index) {
+    // Update view buttons
+    document.querySelectorAll('.view-btn').forEach((btn, i) => {
+        if (i === index) {
+            btn.classList.remove('text-gray-600', 'hover:text-gray-900');
+            btn.classList.add('bg-white', 'text-primary-600', 'shadow-sm');
+        } else {
+            btn.classList.remove('bg-white', 'text-primary-600', 'shadow-sm');
+            btn.classList.add('text-gray-600', 'hover:text-gray-900');
+        }
+    });
+
+    // Update view panels
+    document.querySelectorAll('.view-panel').forEach((panel, i) => {
+        if (i === index) {
+            panel.classList.remove('hidden');
+        } else {
+            panel.classList.add('hidden');
+        }
+    });
+}
+
+</script>
+{% endblock %}

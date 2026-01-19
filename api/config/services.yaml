@@ -16,10 +16,6 @@ services:
         resource: '../src/Controller/'
         tags: ['controller.service_arguments']
 
-    App\State\:
-        resource: '../src/State/'
-        tags: ['api_platform.state_processor', 'api_platform.state_provider']
-
     App\Security\Voter\:
         resource: '../src/Security/Voter/'
         tags: ['security.voter']

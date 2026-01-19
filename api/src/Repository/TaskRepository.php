@@ -123,4 +123,16 @@ class TaskRepository extends ServiceEntityRepository
 
         return ($result ?? -1) + 1;
     }
+
+    public function findMaxPositionInMilestone(Milestone $milestone): int
+    {
+        $result = $this->createQueryBuilder('t')
+            ->select('MAX(t.position)')
+            ->where('t.milestone = :milestone')
+            ->setParameter('milestone', $milestone)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return (int) ($result ?? 0);
+    }
 }

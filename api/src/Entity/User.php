@@ -2,10 +2,6 @@
 
 namespace App\Entity;
 
-use ApiPlatform\Metadata\ApiResource;
-use ApiPlatform\Metadata\Get;
-use ApiPlatform\Metadata\GetCollection;
-use ApiPlatform\Metadata\Patch;
 use App\Repository\UserRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -15,33 +11,21 @@ use Ramsey\Uuid\UuidInterface;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
-use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: '`user`')]
 #[ORM\HasLifecycleCallbacks]
 #[UniqueEntity(fields: ['email'], message: 'This email is already registered.')]
-#[ApiResource(
-    operations: [
-        new Get(security: "is_granted('ROLE_USER')"),
-        new GetCollection(security: "is_granted('ROLE_USER')"),
-        new Patch(security: "is_granted('ROLE_USER') and object == user"),
-    ],
-    normalizationContext: ['groups' => ['user:read']],
-    denormalizationContext: ['groups' => ['user:write']],
-)]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
     #[ORM\Id]
     #[ORM\Column(type: 'uuid', unique: true)]
-    #[Groups(['user:read', 'project:read', 'task:read', 'comment:read', 'activity:read'])]
     private UuidInterface $id;
 
     #[ORM\Column(length: 180, unique: true)]
     #[Assert\NotBlank]
     #[Assert\Email]
-    #[Groups(['user:read', 'user:write', 'project:read', 'task:read', 'comment:read'])]
     private string $email;
 
     #[ORM\Column]
@@ -53,25 +37,20 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 100)]
     #[Assert\NotBlank]
     #[Assert\Length(min: 1, max: 100)]
-    #[Groups(['user:read', 'user:write', 'project:read', 'task:read', 'comment:read', 'activity:read'])]
     private string $firstName;
 
     #[ORM\Column(length: 100)]
     #[Assert\NotBlank]
     #[Assert\Length(min: 1, max: 100)]
-    #[Groups(['user:read', 'user:write', 'project:read', 'task:read', 'comment:read', 'activity:read'])]
     private string $lastName;
 
     #[ORM\Column]
-    #[Groups(['user:read'])]
     private bool $isVerified = false;
 
     #[ORM\Column]
-    #[Groups(['user:read'])]
     private \DateTimeImmutable $createdAt;
 
     #[ORM\Column]
-    #[Groups(['user:read'])]
     private \DateTimeImmutable $updatedAt;
 
     /** @var Collection<int, Project> */
@@ -189,7 +168,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    #[Groups(['user:read', 'project:read', 'task:read', 'comment:read', 'activity:read'])]
     public function getFullName(): string
     {
         return $this->firstName . ' ' . $this->lastName;

@@ -1,16 +1,366 @@
 <!DOCTYPE html>
-<html>
-    <head>
-        <meta charset="UTF-8">
-        <title>{% block title %}Welcome!{% endblock %}</title>
-        <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 128 128%22><text y=%221.2em%22 font-size=%2296%22>⚫️</text><text y=%221.3em%22 x=%220.2em%22 font-size=%2276%22 fill=%22%23fff%22>sf</text></svg>">
-        {% block stylesheets %}
-        {% endblock %}
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Zoho Projects Clone{% endblock %}</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 128 128%22><text y=%221.2em%22 font-size=%2296%22>📋</text></svg>">
 
-        {% block javascripts %}
-        {% endblock %}
-    </head>
-    <body>
-        {% block body %}{% endblock %}
-    </body>
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#ecfdf5',
+                            100: '#d1fae5',
+                            200: '#a7f3d0',
+                            300: '#6ee7b7',
+                            400: '#34d399',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                            800: '#065f46',
+                            900: '#064e3b',
+                        },
+                        accent: {
+                            green: '#22c55e',
+                            blue: '#3b82f6',
+                            yellow: '#eab308',
+                            orange: '#f97316',
+                            purple: '#8b5cf6',
+                            pink: '#ec4899',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        [x-cloak] { display: none !important; }
+
+        /* Soft gradient backgrounds */
+        .bg-gradient-soft {
+            background: linear-gradient(135deg, #d1fae5 0%, #dbeafe 50%, #fef3c7 100%);
+        }
+
+        .bg-gradient-hero {
+            background: linear-gradient(135deg, #bbf7d0 0%, #a5f3fc 50%, #fde68a 100%);
+        }
+
+        .bg-gradient-sidebar {
+            background: linear-gradient(180deg, #f0fdf4 0%, #ecfeff 100%);
+        }
+
+        /* Accent card styles */
+        .card-accent-green {
+            background: linear-gradient(to right, #f0fdf4, #ffffff);
+            border-left: 4px solid #22c55e;
+        }
+
+        .card-accent-blue {
+            background: linear-gradient(to right, #eff6ff, #ffffff);
+            border-left: 4px solid #3b82f6;
+        }
+
+        .card-accent-yellow {
+            background: linear-gradient(to right, #fefce8, #ffffff);
+            border-left: 4px solid #eab308;
+        }
+
+        .card-accent-orange {
+            background: linear-gradient(to right, #fff7ed, #ffffff);
+            border-left: 4px solid #f97316;
+        }
+
+        .card-accent-purple {
+            background: linear-gradient(to right, #faf5ff, #ffffff);
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .card-accent-pink {
+            background: linear-gradient(to right, #fdf2f8, #ffffff);
+            border-left: 4px solid #ec4899;
+        }
+
+        /* Soft shadow for cards */
+        .shadow-soft {
+            box-shadow: 0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04);
+        }
+
+        /* Status pill backgrounds */
+        .status-todo { background: #f3f4f6; color: #374151; }
+        .status-in-progress { background: #dbeafe; color: #1d4ed8; }
+        .status-in-review { background: #fef3c7; color: #b45309; }
+        .status-completed { background: #d1fae5; color: #047857; }
+        .status-on-hold { background: #fee2e2; color: #b91c1c; }
+
+        /* Priority colors */
+        .priority-low { background: #f3f4f6; color: #6b7280; }
+        .priority-medium { background: #dbeafe; color: #2563eb; }
+        .priority-high { background: #fed7aa; color: #c2410c; }
+        .priority-urgent { background: #fecaca; color: #dc2626; }
+
+        /* Toastr Notifications */
+        .toastr-container {
+            position: fixed;
+            top: 5rem;
+            right: 1rem;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            max-width: 380px;
+            pointer-events: none;
+        }
+
+        .toastr {
+            display: flex;
+            align-items: flex-start;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(8px);
+            pointer-events: auto;
+            animation: toastr-slide-in 0.3s ease-out;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .toastr.removing {
+            animation: toastr-slide-out 0.3s ease-in forwards;
+        }
+
+        @keyframes toastr-slide-in {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes toastr-slide-out {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+
+        .toastr-success {
+            background: linear-gradient(135deg, rgba(240, 253, 244, 0.95), rgba(220, 252, 231, 0.95));
+            border-left: 4px solid #22c55e;
+        }
+
+        .toastr-error {
+            background: linear-gradient(135deg, rgba(254, 242, 242, 0.95), rgba(254, 226, 226, 0.95));
+            border-left: 4px solid #ef4444;
+        }
+
+        .toastr-warning {
+            background: linear-gradient(135deg, rgba(255, 251, 235, 0.95), rgba(254, 243, 199, 0.95));
+            border-left: 4px solid #f59e0b;
+        }
+
+        .toastr-info {
+            background: linear-gradient(135deg, rgba(239, 246, 255, 0.95), rgba(219, 234, 254, 0.95));
+            border-left: 4px solid #3b82f6;
+        }
+
+        .toastr-icon {
+            flex-shrink: 0;
+            width: 1.5rem;
+            height: 1.5rem;
+            margin-right: 0.75rem;
+        }
+
+        .toastr-success .toastr-icon { color: #22c55e; }
+        .toastr-error .toastr-icon { color: #ef4444; }
+        .toastr-warning .toastr-icon { color: #f59e0b; }
+        .toastr-info .toastr-icon { color: #3b82f6; }
+
+        .toastr-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .toastr-title {
+            font-weight: 600;
+            font-size: 0.875rem;
+            margin-bottom: 0.125rem;
+        }
+
+        .toastr-success .toastr-title { color: #166534; }
+        .toastr-error .toastr-title { color: #991b1b; }
+        .toastr-warning .toastr-title { color: #92400e; }
+        .toastr-info .toastr-title { color: #1e40af; }
+
+        .toastr-message {
+            font-size: 0.8125rem;
+            line-height: 1.4;
+        }
+
+        .toastr-success .toastr-message { color: #15803d; }
+        .toastr-error .toastr-message { color: #b91c1c; }
+        .toastr-warning .toastr-message { color: #b45309; }
+        .toastr-info .toastr-message { color: #1d4ed8; }
+
+        .toastr-close {
+            flex-shrink: 0;
+            margin-left: 0.75rem;
+            padding: 0.25rem;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            transition: background-color 0.15s;
+            opacity: 0.6;
+        }
+
+        .toastr-close:hover {
+            opacity: 1;
+        }
+
+        .toastr-success .toastr-close { color: #166534; }
+        .toastr-success .toastr-close:hover { background: rgba(34, 197, 94, 0.15); }
+        .toastr-error .toastr-close { color: #991b1b; }
+        .toastr-error .toastr-close:hover { background: rgba(239, 68, 68, 0.15); }
+        .toastr-warning .toastr-close { color: #92400e; }
+        .toastr-warning .toastr-close:hover { background: rgba(245, 158, 11, 0.15); }
+        .toastr-info .toastr-close { color: #1e40af; }
+        .toastr-info .toastr-close:hover { background: rgba(59, 130, 246, 0.15); }
+
+        .toastr-progress {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 3px;
+            border-radius: 0 0 0 0.75rem;
+            animation: toastr-progress linear forwards;
+        }
+
+        .toastr-success .toastr-progress { background: linear-gradient(90deg, #22c55e, #16a34a); }
+        .toastr-error .toastr-progress { background: linear-gradient(90deg, #ef4444, #dc2626); }
+        .toastr-warning .toastr-progress { background: linear-gradient(90deg, #f59e0b, #d97706); }
+        .toastr-info .toastr-progress { background: linear-gradient(90deg, #3b82f6, #2563eb); }
+
+        @keyframes toastr-progress {
+            from { width: 100%; }
+            to { width: 0%; }
+        }
+    </style>
+
+    {% block stylesheets %}{% endblock %}
+</head>
+<body class="h-full bg-gradient-soft">
+    {# Toastr Container #}
+    <div id="toastr-container" class="toastr-container"></div>
+
+    {% block body %}{% endblock %}
+
+    {# Toastr JavaScript #}
+    <script>
+    const Toastr = {
+        container: null,
+        defaults: {
+            duration: 4000,
+            showProgress: true,
+            closeable: true,
+            newestOnBottom: true
+        },
+
+        init() {
+            this.container = document.getElementById('toastr-container');
+        },
+
+        show(type, title, message, options = {}) {
+            if (!this.container) this.init();
+
+            const settings = { ...this.defaults, ...options };
+            const toast = this.createToast(type, title, message, settings);
+
+            if (settings.newestOnBottom) {
+                this.container.appendChild(toast);
+            } else {
+                this.container.insertBefore(toast, this.container.firstChild);
+            }
+
+            // Auto remove after duration
+            if (settings.duration > 0) {
+                setTimeout(() => this.remove(toast), settings.duration);
+            }
+
+            return toast;
+        },
+
+        createToast(type, title, message, settings) {
+            const toast = document.createElement('div');
+            toast.className = `toastr toastr-${type}`;
+
+            const icons = {
+                success: '<svg class="toastr-icon" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>',
+                error: '<svg class="toastr-icon" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>',
+                warning: '<svg class="toastr-icon" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>',
+                info: '<svg class="toastr-icon" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>'
+            };
+
+            let html = icons[type] || icons.info;
+            html += '<div class="toastr-content">';
+            if (title) html += `<div class="toastr-title">${title}</div>`;
+            if (message) html += `<div class="toastr-message">${message}</div>`;
+            html += '</div>';
+
+            if (settings.closeable) {
+                html += `<button class="toastr-close" onclick="Toastr.remove(this.parentElement)">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>`;
+            }
+
+            if (settings.showProgress && settings.duration > 0) {
+                html += `<div class="toastr-progress" style="animation-duration: ${settings.duration}ms"></div>`;
+            }
+
+            toast.innerHTML = html;
+            return toast;
+        },
+
+        remove(toast) {
+            if (!toast || toast.classList.contains('removing')) return;
+            toast.classList.add('removing');
+            setTimeout(() => toast.remove(), 300);
+        },
+
+        success(title, message, options) {
+            return this.show('success', title, message, options);
+        },
+
+        error(title, message, options) {
+            return this.show('error', title, message, options);
+        },
+
+        warning(title, message, options) {
+            return this.show('warning', title, message, options);
+        },
+
+        info(title, message, options) {
+            return this.show('info', title, message, options);
+        }
+    };
+
+    // Initialize on DOM ready
+    document.addEventListener('DOMContentLoaded', () => Toastr.init());
+    </script>
+
+    {% block javascripts %}{% endblock %}
+    {% block importmap %}{{ importmap('app') }}{% endblock %}
+</body>
 </html>

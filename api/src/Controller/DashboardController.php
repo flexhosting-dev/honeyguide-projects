@@ -8,11 +8,9 @@ use App\Repository\ActivityRepository;
 use App\Repository\ProjectRepository;
 use App\Repository\TaskRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
-#[Route('/api')]
 class DashboardController extends AbstractController
 {
     public function __construct(
@@ -22,26 +20,19 @@ class DashboardController extends AbstractController
     ) {
     }
 
-    #[Route('/dashboard', name: 'api_dashboard', methods: ['GET'])]
-    public function dashboard(): JsonResponse
+    #[Route('/', name: 'app_dashboard')]
+    public function index(): Response
     {
-        /** @var User|null $user */
+        /** @var User $user */
         $user = $this->getUser();
 
-        if (!$user) {
-            return $this->json(['error' => 'Not authenticated'], Response::HTTP_UNAUTHORIZED);
-        }
-
-        // Get user's projects
         $projects = $this->projectRepository->findByUser($user);
         $projectIds = array_map(fn($p) => $p->getId(), $projects);
 
-        // Get task counts
         $userTasks = $this->taskRepository->findUserTasks($user);
         $overdueTasks = $this->taskRepository->findOverdueTasks($user);
         $tasksDueToday = $this->taskRepository->findTasksDueToday($user);
 
-        // Count by status
         $tasksByStatus = [
             'todo' => 0,
             'in_progress' => 0,
@@ -54,22 +45,8 @@ class DashboardController extends AbstractController
             $tasksByStatus[$status]++;
         }
 
-        // Get recent activities
         $recentActivities = $this->activityRepository->findRecentForProjects($projectIds, 10);
 
-        $activitiesData = array_map(fn($activity) => [
-            'id' => $activity->getId()->toString(),
-            'description' => $activity->getDescription(),
-            'entityType' => $activity->getEntityType(),
-            'action' => $activity->getAction()->value,
-            'createdAt' => $activity->getCreatedAt()->format('c'),
-            'user' => [
-                'id' => $activity->getUser()->getId()->toString(),
-                'fullName' => $activity->getUser()->getFullName(),
-            ],
-        ], $recentActivities);
-
-        // Get upcoming tasks (next 7 days)
         $upcomingTasks = array_filter($userTasks, function($task) {
             if ($task->getStatus() === TaskStatus::COMPLETED) {
                 return false;
@@ -83,19 +60,10 @@ class DashboardController extends AbstractController
             return $dueDate >= $now && $dueDate <= $nextWeek;
         });
 
-        $upcomingTasksData = array_values(array_map(fn($task) => [
-            'id' => $task->getId()->toString(),
-            'title' => $task->getTitle(),
-            'status' => $task->getStatus()->value,
-            'priority' => $task->getPriority()->value,
-            'dueDate' => $task->getDueDate()?->format('Y-m-d'),
-            'project' => [
-                'id' => $task->getProject()->getId()->toString(),
-                'name' => $task->getProject()->getName(),
-            ],
-        ], array_slice($upcomingTasks, 0, 5)));
+        $recentProjects = array_slice($projects, 0, 5);
 
-        return $this->json([
+        return $this->render('dashboard/index.html.twig', [
+            'page_title' => 'Dashboard',
             'stats' => [
                 'totalProjects' => count($projects),
                 'totalTasks' => count($userTasks),
@@ -104,8 +72,9 @@ class DashboardController extends AbstractController
                 'completedTasks' => $tasksByStatus['completed'],
             ],
             'tasksByStatus' => $tasksByStatus,
-            'recentActivities' => $activitiesData,
-            'upcomingTasks' => $upcomingTasksData,
+            'recentActivities' => $recentActivities,
+            'upcomingTasks' => array_slice($upcomingTasks, 0, 5),
+            'recent_projects' => $recentProjects,
         ]);
     }
 }

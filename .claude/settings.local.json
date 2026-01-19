@@ -4,7 +4,11 @@
       "WebSearch",
       "Bash(docker-compose up:*)",
       "Bash(php -v:*)",
-      "Bash(composer:*)"
+      "Bash(composer:*)",
+      "Bash(openssl pkey:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nFix login authentication and add dummy data fixtures\n\n- Configure json_login to use email field instead of username\n- Add login route to security.yaml routes\n- Add comprehensive fixtures with 4 projects, 10 milestones, 40 tasks\n- Include sample users, comments, and task assignments\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(php bin/console:*)"
     ]
   }
 }
