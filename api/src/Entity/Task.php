@@ -12,12 +12,14 @@ use Doctrine\ORM\Mapping as ORM;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
 use Symfony\Component\Validator\Constraints as Assert;
+use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 #[ORM\Entity(repositoryClass: TaskRepository::class)]
 #[ORM\HasLifecycleCallbacks]
 #[ORM\Index(name: 'idx_task_status', columns: ['status'])]
 #[ORM\Index(name: 'idx_task_priority', columns: ['priority'])]
 #[ORM\Index(name: 'idx_task_due_date', columns: ['due_date'])]
+#[Assert\Callback('validateDates')]
 class Task
 {
     #[ORM\Id]
@@ -47,6 +49,9 @@ class Task
     private TaskPriority $priority = TaskPriority::MEDIUM;
 
     #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $startDate = null;
+
+    #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $dueDate = null;
 
     #[ORM\Column]
@@ -68,6 +73,7 @@ class Task
 
     /** @var Collection<int, Comment> */
     #[ORM\OneToMany(targetEntity: Comment::class, mappedBy: 'task', orphanRemoval: true)]
+    #[ORM\OrderBy(['createdAt' => 'DESC'])]
     private Collection $comments;
 
     public function __construct()
@@ -159,6 +165,17 @@ class Task
     public function setPriority(TaskPriority $priority): static
     {
         $this->priority = $priority;
+        return $this;
+    }
+
+    public function getStartDate(): ?\DateTimeImmutable
+    {
+        return $this->startDate;
+    }
+
+    public function setStartDate(?\DateTimeImmutable $startDate): static
+    {
+        $this->startDate = $startDate;
         return $this;
     }
 
@@ -274,5 +291,20 @@ class Task
             return false;
         }
         return $this->dueDate < new \DateTimeImmutable('today');
+    }
+
+    public function validateDates(ExecutionContextInterface $context): void
+    {
+        // Only validate if both dates are set
+        if ($this->startDate === null || $this->dueDate === null) {
+            return;
+        }
+
+        // Due date must not be earlier than start date
+        if ($this->dueDate < $this->startDate) {
+            $context->buildViolation('Due date cannot be earlier than start date.')
+                ->atPath('dueDate')
+                ->addViolation();
+        }
     }
 }

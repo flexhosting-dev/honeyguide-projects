@@ -10,6 +10,7 @@ use App\Repository\TaskRepository;
 use App\Service\ActivityService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -28,6 +29,9 @@ class CommentController extends AbstractController
     {
         $task = $this->taskRepository->find($taskId);
         if (!$task) {
+            if ($request->isXmlHttpRequest()) {
+                return $this->json(['error' => 'Task not found'], Response::HTTP_NOT_FOUND);
+            }
             throw $this->createNotFoundException('Task not found');
         }
 
@@ -37,6 +41,44 @@ class CommentController extends AbstractController
         /** @var User $user */
         $user = $this->getUser();
 
+        // Handle AJAX requests with JSON body
+        if ($request->isXmlHttpRequest()) {
+            $data = json_decode($request->getContent(), true);
+            $content = trim($data['content'] ?? '');
+
+            if (empty($content)) {
+                return $this->json(['error' => 'Comment content is required'], Response::HTTP_BAD_REQUEST);
+            }
+
+            $comment = new Comment();
+            $comment->setTask($task);
+            $comment->setAuthor($user);
+            $comment->setContent($content);
+
+            $this->entityManager->persist($comment);
+
+            $this->activityService->logCommentAdded(
+                $project,
+                $user,
+                $task->getId(),
+                $task->getTitle()
+            );
+
+            $this->entityManager->flush();
+
+            return $this->json([
+                'success' => true,
+                'comment' => [
+                    'id' => $comment->getId()->toString(),
+                    'content' => $comment->getContent(),
+                    'authorName' => $comment->getAuthor()->getFullName(),
+                    'authorInitials' => strtoupper(substr($comment->getAuthor()->getFirstName(), 0, 1)),
+                    'createdAt' => $comment->getCreatedAt()->format('M d, H:i'),
+                ],
+            ]);
+        }
+
+        // Handle traditional form submission
         $comment = new Comment();
         $comment->setTask($task);
         $comment->setAuthor($user);

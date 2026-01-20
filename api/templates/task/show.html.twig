@@ -57,16 +57,24 @@
 
             {# Details #}
             <div class="mt-6 border-t border-gray-200 pt-6">
-                <dl class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    {% if task.dueDate %}
-                        <div>
-                            <dt class="text-sm font-medium text-gray-500">Due Date</dt>
-                            <dd class="mt-1 text-sm {{ task.isOverdue ? 'text-red-600 font-medium' : 'text-gray-900' }}">
+                <dl class="grid grid-cols-1 gap-4 sm:grid-cols-4">
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Start Date</dt>
+                        <dd class="mt-1 text-sm text-gray-900">
+                            {{ task.startDate ? task.startDate|date('M d, Y') : 'Not set' }}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Due Date</dt>
+                        <dd class="mt-1 text-sm {{ task.isOverdue ? 'text-red-600 font-medium' : 'text-gray-900' }}">
+                            {% if task.dueDate %}
                                 {{ task.dueDate|date('M d, Y') }}
                                 {% if task.isOverdue %}(Overdue){% endif %}
-                            </dd>
-                        </div>
-                    {% endif %}
+                            {% else %}
+                                Not set
+                            {% endif %}
+                        </dd>
+                    </div>
                     <div>
                         <dt class="text-sm font-medium text-gray-500">Created</dt>
                         <dd class="mt-1 text-sm text-gray-900">{{ task.createdAt|date('M d, Y H:i') }}</dd>

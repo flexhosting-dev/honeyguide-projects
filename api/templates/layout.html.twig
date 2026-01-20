@@ -97,7 +97,7 @@
 
     {# Task Panel Off-Canvas (slides from right) #}
     <div id="task-panel-overlay" class="fixed inset-0 z-[60] bg-gray-600 bg-opacity-50 transition-opacity duration-300 opacity-0 pointer-events-none" onclick="closeTaskPanel()"></div>
-    <div id="task-panel" class="fixed inset-y-0 right-0 z-[70] w-full max-w-md transform translate-x-full transition-transform duration-300 ease-in-out bg-white shadow-xl">
+    <div id="task-panel" class="fixed inset-y-0 right-0 z-[70] w-full max-w-xl transform translate-x-full transition-transform duration-300 ease-in-out bg-white shadow-xl">
         <div id="task-panel-content" class="h-full">
             {# Content loaded via AJAX #}
             <div class="flex items-center justify-center h-full">
@@ -178,8 +178,582 @@
             if (panel && !panel.classList.contains('translate-x-full')) {
                 closeTaskPanel();
             }
+            // Also close any open dropdowns
+            closeAllDropdowns();
         }
     });
+
+    // ===== INLINE EDITING FUNCTIONS =====
+
+    // Close all dropdowns
+    function closeAllDropdowns() {
+        document.querySelectorAll('.status-dropdown, .priority-dropdown, .milestone-dropdown, .add-assignee-dropdown').forEach(d => {
+            d.classList.add('hidden');
+        });
+    }
+
+    // Click outside to close dropdowns
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.status-badge-btn, .status-dropdown, .priority-badge-btn, .priority-dropdown, .milestone-btn, .milestone-dropdown, .add-assignee-btn, .add-assignee-dropdown')) {
+            closeAllDropdowns();
+        }
+    });
+
+    // Toggle Status Dropdown
+    function toggleStatusDropdown(btn) {
+        const dropdown = btn.parentElement.querySelector('.status-dropdown');
+        const isHidden = dropdown.classList.contains('hidden');
+        closeAllDropdowns();
+        if (isHidden) {
+            dropdown.classList.remove('hidden');
+        }
+    }
+
+    // Toggle Priority Dropdown
+    function togglePriorityDropdown(btn) {
+        const dropdown = btn.parentElement.querySelector('.priority-dropdown');
+        const isHidden = dropdown.classList.contains('hidden');
+        closeAllDropdowns();
+        if (isHidden) {
+            dropdown.classList.remove('hidden');
+        }
+    }
+
+    // Toggle Milestone Dropdown
+    function toggleMilestoneDropdown(btn) {
+        const dropdown = btn.parentElement.querySelector('.milestone-dropdown');
+        const isHidden = dropdown.classList.contains('hidden');
+        closeAllDropdowns();
+        if (isHidden) {
+            dropdown.classList.remove('hidden');
+        }
+    }
+
+    // Update Task Status
+    async function updateTaskStatus(taskId, status, btn) {
+        const statusLabels = {
+            'todo': 'To Do',
+            'in_progress': 'In Progress',
+            'in_review': 'In Review',
+            'completed': 'Completed'
+        };
+        const statusColors = {
+            'todo': 'bg-gray-100 text-gray-700',
+            'in_progress': 'bg-blue-100 text-blue-700',
+            'in_review': 'bg-yellow-100 text-yellow-700',
+            'completed': 'bg-green-100 text-green-700'
+        };
+
+        try {
+            const response = await fetch(`/tasks/${taskId}/status`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ status: status })
+            });
+
+            if (!response.ok) throw new Error('Failed to update status');
+
+            const data = await response.json();
+
+            // Update the badge
+            const badgeBtn = btn.closest('.status-dropdown').previousElementSibling;
+            badgeBtn.querySelector('.status-label').textContent = statusLabels[status];
+            badgeBtn.className = badgeBtn.className.replace(/bg-\w+-100 text-\w+-700/g, '');
+            badgeBtn.classList.add(...statusColors[status].split(' '));
+
+            closeAllDropdowns();
+            Toastr.success('Status updated');
+        } catch (error) {
+            console.error('Error updating status:', error);
+            Toastr.error('Failed to update status');
+        }
+    }
+
+    // Update Task Priority
+    async function updateTaskPriority(taskId, priority, btn) {
+        const priorityLabels = {
+            'low': 'Low',
+            'medium': 'Medium',
+            'high': 'High',
+            'urgent': 'Urgent'
+        };
+        const priorityColors = {
+            'low': 'bg-gray-100 text-gray-700',
+            'medium': 'bg-yellow-100 text-yellow-700',
+            'high': 'bg-orange-100 text-orange-700',
+            'urgent': 'bg-red-100 text-red-700'
+        };
+
+        try {
+            const response = await fetch(`/tasks/${taskId}/priority`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ priority: priority })
+            });
+
+            if (!response.ok) throw new Error('Failed to update priority');
+
+            // Update the badge
+            const badgeBtn = btn.closest('.priority-dropdown').previousElementSibling;
+            badgeBtn.querySelector('.priority-label').textContent = priorityLabels[priority];
+            badgeBtn.className = badgeBtn.className.replace(/bg-\w+-100 text-\w+-700/g, '');
+            badgeBtn.classList.add(...priorityColors[priority].split(' '));
+
+            closeAllDropdowns();
+            Toastr.success('Priority updated');
+        } catch (error) {
+            console.error('Error updating priority:', error);
+            Toastr.error('Failed to update priority');
+        }
+    }
+
+    // Update Task Milestone
+    async function updateTaskMilestone(taskId, milestoneId, milestoneName, btn) {
+        try {
+            const response = await fetch(`/tasks/${taskId}/milestone`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ milestone: milestoneId })
+            });
+
+            if (!response.ok) throw new Error('Failed to update milestone');
+
+            // Update the label
+            const milestoneBtn = btn.closest('.milestone-dropdown').previousElementSibling;
+            milestoneBtn.querySelector('.milestone-label').textContent = milestoneName;
+
+            closeAllDropdowns();
+            Toastr.success('Milestone updated');
+        } catch (error) {
+            console.error('Error updating milestone:', error);
+            Toastr.error('Failed to update milestone');
+        }
+    }
+
+    // Update Start Date
+    async function updateStartDate(input) {
+        const endpoint = input.dataset.endpoint;
+        const value = input.value;
+        const originalValue = input.dataset.original || '';
+
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ startDate: value || null })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                // Revert to original value
+                input.value = originalValue;
+                throw new Error(data.error || 'Failed to update start date');
+            }
+
+            // Update the original value
+            input.dataset.original = value;
+
+            // Remove placeholder if it exists
+            const placeholder = input.parentElement.querySelector('.start-date-placeholder');
+            if (placeholder && value) {
+                placeholder.remove();
+            }
+
+            Toastr.success('Start date updated');
+        } catch (error) {
+            console.error('Error updating start date:', error);
+            Toastr.error(error.message || 'Failed to update start date');
+        }
+    }
+
+    // Update Due Date
+    async function updateDueDate(input) {
+        const endpoint = input.dataset.endpoint;
+        const value = input.value;
+        const originalValue = input.dataset.original || '';
+
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ dueDate: value || null })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                // Revert to original value
+                input.value = originalValue;
+                throw new Error(data.error || 'Failed to update due date');
+            }
+
+            // Update the original value
+            input.dataset.original = value;
+
+            // Update styling for overdue
+            if (data.isOverdue) {
+                input.classList.add('text-red-600', 'font-medium');
+                input.classList.remove('text-gray-900');
+            } else {
+                input.classList.remove('text-red-600', 'font-medium');
+                input.classList.add('text-gray-900');
+            }
+
+            // Remove placeholder if it exists
+            const placeholder = input.parentElement.querySelector('.due-date-placeholder');
+            if (placeholder && value) {
+                placeholder.remove();
+            }
+
+            Toastr.success('Due date updated');
+        } catch (error) {
+            console.error('Error updating due date:', error);
+            Toastr.error(error.message || 'Failed to update due date');
+        }
+    }
+
+    // Title editing - contenteditable
+    document.addEventListener('blur', async function(e) {
+        if (e.target.classList.contains('editable-title')) {
+            const endpoint = e.target.dataset.endpoint;
+            const original = e.target.dataset.original;
+            const newValue = e.target.textContent.trim();
+
+            if (newValue === original) return;
+            if (!newValue) {
+                e.target.textContent = original;
+                Toastr.error('Title cannot be empty');
+                return;
+            }
+
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({ title: newValue })
+                });
+
+                if (!response.ok) throw new Error('Failed to update title');
+
+                e.target.dataset.original = newValue;
+                Toastr.success('Title updated');
+            } catch (error) {
+                console.error('Error updating title:', error);
+                e.target.textContent = original;
+                Toastr.error('Failed to update title');
+            }
+        }
+    }, true);
+
+    // Prevent Enter from creating new line in title
+    document.addEventListener('keydown', function(e) {
+        if (e.target.classList.contains('editable-title') && e.key === 'Enter') {
+            e.preventDefault();
+            e.target.blur();
+        }
+        // Escape to cancel edit
+        if (e.target.classList.contains('editable-title') && e.key === 'Escape') {
+            e.target.textContent = e.target.dataset.original;
+            e.target.blur();
+        }
+    });
+
+    // Description editing
+    function showDescriptionEditor(displayEl) {
+        const container = displayEl.closest('.description-container');
+        const editor = container.querySelector('.description-editor');
+        const textarea = editor.querySelector('textarea');
+
+        displayEl.classList.add('hidden');
+        editor.classList.remove('hidden');
+        textarea.focus();
+    }
+
+    function cancelDescriptionEdit(btn) {
+        const container = btn.closest('.description-container');
+        const editor = container.querySelector('.description-editor');
+        const display = container.querySelector('.description-display');
+        const textarea = editor.querySelector('textarea');
+
+        textarea.value = textarea.dataset.original || '';
+        editor.classList.add('hidden');
+        display.classList.remove('hidden');
+    }
+
+    async function saveDescription(btn) {
+        const container = btn.closest('.description-container');
+        const editor = container.querySelector('.description-editor');
+        const display = container.querySelector('.description-display');
+        const textarea = editor.querySelector('textarea');
+        const endpoint = textarea.dataset.endpoint;
+        const newValue = textarea.value.trim();
+
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ description: newValue })
+            });
+
+            if (!response.ok) throw new Error('Failed to update description');
+
+            textarea.dataset.original = newValue;
+
+            if (newValue) {
+                display.textContent = newValue;
+                display.classList.remove('text-gray-400', 'italic');
+                display.classList.add('text-gray-600');
+            } else {
+                display.textContent = display.dataset.placeholder;
+                display.classList.add('text-gray-400', 'italic');
+                display.classList.remove('text-gray-600');
+            }
+
+            editor.classList.add('hidden');
+            display.classList.remove('hidden');
+            Toastr.success('Description updated');
+        } catch (error) {
+            console.error('Error updating description:', error);
+            Toastr.error('Failed to update description');
+        }
+    }
+
+    // Assignee management
+    async function removeAssignee(taskId, userId, btn) {
+        try {
+            const response = await fetch(`/tasks/${taskId}/assignees`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ action: 'remove', userId: userId })
+            });
+
+            if (!response.ok) throw new Error('Failed to remove assignee');
+
+            // Remove the chip
+            const chip = btn.closest('.assignee-chip');
+            chip.remove();
+
+            // Show "No assignees" if empty
+            const container = document.querySelector('.assignees-container');
+            const chips = container.querySelectorAll('.assignee-chip');
+            if (chips.length === 0) {
+                const noMsg = document.createElement('p');
+                noMsg.className = 'no-assignees-msg text-sm text-gray-400 italic mt-2';
+                noMsg.textContent = 'No assignees';
+                container.parentElement.appendChild(noMsg);
+            }
+
+            Toastr.success('Assignee removed');
+        } catch (error) {
+            console.error('Error removing assignee:', error);
+            Toastr.error('Failed to remove assignee');
+        }
+    }
+
+    async function showAddAssigneeDropdown(btn) {
+        const container = btn.closest('.assignees-container');
+        const dropdown = container.querySelector('.add-assignee-dropdown');
+        const projectId = container.dataset.projectId;
+        const taskId = container.dataset.taskId;
+
+        // Position the dropdown near the button
+        const btnRect = btn.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        dropdown.style.left = (btnRect.left - containerRect.left) + 'px';
+
+        closeAllDropdowns();
+        dropdown.classList.remove('hidden');
+
+        // Load project members
+        try {
+            const response = await fetch(`/projects/${projectId}/members`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+
+            if (!response.ok) throw new Error('Failed to load members');
+
+            const data = await response.json();
+            const currentAssignees = Array.from(container.querySelectorAll('.assignee-chip'))
+                .map(chip => chip.dataset.userId);
+
+            // Filter out already assigned members
+            const availableMembers = data.members.filter(m => !currentAssignees.includes(m.id));
+
+            const dropdownContent = dropdown.querySelector('.py-1');
+            if (availableMembers.length === 0) {
+                dropdownContent.innerHTML = '<div class="px-4 py-2 text-sm text-gray-500">No more members to add</div>';
+            } else {
+                dropdownContent.innerHTML = availableMembers.map(member => `
+                    <button type="button"
+                            onclick="addAssignee('${taskId}', '${member.id}', '${member.fullName}', '${member.initials}', this)"
+                            class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
+                        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary-100 mr-2">
+                            <span class="text-xs font-medium text-primary-700">${member.initials}</span>
+                        </span>
+                        ${member.fullName}
+                    </button>
+                `).join('');
+            }
+        } catch (error) {
+            console.error('Error loading members:', error);
+            dropdown.querySelector('.py-1').innerHTML = '<div class="px-4 py-2 text-sm text-red-500">Failed to load members</div>';
+        }
+    }
+
+    async function addAssignee(taskId, userId, fullName, initials, btn) {
+        try {
+            const response = await fetch(`/tasks/${taskId}/assignees`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ action: 'add', userId: userId })
+            });
+
+            if (!response.ok) throw new Error('Failed to add assignee');
+
+            // Add the new chip before the Add button
+            const container = document.querySelector('.assignees-container');
+            const addBtn = container.querySelector('.add-assignee-btn');
+
+            const chip = document.createElement('span');
+            chip.className = 'assignee-chip inline-flex items-center rounded-full bg-gray-100 py-1 pl-2 pr-1 text-sm font-medium text-gray-800';
+            chip.dataset.userId = userId;
+            chip.innerHTML = `
+                <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary-100 mr-2">
+                    <span class="text-xs font-medium text-primary-700">${initials}</span>
+                </span>
+                ${fullName}
+                <button type="button"
+                        onclick="removeAssignee('${taskId}', '${userId}', this)"
+                        class="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-600">
+                    <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            `;
+
+            container.querySelector('.assignees-list').insertBefore(chip, addBtn);
+
+            // Remove "No assignees" message
+            const noMsg = container.parentElement.querySelector('.no-assignees-msg');
+            if (noMsg) noMsg.remove();
+
+            closeAllDropdowns();
+            Toastr.success('Assignee added');
+        } catch (error) {
+            console.error('Error adding assignee:', error);
+            Toastr.error('Failed to add assignee');
+        }
+    }
+
+    // Comment handling
+    document.addEventListener('input', function(e) {
+        if (e.target.classList.contains('comment-textarea')) {
+            const btn = e.target.closest('.add-comment-form').querySelector('.add-comment-btn');
+            btn.disabled = !e.target.value.trim();
+        }
+    });
+
+    async function addComment(taskId, btn) {
+        const form = btn.closest('.add-comment-form');
+        const textarea = form.querySelector('.comment-textarea');
+        const content = textarea.value.trim();
+
+        if (!content) return;
+
+        btn.disabled = true;
+        btn.textContent = 'Posting...';
+
+        try {
+            const response = await fetch(`/tasks/${taskId}/comments`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ content: content })
+            });
+
+            if (!response.ok) throw new Error('Failed to add comment');
+
+            const data = await response.json();
+
+            // Add the new comment to the list
+            const commentsList = document.querySelector('.comments-list');
+
+            // Remove "No comments" message if present
+            const noMsg = commentsList.querySelector('.no-comments-msg');
+            if (noMsg) noMsg.remove();
+
+            const commentEl = document.createElement('div');
+            commentEl.className = 'comment-item bg-gray-50 rounded-lg p-3';
+            commentEl.dataset.commentId = data.comment.id;
+            commentEl.innerHTML = `
+                <div class="flex items-center mb-2">
+                    <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary-100 mr-2">
+                        <span class="text-xs font-medium text-primary-700">${data.comment.authorInitials}</span>
+                    </span>
+                    <span class="text-sm font-medium text-gray-900">${data.comment.authorName}</span>
+                    <span class="ml-auto text-xs text-gray-500">${data.comment.createdAt}</span>
+                </div>
+                <p class="text-sm text-gray-600 whitespace-pre-wrap">${escapeHtml(data.comment.content)}</p>
+            `;
+
+            // Insert at the beginning (newest first)
+            commentsList.prepend(commentEl);
+
+            // Update comment count
+            const countSpan = document.querySelector('.comments-count');
+            const currentCount = parseInt(countSpan.textContent.replace(/[()]/g, '') || '0');
+            countSpan.textContent = `(${currentCount + 1})`;
+
+            // Clear the form
+            textarea.value = '';
+            btn.textContent = 'Post Comment';
+            btn.disabled = true;
+
+            Toastr.success('Comment added');
+        } catch (error) {
+            console.error('Error adding comment:', error);
+            btn.textContent = 'Post Comment';
+            btn.disabled = false;
+            Toastr.error('Failed to add comment');
+        }
+    }
+
+    // Helper function to escape HTML
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
     </script>
 </div>
 {% endblock %}
