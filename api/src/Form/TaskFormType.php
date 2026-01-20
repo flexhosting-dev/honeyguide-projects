@@ -77,10 +77,10 @@ class TaskFormType extends AbstractType
             ->add('priority', ChoiceType::class, [
                 'label' => 'Priority',
                 'choices' => [
+                    'None' => TaskPriority::NONE,
                     'Low' => TaskPriority::LOW,
                     'Medium' => TaskPriority::MEDIUM,
                     'High' => TaskPriority::HIGH,
-                    'Urgent' => TaskPriority::URGENT,
                 ],
                 'attr' => [
                     'class' => 'block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm sm:leading-6',

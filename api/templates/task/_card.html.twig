@@ -16,9 +16,9 @@
             </a>
         </h4>
         <span class="ml-2 flex-shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
-            {% if task.priority.value == 'urgent' %}bg-red-100 text-red-700
-            {% elseif task.priority.value == 'high' %}bg-orange-100 text-orange-700
+            {% if task.priority.value == 'high' %}bg-red-100 text-red-700
             {% elseif task.priority.value == 'medium' %}bg-yellow-100 text-yellow-700
+            {% elseif task.priority.value == 'low' %}bg-blue-100 text-blue-700
             {% else %}bg-gray-100 text-gray-700{% endif %}">
             {{ task.priority.label }}
         </span>

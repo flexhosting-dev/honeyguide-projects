@@ -46,7 +46,7 @@ class Task
     private TaskStatus $status = TaskStatus::TODO;
 
     #[ORM\Column(type: 'string', enumType: TaskPriority::class)]
-    private TaskPriority $priority = TaskPriority::MEDIUM;
+    private TaskPriority $priority = TaskPriority::NONE;
 
     #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $startDate = null;

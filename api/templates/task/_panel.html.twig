@@ -51,9 +51,9 @@
                     <div class="relative inline-block">
                         <button type="button"
                                 class="priority-badge-btn inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-gray-300
-                                    {% if task.priority.value == 'urgent' %}bg-red-100 text-red-700
-                                    {% elseif task.priority.value == 'high' %}bg-orange-100 text-orange-700
+                                    {% if task.priority.value == 'high' %}bg-red-100 text-red-700
                                     {% elseif task.priority.value == 'medium' %}bg-yellow-100 text-yellow-700
+                                    {% elseif task.priority.value == 'low' %}bg-blue-100 text-blue-700
                                     {% else %}bg-gray-100 text-gray-700{% endif %}"
                                 data-current="{{ task.priority.value }}"
                                 onclick="togglePriorityDropdown(this)">
@@ -64,17 +64,17 @@
                         </button>
                         <div class="priority-dropdown hidden absolute left-0 mt-1 w-40 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-10">
                             <div class="py-1">
+                                <button type="button" onclick="updateTaskPriority('{{ task.id }}', 'none', this)" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
+                                    <span class="w-2 h-2 rounded-full bg-gray-400 mr-2"></span> None
+                                </button>
                                 <button type="button" onclick="updateTaskPriority('{{ task.id }}', 'low', this)" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
-                                    <span class="w-2 h-2 rounded-full bg-gray-400 mr-2"></span> Low
+                                    <span class="w-2 h-2 rounded-full bg-blue-400 mr-2"></span> Low
                                 </button>
                                 <button type="button" onclick="updateTaskPriority('{{ task.id }}', 'medium', this)" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
                                     <span class="w-2 h-2 rounded-full bg-yellow-400 mr-2"></span> Medium
                                 </button>
                                 <button type="button" onclick="updateTaskPriority('{{ task.id }}', 'high', this)" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
-                                    <span class="w-2 h-2 rounded-full bg-orange-400 mr-2"></span> High
-                                </button>
-                                <button type="button" onclick="updateTaskPriority('{{ task.id }}', 'urgent', this)" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
-                                    <span class="w-2 h-2 rounded-full bg-red-400 mr-2"></span> Urgent
+                                    <span class="w-2 h-2 rounded-full bg-red-400 mr-2"></span> High
                                 </button>
                             </div>
                         </div>
@@ -109,6 +109,49 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+        {# Editable Assignees #}
+        <div class="mb-6">
+            <h3 class="text-sm font-medium text-gray-900 mb-2">Assigned to</h3>
+            <div class="assignees-container" data-task-id="{{ task.id }}" data-project-id="{{ project.id }}">
+                <div class="assignees-list flex flex-wrap gap-2">
+                    {% for assignee in task.assignees %}
+                        <span class="assignee-chip inline-flex items-center rounded-full bg-gray-100 py-1 pl-2 pr-1 text-sm font-medium text-gray-800" data-user-id="{{ assignee.user.id }}">
+                            <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary-100 mr-2">
+                                <span class="text-xs font-medium text-primary-700">
+                                    {{ assignee.user.firstName|slice(0, 1)|upper }}{{ assignee.user.lastName|slice(0, 1)|upper }}
+                                </span>
+                            </span>
+                            {{ assignee.user.fullName }}
+                            <button type="button"
+                                    onclick="removeAssignee('{{ task.id }}', '{{ assignee.user.id }}', this)"
+                                    class="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-600">
+                                <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </span>
+                    {% endfor %}
+                    <button type="button"
+                            onclick="showAddAssigneeDropdown(this)"
+                            class="add-assignee-btn inline-flex items-center rounded-full border-2 border-dashed border-gray-300 px-3 py-1 text-sm text-gray-500 hover:border-gray-400 hover:text-gray-600">
+                        <svg class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                        </svg>
+                        Add
+                    </button>
+                </div>
+                {# Add Assignee Dropdown (loaded dynamically) #}
+                <div class="add-assignee-dropdown hidden absolute mt-1 w-56 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-10">
+                    <div class="py-1 max-h-48 overflow-y-auto">
+                        <div class="px-4 py-2 text-sm text-gray-500">Loading...</div>
+                    </div>
+                </div>
+            </div>
+            {% if task.assignees|length == 0 %}
+                <p class="no-assignees-msg text-sm text-gray-400 italic mt-2">No assignees</p>
+            {% endif %}
         </div>
 
         {# Details Grid #}
@@ -178,49 +221,6 @@
                 <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Created</dt>
                 <dd class="mt-1 text-sm text-gray-900">{{ task.createdAt|date('M d, Y') }}</dd>
             </div>
-        </div>
-
-        {# Editable Assignees #}
-        <div class="mb-6">
-            <h3 class="text-sm font-medium text-gray-900 mb-2">Assignees</h3>
-            <div class="assignees-container" data-task-id="{{ task.id }}" data-project-id="{{ project.id }}">
-                <div class="assignees-list flex flex-wrap gap-2">
-                    {% for assignee in task.assignees %}
-                        <span class="assignee-chip inline-flex items-center rounded-full bg-gray-100 py-1 pl-2 pr-1 text-sm font-medium text-gray-800" data-user-id="{{ assignee.user.id }}">
-                            <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary-100 mr-2">
-                                <span class="text-xs font-medium text-primary-700">
-                                    {{ assignee.user.firstName|slice(0, 1)|upper }}{{ assignee.user.lastName|slice(0, 1)|upper }}
-                                </span>
-                            </span>
-                            {{ assignee.user.fullName }}
-                            <button type="button"
-                                    onclick="removeAssignee('{{ task.id }}', '{{ assignee.user.id }}', this)"
-                                    class="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-600">
-                                <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
-                        </span>
-                    {% endfor %}
-                    <button type="button"
-                            onclick="showAddAssigneeDropdown(this)"
-                            class="add-assignee-btn inline-flex items-center rounded-full border-2 border-dashed border-gray-300 px-3 py-1 text-sm text-gray-500 hover:border-gray-400 hover:text-gray-600">
-                        <svg class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                        </svg>
-                        Add
-                    </button>
-                </div>
-                {# Add Assignee Dropdown (loaded dynamically) #}
-                <div class="add-assignee-dropdown hidden absolute mt-1 w-56 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-10">
-                    <div class="py-1 max-h-48 overflow-y-auto">
-                        <div class="px-4 py-2 text-sm text-gray-500">Loading...</div>
-                    </div>
-                </div>
-            </div>
-            {% if task.assignees|length == 0 %}
-                <p class="no-assignees-msg text-sm text-gray-400 italic mt-2">No assignees</p>
-            {% endif %}
         </div>
 
         {# Comments with Inline Form #}
