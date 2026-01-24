@@ -58,4 +58,7 @@ return [
     'vue/components/TaskCard' => [
         'path' => './assets/vue/components/TaskCard.js',
     ],
+    'vue/components/KanbanBoard' => [
+        'path' => './assets/vue/components/KanbanBoard.js',
+    ],
 ];

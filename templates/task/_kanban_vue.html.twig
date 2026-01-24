@@ -1,0 +1,64 @@
+{# Kanban Board Component - Vue Version #}
+{# Required variables: project, tasks (optional - will be gathered from milestones) #}
+{#
+   This uses Vue for full reactivity and drag-and-drop.
+   The Vue component will auto-mount on elements with data-vue-component="KanbanBoard"
+#}
+
+{# Gather all tasks from milestones if not provided #}
+{% set allTasks = [] %}
+{% for milestone in project.milestones %}
+    {% for task in milestone.tasks %}
+        {% set allTasks = allTasks|merge([task]) %}
+    {% endfor %}
+{% endfor %}
+
+{# Sort by position #}
+{% set allTasks = allTasks|sort((a, b) => a.position <=> b.position) %}
+
+<div
+    data-vue-component="KanbanBoard"
+    data-vue-project-id="{{ project.id }}"
+    data-vue-initial-tasks='{{ allTasks|map(task => {
+        id: task.id|default(task.id.toString()),
+        title: task.title,
+        status: { value: task.status.value, label: task.status.label },
+        priority: { value: task.priority.value, label: task.priority.label },
+        milestoneId: task.milestone.id|default(task.milestone.id.toString()),
+        projectName: project.name,
+        dueDate: task.dueDate ? task.dueDate|date('Y-m-d') : null,
+        position: task.position,
+        commentCount: task.commentCount|default(0),
+        checklistCount: task.checklistCount|default(0),
+        completedChecklistCount: task.completedChecklistCount|default(0),
+        assignees: task.assignees|map(a => {
+            id: a.id|default(a.id.toString()),
+            user: {
+                id: a.user.id|default(a.user.id.toString()),
+                firstName: a.user.firstName,
+                lastName: a.user.lastName,
+                fullName: a.user.fullName
+            }
+        }),
+        tags: task.tags|map(t => {
+            id: t.id|default(t.id.toString()),
+            name: t.name,
+            color: t.color
+        })
+    })|json_encode|e('html_attr') }}'
+    data-vue-milestones='{{ project.milestones|map(m => {
+        id: m.id|default(m.id.toString()),
+        name: m.name,
+        dueDate: m.dueDate ? m.dueDate|date('Y-m-d') : null
+    })|json_encode|e('html_attr') }}'
+    data-vue-base-path="{{ app.request.basePath }}"
+>
+    {# Fallback/loading content shown before Vue mounts #}
+    <div class="flex items-center justify-center py-12">
+        <svg class="animate-spin h-8 w-8 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span class="ml-3 text-gray-500">Loading kanban board...</span>
+    </div>
+</div>
