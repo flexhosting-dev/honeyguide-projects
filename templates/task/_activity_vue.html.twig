@@ -1,0 +1,21 @@
+{# Activity Log Component - Vue Version #}
+{# Required variables: task #}
+{# Optional: autoLoad (default: false) - set to true to load immediately #}
+{#
+   This uses Vue for reactivity instead of vanilla JS.
+   The Vue component will auto-mount on elements with data-vue-component="ActivityLog"
+
+   Note: Activity data is loaded via API call, not passed as initial props,
+   since activity logs can be large and are typically lazy-loaded.
+#}
+<div
+    data-vue-component="ActivityLog"
+    data-vue-task-id="{{ task.id }}"
+    data-vue-base-path="{{ app.request.basePath }}"
+    data-vue-auto-load="{{ autoLoad|default(false) ? 'true' : 'false' }}"
+>
+    {# Fallback content shown before Vue mounts #}
+    <noscript>
+        <p class="text-sm text-gray-400 italic py-4">Activity log requires JavaScript</p>
+    </noscript>
+</div>

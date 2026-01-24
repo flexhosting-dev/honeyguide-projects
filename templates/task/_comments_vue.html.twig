@@ -1,0 +1,43 @@
+{# Comments Component - Vue Version #}
+{# Required variables: task #}
+{#
+   This uses Vue for reactivity instead of vanilla JS.
+   The Vue component will auto-mount on elements with data-vue-component="CommentsEditor"
+#}
+<div
+    data-vue-component="CommentsEditor"
+    data-vue-task-id="{{ task.id }}"
+    data-vue-current-user-id="{{ app.user.id }}"
+    data-vue-current-user-initials="{{ app.user.firstName|slice(0, 1)|upper }}"
+    data-vue-initial-comments='{{ task.comments|map(c => {
+        id: c.id|default(c.id.toString()),
+        content: c.content,
+        authorName: c.author.fullName,
+        authorInitials: c.author.firstName|slice(0, 1)|upper,
+        authorId: c.author.id|default(c.author.id.toString()),
+        createdAt: c.createdAt|date('M d, H:i')
+    })|json_encode|e('html_attr') }}'
+    data-vue-base-path="{{ app.request.basePath }}"
+>
+    {# Fallback content shown before Vue mounts #}
+    <noscript>
+        <div class="space-y-4">
+            {% for comment in task.comments|reverse %}
+                <div class="bg-gray-50 rounded-lg p-3">
+                    <div class="flex items-center mb-2">
+                        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary-100 mr-2">
+                            <span class="text-xs font-medium text-primary-700">
+                                {{ comment.author.firstName|slice(0, 1)|upper }}
+                            </span>
+                        </span>
+                        <span class="text-sm font-medium text-gray-900">{{ comment.author.fullName }}</span>
+                        <span class="ml-2 text-xs text-gray-500">{{ comment.createdAt|date('M d, H:i') }}</span>
+                    </div>
+                    <p class="text-sm text-gray-600 whitespace-pre-wrap">{{ comment.content }}</p>
+                </div>
+            {% else %}
+                <p class="text-sm text-gray-400 italic">No comments yet</p>
+            {% endfor %}
+        </div>
+    </noscript>
+</div>

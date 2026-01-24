@@ -1464,6 +1464,12 @@
         document.getElementById('detail-tab-' + tabName).classList.remove('hidden');
     }
 
+    // Trigger Vue ActivityLog component to load
+    function triggerVueActivityLoad() {
+        // Dispatch custom event that Vue component listens for
+        document.dispatchEvent(new CustomEvent('load-activity'));
+    }
+
     // ===== ACTIVITY TAB FUNCTIONS =====
     async function loadActivityTab(taskId) {
         // For panel: find activity container in the tab

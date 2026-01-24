@@ -1,0 +1,36 @@
+{# Checklist Component - Vue Version #}
+{# Required variables: task #}
+{#
+   This uses Vue for reactivity instead of vanilla JS.
+   The Vue component will auto-mount on elements with data-vue-component="ChecklistEditor"
+#}
+<div
+    data-vue-component="ChecklistEditor"
+    data-vue-task-id="{{ task.id }}"
+    data-vue-initial-items='{{ task.checklistItems|map(item => {id: item.id|default(item.id.toString()), title: item.title, isCompleted: item.isCompleted, position: item.position})|json_encode|e('html_attr') }}'
+    data-vue-base-path="{{ app.request.basePath }}"
+>
+    {# Fallback content shown before Vue mounts #}
+    <noscript>
+        <div class="checklist-progress mb-4 {{ task.checklistCount == 0 ? 'hidden' : '' }}">
+            <div class="flex items-center justify-between text-sm mb-1">
+                <span class="text-gray-500">Progress</span>
+                <span class="font-medium">{{ task.completedChecklistCount }}/{{ task.checklistCount }}</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2">
+                <div class="bg-primary-600 h-2 rounded-full"
+                     style="width: {{ task.checklistCount > 0 ? (task.completedChecklistCount / task.checklistCount * 100) : 0 }}%"></div>
+            </div>
+        </div>
+        <div class="checklist-items space-y-1">
+            {% for item in task.checklistItems %}
+                <div class="flex items-center gap-2 p-2">
+                    <input type="checkbox" {{ item.isCompleted ? 'checked' : '' }} disabled class="h-4 w-4 rounded border-gray-300">
+                    <span class="{{ item.isCompleted ? 'line-through text-gray-400' : 'text-gray-900' }} text-sm">{{ item.title }}</span>
+                </div>
+            {% else %}
+                <p class="text-sm text-gray-400 italic py-4">No checklist items yet</p>
+            {% endfor %}
+        </div>
+    </noscript>
+</div>

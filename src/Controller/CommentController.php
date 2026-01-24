@@ -124,7 +124,7 @@ class CommentController extends AbstractController
         return $this->redirectToRoute('app_task_show', ['id' => $comment->getTask()->getId()]);
     }
 
-    #[Route('/comments/{id}/delete', name: 'app_comment_delete', methods: ['POST'])]
+    #[Route('/comments/{id}/delete', name: 'app_comment_delete', methods: ['POST', 'DELETE'])]
     public function delete(Request $request, Comment $comment): Response
     {
         /** @var User $user */
@@ -133,9 +133,20 @@ class CommentController extends AbstractController
         $task = $comment->getTask();
 
         if ($comment->getAuthor()->getId()->toString() !== $user->getId()->toString()) {
+            if ($request->isXmlHttpRequest()) {
+                return $this->json(['error' => 'You can only delete your own comments'], Response::HTTP_FORBIDDEN);
+            }
             throw $this->createAccessDeniedException('You can only delete your own comments.');
         }
 
+        // Handle AJAX requests
+        if ($request->isXmlHttpRequest()) {
+            $this->entityManager->remove($comment);
+            $this->entityManager->flush();
+            return $this->json(['success' => true]);
+        }
+
+        // Handle traditional form submission with CSRF
         if ($this->isCsrfTokenValid('delete' . $comment->getId(), $request->request->get('_token'))) {
             $this->entityManager->remove($comment);
             $this->entityManager->flush();

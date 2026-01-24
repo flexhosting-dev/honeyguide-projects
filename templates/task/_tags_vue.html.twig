@@ -1,0 +1,27 @@
+{# Tags Component - Vue Version #}
+{# Required variables: task #}
+{#
+   This uses Vue for reactivity instead of vanilla JS.
+   The Vue component will auto-mount on elements with data-vue-component="TagsEditor"
+#}
+<div
+    data-vue-component="TagsEditor"
+    data-vue-task-id="{{ task.id }}"
+    data-vue-initial-tags='{{ task.tags|map(t => {id: t.id|default(t.id.toString()), name: t.name, color: t.color})|json_encode|e('html_attr') }}'
+    data-vue-base-path="{{ app.request.basePath }}"
+>
+    {# Fallback content shown before Vue mounts (optional, for SSR-like experience) #}
+    <noscript>
+        <div class="tags-list flex flex-wrap gap-1.5">
+            {% for tag in task.tags %}
+                <span class="tag-chip inline-flex items-center text-xs font-medium text-white pl-2 pr-2 py-0.5"
+                      style="background-color: {{ tag.color }}; --tag-color: {{ tag.color }};">
+                    {{ tag.name }}
+                </span>
+            {% endfor %}
+        </div>
+        {% if task.tags|length == 0 %}
+            <p class="text-sm text-gray-400 italic mt-2">No tags</p>
+        {% endif %}
+    </noscript>
+</div>

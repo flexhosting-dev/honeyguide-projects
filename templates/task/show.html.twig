@@ -114,10 +114,10 @@
                 {% endif %}
             </div>
 
-            {# Tags Section #}
+            {# Tags Section (Vue Component) #}
             <div class="mt-6 border-t border-gray-200 pt-6">
                 <h3 class="text-sm font-medium text-gray-900 mb-3">Tags</h3>
-                {% include 'task/_tags.html.twig' with {task: task} %}
+                {% include 'task/_tags_vue.html.twig' with {task: task} %}
             </div>
         </div>
 
@@ -143,24 +143,24 @@
                     <button type="button"
                             class="tab-btn px-4 py-2 text-sm font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-900 hover:border-gray-300 -mb-px"
                             data-tab="activity"
-                            onclick="switchDetailTab('activity', this); loadActivityForContainer(document.querySelector('#detail-tab-activity .activity-container'));">
+                            onclick="switchDetailTab('activity', this); triggerVueActivityLoad();">
                         Activity
                     </button>
                 </div>
 
-                {# Checklist Tab Content #}
+                {# Checklist Tab Content (Vue Component) #}
                 <div class="detail-tab-content" id="detail-tab-checklist">
-                    {% include 'task/_checklist.html.twig' with {task: task} %}
+                    {% include 'task/_checklist_vue.html.twig' with {task: task} %}
                 </div>
 
-                {# Comments Tab Content #}
+                {# Comments Tab Content (Vue Component) #}
                 <div class="detail-tab-content hidden" id="detail-tab-comments">
-                    {% include 'comment/_list.html.twig' with {task: task, comments: task.comments} %}
+                    {% include 'task/_comments_vue.html.twig' with {task: task} %}
                 </div>
 
-                {# Activity Tab Content #}
+                {# Activity Tab Content (Vue Component) #}
                 <div class="detail-tab-content hidden" id="detail-tab-activity">
-                    {% include 'task/_activity.html.twig' with {task: task} %}
+                    {% include 'task/_activity_vue.html.twig' with {task: task, autoLoad: false} %}
                 </div>
             </div>
         </div>

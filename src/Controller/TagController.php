@@ -80,9 +80,29 @@ class TagController extends AbstractController
         $this->denyAccessUnlessGranted('PROJECT_EDIT', $project);
 
         $data = json_decode($request->getContent(), true);
+        $tagId = $data['tagId'] ?? null;
         $tagName = trim($data['name'] ?? '');
         $tagColor = $data['color'] ?? null;
 
+        // If tagId is provided, add existing tag
+        if ($tagId) {
+            $tag = $this->tagRepository->find($tagId);
+            if (!$tag) {
+                return $this->json(['error' => 'Tag not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            if (!$task->hasTag($tag)) {
+                $task->addTag($tag);
+                $this->entityManager->flush();
+            }
+
+            return $this->json([
+                'success' => true,
+                'tag' => $this->serializeTag($tag),
+            ]);
+        }
+
+        // Otherwise, create or find by name
         if (empty($tagName)) {
             return $this->json(['error' => 'Tag name is required'], Response::HTTP_BAD_REQUEST);
         }
@@ -163,6 +183,25 @@ class TagController extends AbstractController
 
         return $this->json([
             'tags' => array_map(fn(Tag $tag) => $this->serializeTag($tag), $task->getTags()->toArray()),
+        ]);
+    }
+
+    #[Route('/tasks/{taskId}/tags/available', name: 'app_task_tag_available', methods: ['GET'])]
+    public function getAvailableTags(string $taskId): JsonResponse
+    {
+        $task = $this->taskRepository->find($taskId);
+        if (!$task) {
+            return $this->json(['error' => 'Task not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $project = $task->getProject();
+        $this->denyAccessUnlessGranted('PROJECT_VIEW', $project);
+
+        // Return all available tags (global tags in this system)
+        $tags = $this->tagRepository->findAll();
+
+        return $this->json([
+            'tags' => array_map(fn(Tag $tag) => $this->serializeTag($tag), $tags),
         ]);
     }
 
