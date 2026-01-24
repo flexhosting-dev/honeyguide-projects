@@ -81,6 +81,11 @@ class Task
     #[ORM\OrderBy(['position' => 'ASC'])]
     private Collection $checklistItems;
 
+    /** @var Collection<int, Tag> */
+    #[ORM\ManyToMany(targetEntity: Tag::class, inversedBy: 'tasks')]
+    #[ORM\JoinTable(name: 'task_tag')]
+    private Collection $tags;
+
     public function __construct()
     {
         $this->id = Uuid::uuid7();
@@ -88,6 +93,7 @@ class Task
         $this->assignees = new ArrayCollection();
         $this->comments = new ArrayCollection();
         $this->checklistItems = new ArrayCollection();
+        $this->tags = new ArrayCollection();
     }
 
     #[ORM\PrePersist]
@@ -287,6 +293,31 @@ class Task
     public function getCompletedChecklistCount(): int
     {
         return $this->checklistItems->filter(fn(TaskChecklist $item) => $item->isCompleted())->count();
+    }
+
+    /** @return Collection<int, Tag> */
+    public function getTags(): Collection
+    {
+        return $this->tags;
+    }
+
+    public function addTag(Tag $tag): static
+    {
+        if (!$this->tags->contains($tag)) {
+            $this->tags->add($tag);
+        }
+        return $this;
+    }
+
+    public function removeTag(Tag $tag): static
+    {
+        $this->tags->removeElement($tag);
+        return $this;
+    }
+
+    public function hasTag(Tag $tag): bool
+    {
+        return $this->tags->contains($tag);
     }
 
     public function getSubtaskCount(): int

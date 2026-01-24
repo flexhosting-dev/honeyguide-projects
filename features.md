@@ -11,14 +11,22 @@ Add tagging functionality to organize and filter items across the application.
 
 ### Scope
 - **Task Tags**: Color-coded tags that can be applied to tasks for categorization
-- **Project Tags**: Tags for organizing projects by type, client, or category
-- **Milestone Tags**: Tags for milestone classification
+- **Project Tags**: Tags for organizing projects by type, client, or category (future)
+- **Milestone Tags**: Tags for milestone classification (future)
 
 ### Features
 - Create, edit, delete tags with custom colors
 - Filter views by tags
 - Tag autocomplete when adding to items
 - Bulk tag operations
+
+### User Experience
+- Tags can be added when viewing a task (in task panel) or when creating/editing a task
+- As user types a tag name, existing tags are searched and shown as autocomplete suggestions
+- If the tag doesn't exist and user has permission (can edit task), the tag is created on-the-fly
+- No need to navigate to a dedicated tag management screen - tags are created inline
+- Users can click existing tags to remove them from a task
+- Tags display with their assigned color as a visual indicator
 
 ---
 

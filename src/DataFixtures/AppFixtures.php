@@ -8,7 +8,9 @@ use App\Entity\ProjectMember;
 use App\Entity\Milestone;
 use App\Entity\Task;
 use App\Entity\TaskAssignee;
+use App\Entity\TaskChecklist;
 use App\Entity\Comment;
+use App\Entity\Tag;
 use App\Enum\ProjectStatus;
 use App\Enum\ProjectRole;
 use App\Enum\MilestoneStatus;
@@ -173,7 +175,7 @@ class AppFixtures extends Fixture
         $milestone2_1->setDueDate(new \DateTimeImmutable('+15 days'));
         $manager->persist($milestone2_1);
 
-        $task16 = $this->createTask($manager, $milestone2_1, 'Implement OAuth 2.0 authentication', 'Secure token-based authentication flow.', TaskStatus::IN_PROGRESS, TaskPriority::URGENT, 0, $adminUser);
+        $task16 = $this->createTask($manager, $milestone2_1, 'Implement OAuth 2.0 authentication', 'Secure token-based authentication flow.', TaskStatus::IN_PROGRESS, TaskPriority::HIGH, 0, $adminUser);
         $task17 = $this->createTask($manager, $milestone2_1, 'Add biometric authentication', 'Face ID and fingerprint support for iOS and Android.', TaskStatus::TODO, TaskPriority::HIGH, 1, $testUser);
         $task18 = $this->createTask($manager, $milestone2_1, 'Implement 2FA via SMS/Email', 'Two-factor authentication for sensitive operations.', TaskStatus::TODO, TaskPriority::HIGH, 2, null);
         $task19 = $this->createTask($manager, $milestone2_1, 'Session management', 'Secure session handling with timeout and device tracking.', TaskStatus::IN_REVIEW, TaskPriority::MEDIUM, 3, $adminUser);
@@ -301,6 +303,118 @@ class AppFixtures extends Fixture
 
         $this->createComment($manager, $task29, $testUser, 'Hero animation is causing layout shift. Need to fix CLS score.');
 
+        // Add checklists to some tasks
+        // Task 7: Product listing page
+        $this->createChecklist($manager, $task7, 'Set up product grid component', true, 0);
+        $this->createChecklist($manager, $task7, 'Implement responsive breakpoints', true, 1);
+        $this->createChecklist($manager, $task7, 'Add sorting dropdown (price, name, date)', false, 2);
+        $this->createChecklist($manager, $task7, 'Add filter sidebar (category, price range)', false, 3);
+        $this->createChecklist($manager, $task7, 'Implement pagination', false, 4);
+        $this->createChecklist($manager, $task7, 'Add loading skeletons', false, 5);
+
+        // Task 8: Product detail page
+        $this->createChecklist($manager, $task8, 'Create product image gallery', true, 0);
+        $this->createChecklist($manager, $task8, 'Add image zoom on hover', false, 1);
+        $this->createChecklist($manager, $task8, 'Display product details section', true, 2);
+        $this->createChecklist($manager, $task8, 'Add quantity selector', false, 3);
+        $this->createChecklist($manager, $task8, 'Implement Add to Cart button', false, 4);
+        $this->createChecklist($manager, $task8, 'Show related products section', false, 5);
+
+        // Task 9: Shopping cart
+        $this->createChecklist($manager, $task9, 'Create cart context/state', false, 0);
+        $this->createChecklist($manager, $task9, 'Build cart drawer component', false, 1);
+        $this->createChecklist($manager, $task9, 'Add item quantity controls', false, 2);
+        $this->createChecklist($manager, $task9, 'Calculate subtotal and taxes', false, 3);
+        $this->createChecklist($manager, $task9, 'Persist cart to localStorage', false, 4);
+
+        // Task 16: OAuth authentication
+        $this->createChecklist($manager, $task16, 'Set up Auth0 tenant', true, 0);
+        $this->createChecklist($manager, $task16, 'Configure OAuth endpoints', true, 1);
+        $this->createChecklist($manager, $task16, 'Implement token refresh flow', true, 2);
+        $this->createChecklist($manager, $task16, 'Add PKCE for mobile', false, 3);
+        $this->createChecklist($manager, $task16, 'Test with iOS app', false, 4);
+        $this->createChecklist($manager, $task16, 'Test with Android app', false, 5);
+
+        // Task 19: Session management
+        $this->createChecklist($manager, $task19, 'Implement session timeout', true, 0);
+        $this->createChecklist($manager, $task19, 'Add device fingerprinting', true, 1);
+        $this->createChecklist($manager, $task19, 'Create active sessions list', true, 2);
+        $this->createChecklist($manager, $task19, 'Add remote logout feature', true, 3);
+
+        // Task 29: Build homepage
+        $this->createChecklist($manager, $task29, 'Design hero section', true, 0);
+        $this->createChecklist($manager, $task29, 'Add hero animation', true, 1);
+        $this->createChecklist($manager, $task29, 'Fix CLS issues', false, 2);
+        $this->createChecklist($manager, $task29, 'Build features grid', false, 3);
+        $this->createChecklist($manager, $task29, 'Add testimonials carousel', false, 4);
+        $this->createChecklist($manager, $task29, 'Create CTA section', false, 5);
+        $this->createChecklist($manager, $task29, 'Optimize images', false, 6);
+
+        // Task 10: Checkout flow
+        $this->createChecklist($manager, $task10, 'Create checkout layout', false, 0);
+        $this->createChecklist($manager, $task10, 'Build address form', false, 1);
+        $this->createChecklist($manager, $task10, 'Add address validation', false, 2);
+        $this->createChecklist($manager, $task10, 'Integrate payment gateway', false, 3);
+        $this->createChecklist($manager, $task10, 'Build order confirmation page', false, 4);
+        $this->createChecklist($manager, $task10, 'Send confirmation email', false, 5);
+
+        // ============================================
+        // TAGS
+        // ============================================
+        $tagBug = $this->createTag($manager, 'bug', '#ef4444', $testUser);
+        $tagFeature = $this->createTag($manager, 'feature', '#22c55e', $testUser);
+        $tagEnhancement = $this->createTag($manager, 'enhancement', '#3b82f6', $testUser);
+        $tagDocumentation = $this->createTag($manager, 'documentation', '#8b5cf6', $adminUser);
+        $tagUrgent = $this->createTag($manager, 'urgent', '#f97316', $adminUser);
+        $tagBackend = $this->createTag($manager, 'backend', '#06b6d4', $johnDoe);
+        $tagFrontend = $this->createTag($manager, 'frontend', '#ec4899', $janeSmith);
+        $tagUI = $this->createTag($manager, 'UI', '#d946ef', $janeSmith);
+        $tagAPI = $this->createTag($manager, 'API', '#14b8a6', $johnDoe);
+        $tagSecurity = $this->createTag($manager, 'security', '#eab308', $adminUser);
+        $tagPerformance = $this->createTag($manager, 'performance', '#84cc16', $testUser);
+        $tagRefactor = $this->createTag($manager, 'refactor', '#6b7280', $testUser);
+
+        // Add tags to tasks
+        $task1->addTag($tagBackend);
+        $task1->addTag($tagFeature);
+
+        $task2->addTag($tagBackend);
+        $task2->addTag($tagSecurity);
+        $task2->addTag($tagAPI);
+
+        $task3->addTag($tagBackend);
+        $task3->addTag($tagAPI);
+
+        $task6->addTag($tagFrontend);
+        $task6->addTag($tagFeature);
+
+        $task7->addTag($tagFrontend);
+        $task7->addTag($tagUI);
+
+        $task8->addTag($tagFrontend);
+        $task8->addTag($tagUI);
+
+        $task9->addTag($tagFrontend);
+        $task9->addTag($tagFeature);
+
+        $task10->addTag($tagFrontend);
+        $task10->addTag($tagFeature);
+        $task10->addTag($tagUrgent);
+
+        $task16->addTag($tagSecurity);
+        $task16->addTag($tagBackend);
+        $task16->addTag($tagUrgent);
+
+        $task17->addTag($tagSecurity);
+        $task17->addTag($tagFeature);
+
+        $task19->addTag($tagSecurity);
+        $task19->addTag($tagBackend);
+
+        $task29->addTag($tagFrontend);
+        $task29->addTag($tagUI);
+        $task29->addTag($tagPerformance);
+
         $manager->flush();
     }
 
@@ -355,5 +469,37 @@ class AppFixtures extends Fixture
         $manager->persist($comment);
 
         return $comment;
+    }
+
+    private function createChecklist(
+        ObjectManager $manager,
+        Task $task,
+        string $title,
+        bool $isCompleted,
+        int $position
+    ): TaskChecklist {
+        $checklist = new TaskChecklist();
+        $checklist->setTask($task);
+        $checklist->setTitle($title);
+        $checklist->setIsCompleted($isCompleted);
+        $checklist->setPosition($position);
+        $manager->persist($checklist);
+
+        return $checklist;
+    }
+
+    private function createTag(
+        ObjectManager $manager,
+        string $name,
+        string $color,
+        User $createdBy
+    ): Tag {
+        $tag = new Tag();
+        $tag->setName($name);
+        $tag->setColor($color);
+        $tag->setCreatedBy($createdBy);
+        $manager->persist($tag);
+
+        return $tag;
     }
 }

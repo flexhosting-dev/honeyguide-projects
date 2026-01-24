@@ -104,6 +104,51 @@
         .priority-medium { background: #fef3c7; color: #d97706; }
         .priority-high { background: #fecaca; color: #dc2626; }
 
+        /* Price tag shape for tags */
+        .tag-chip {
+            position: relative;
+            border-radius: 2px 4px 4px 2px;
+            margin-left: 10px;
+            line-height: 1.4;
+        }
+        .tag-chip::before {
+            content: '';
+            position: absolute;
+            left: -10px;
+            top: 0;
+            width: 0;
+            height: 0;
+            border-style: solid;
+            border-width: 10px 10px 10px 0;
+            border-color: transparent var(--tag-color, currentColor) transparent transparent;
+        }
+        .tag-chip::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 4px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
+        }
+
+        /* Color swatch hover */
+        .color-swatch {
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+        .color-swatch:hover {
+            transform: scale(1.15);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .color-swatch.selected {
+            ring: 2px;
+            ring-offset: 1px;
+        }
+
         /* Toastr Notifications */
         .toastr-container {
             position: fixed;

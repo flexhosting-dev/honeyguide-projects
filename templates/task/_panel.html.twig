@@ -154,6 +154,124 @@
             {% endif %}
         </div>
 
+        {# Tags #}
+        <div class="mb-6">
+            <h3 class="text-sm font-medium text-gray-900 mb-2">Tags</h3>
+            <div class="tags-container" data-task-id="{{ task.id }}">
+                <div class="tags-list flex flex-wrap gap-1.5 ml-2">
+                    {% for tag in task.tags %}
+                        <span class="tag-chip group relative inline-flex items-center text-xs font-medium text-white pl-2 pr-5 py-0.5"
+                              style="background-color: {{ tag.color }}; --tag-color: {{ tag.color }};"
+                              data-tag-id="{{ tag.id }}">
+                            {{ tag.name }}
+                            <button type="button"
+                                    onclick="removeTag('{{ task.id }}', '{{ tag.id }}', this)"
+                                    class="absolute right-0.5 top-1/2 -translate-y-1/2 h-4 w-4 items-center justify-center rounded-full hover:bg-black/20 hidden group-hover:inline-flex">
+                                <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </span>
+                    {% endfor %}
+                </div>
+                {# Add Tag Input #}
+                <div class="add-tag-container relative mt-2">
+                    <input type="text"
+                           class="tag-search-input w-full text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                           placeholder="Add a tag..."
+                           oninput="searchTags(this, '{{ task.id }}')"
+                           onkeydown="handleTagKeydown(event, this, '{{ task.id }}')">
+                    <div class="tag-dropdown hidden absolute left-0 right-0 mt-1 bg-white rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 z-20 p-3">
+                        {# Create new tag section #}
+                        <div class="create-tag-section hidden mb-3 ml-2">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs text-gray-500">Create</span>
+                                <span class="new-tag-preview tag-chip inline-flex items-center text-xs font-medium text-white pl-2 pr-2 py-0.5" style="background-color: #3b82f6; --tag-color: #3b82f6;"></span>
+                                <button type="button" onclick="openColorPicker(this)" class="color-picker-btn p-1 rounded hover:bg-gray-100" title="Choose color">
+                                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10" stroke-dasharray="15.7 15.7" style="stroke: #ef4444;" stroke-dashoffset="0"/>
+                                        <circle cx="12" cy="12" r="10" stroke-dasharray="15.7 15.7" style="stroke: #22c55e;" stroke-dashoffset="-15.7"/>
+                                        <circle cx="12" cy="12" r="10" stroke-dasharray="15.7 15.7" style="stroke: #3b82f6;" stroke-dashoffset="-31.4"/>
+                                        <circle cx="12" cy="12" r="10" stroke-dasharray="15.7 15.7" style="stroke: #eab308;" stroke-dashoffset="-47.1"/>
+                                    </svg>
+                                </button>
+                                <button type="button" onclick="createTagWithColor('{{ task.id }}')" class="p-1 rounded-full bg-green-500 hover:bg-green-600 text-white" title="Create tag">
+                                    <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                                    </svg>
+                                </button>
+                            </div>
+                            {# Color picker popup #}
+                            <div class="color-picker-popup hidden absolute left-0 mt-2 bg-white rounded-lg shadow-xl ring-1 ring-black ring-opacity-5 z-30 p-3 w-56">
+                                <div class="mb-3">
+                                    <div class="text-xs font-medium text-gray-700 mb-2">Preset Colors</div>
+                                    <div class="grid grid-cols-8 gap-1">
+                                        <button type="button" onclick="selectTagColor('#ef4444')" class="color-swatch w-5 h-5 rounded" style="background-color: #ef4444;" title="Red"></button>
+                                        <button type="button" onclick="selectTagColor('#f97316')" class="color-swatch w-5 h-5 rounded" style="background-color: #f97316;" title="Orange"></button>
+                                        <button type="button" onclick="selectTagColor('#f59e0b')" class="color-swatch w-5 h-5 rounded" style="background-color: #f59e0b;" title="Amber"></button>
+                                        <button type="button" onclick="selectTagColor('#eab308')" class="color-swatch w-5 h-5 rounded" style="background-color: #eab308;" title="Yellow"></button>
+                                        <button type="button" onclick="selectTagColor('#84cc16')" class="color-swatch w-5 h-5 rounded" style="background-color: #84cc16;" title="Lime"></button>
+                                        <button type="button" onclick="selectTagColor('#22c55e')" class="color-swatch w-5 h-5 rounded" style="background-color: #22c55e;" title="Green"></button>
+                                        <button type="button" onclick="selectTagColor('#14b8a6')" class="color-swatch w-5 h-5 rounded" style="background-color: #14b8a6;" title="Teal"></button>
+                                        <button type="button" onclick="selectTagColor('#06b6d4')" class="color-swatch w-5 h-5 rounded" style="background-color: #06b6d4;" title="Cyan"></button>
+                                        <button type="button" onclick="selectTagColor('#0ea5e9')" class="color-swatch w-5 h-5 rounded" style="background-color: #0ea5e9;" title="Sky"></button>
+                                        <button type="button" onclick="selectTagColor('#3b82f6')" class="color-swatch w-5 h-5 rounded" style="background-color: #3b82f6;" title="Blue"></button>
+                                        <button type="button" onclick="selectTagColor('#6366f1')" class="color-swatch w-5 h-5 rounded" style="background-color: #6366f1;" title="Indigo"></button>
+                                        <button type="button" onclick="selectTagColor('#8b5cf6')" class="color-swatch w-5 h-5 rounded" style="background-color: #8b5cf6;" title="Violet"></button>
+                                        <button type="button" onclick="selectTagColor('#a855f7')" class="color-swatch w-5 h-5 rounded" style="background-color: #a855f7;" title="Purple"></button>
+                                        <button type="button" onclick="selectTagColor('#d946ef')" class="color-swatch w-5 h-5 rounded" style="background-color: #d946ef;" title="Fuchsia"></button>
+                                        <button type="button" onclick="selectTagColor('#ec4899')" class="color-swatch w-5 h-5 rounded" style="background-color: #ec4899;" title="Pink"></button>
+                                        <button type="button" onclick="selectTagColor('#f43f5e')" class="color-swatch w-5 h-5 rounded" style="background-color: #f43f5e;" title="Rose"></button>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="text-xs font-medium text-gray-700 mb-2">Standard Colors</div>
+                                    <div class="grid grid-cols-8 gap-1">
+                                        <button type="button" onclick="selectTagColor('#991b1b')" class="color-swatch w-5 h-5 rounded" style="background-color: #991b1b;"></button>
+                                        <button type="button" onclick="selectTagColor('#9a3412')" class="color-swatch w-5 h-5 rounded" style="background-color: #9a3412;"></button>
+                                        <button type="button" onclick="selectTagColor('#92400e')" class="color-swatch w-5 h-5 rounded" style="background-color: #92400e;"></button>
+                                        <button type="button" onclick="selectTagColor('#854d0e')" class="color-swatch w-5 h-5 rounded" style="background-color: #854d0e;"></button>
+                                        <button type="button" onclick="selectTagColor('#3f6212')" class="color-swatch w-5 h-5 rounded" style="background-color: #3f6212;"></button>
+                                        <button type="button" onclick="selectTagColor('#166534')" class="color-swatch w-5 h-5 rounded" style="background-color: #166534;"></button>
+                                        <button type="button" onclick="selectTagColor('#115e59')" class="color-swatch w-5 h-5 rounded" style="background-color: #115e59;"></button>
+                                        <button type="button" onclick="selectTagColor('#155e75')" class="color-swatch w-5 h-5 rounded" style="background-color: #155e75;"></button>
+                                        <button type="button" onclick="selectTagColor('#075985')" class="color-swatch w-5 h-5 rounded" style="background-color: #075985;"></button>
+                                        <button type="button" onclick="selectTagColor('#1e40af')" class="color-swatch w-5 h-5 rounded" style="background-color: #1e40af;"></button>
+                                        <button type="button" onclick="selectTagColor('#3730a3')" class="color-swatch w-5 h-5 rounded" style="background-color: #3730a3;"></button>
+                                        <button type="button" onclick="selectTagColor('#5b21b6')" class="color-swatch w-5 h-5 rounded" style="background-color: #5b21b6;"></button>
+                                        <button type="button" onclick="selectTagColor('#6b21a8')" class="color-swatch w-5 h-5 rounded" style="background-color: #6b21a8;"></button>
+                                        <button type="button" onclick="selectTagColor('#86198f')" class="color-swatch w-5 h-5 rounded" style="background-color: #86198f;"></button>
+                                        <button type="button" onclick="selectTagColor('#9d174d')" class="color-swatch w-5 h-5 rounded" style="background-color: #9d174d;"></button>
+                                        <button type="button" onclick="selectTagColor('#6b7280')" class="color-swatch w-5 h-5 rounded" style="background-color: #6b7280;"></button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="text-xs font-medium text-gray-700 mb-2">Neutrals</div>
+                                    <div class="grid grid-cols-8 gap-1">
+                                        <button type="button" onclick="selectTagColor('#000000')" class="color-swatch w-5 h-5 rounded border border-gray-300" style="background-color: #000000;"></button>
+                                        <button type="button" onclick="selectTagColor('#374151')" class="color-swatch w-5 h-5 rounded" style="background-color: #374151;"></button>
+                                        <button type="button" onclick="selectTagColor('#4b5563')" class="color-swatch w-5 h-5 rounded" style="background-color: #4b5563;"></button>
+                                        <button type="button" onclick="selectTagColor('#6b7280')" class="color-swatch w-5 h-5 rounded" style="background-color: #6b7280;"></button>
+                                        <button type="button" onclick="selectTagColor('#9ca3af')" class="color-swatch w-5 h-5 rounded" style="background-color: #9ca3af;"></button>
+                                        <button type="button" onclick="selectTagColor('#d1d5db')" class="color-swatch w-5 h-5 rounded border border-gray-300" style="background-color: #d1d5db;"></button>
+                                        <button type="button" onclick="selectTagColor('#e5e7eb')" class="color-swatch w-5 h-5 rounded border border-gray-300" style="background-color: #e5e7eb;"></button>
+                                        <button type="button" onclick="selectTagColor('#f3f4f6')" class="color-swatch w-5 h-5 rounded border border-gray-300" style="background-color: #f3f4f6;"></button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {# Existing tags grid #}
+                        <div class="existing-tags-grid flex flex-wrap gap-1.5 max-h-40 overflow-y-auto ml-2">
+                            {# Populated via JS #}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% if task.tags|length == 0 %}
+                <p class="no-tags-msg text-sm text-gray-400 italic mt-2">No tags</p>
+            {% endif %}
+        </div>
+
         {# Details Grid #}
         <div class="mb-6 grid grid-cols-2 gap-4">
             {# Editable Start Date #}

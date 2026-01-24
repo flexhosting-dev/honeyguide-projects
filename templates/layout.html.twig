@@ -1156,6 +1156,292 @@
             Toastr.error('Failed to save new order');
         }
     });
+
+    // ===== TAG FUNCTIONS =====
+    let tagSearchTimeout = null;
+    let selectedTagColor = '#3b82f6'; // Default blue
+
+    // Search tags as user types
+    function searchTags(input, taskId) {
+        const query = input.value.trim();
+        const container = input.closest('.add-tag-container');
+        const dropdown = container.querySelector('.tag-dropdown');
+        const createSection = dropdown.querySelector('.create-tag-section');
+        const tagsGrid = dropdown.querySelector('.existing-tags-grid');
+        const newTagPreview = dropdown.querySelector('.new-tag-preview');
+
+        clearTimeout(tagSearchTimeout);
+
+        if (query.length < 1) {
+            dropdown.classList.add('hidden');
+            return;
+        }
+
+        dropdown.classList.remove('hidden');
+
+        tagSearchTimeout = setTimeout(async () => {
+            try {
+                const response = await fetch(`/tags/search?q=${encodeURIComponent(query)}&limit=50`, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+
+                if (!response.ok) throw new Error('Search failed');
+
+                const data = await response.json();
+                const tags = data.tags;
+
+                // Get current tags on the task
+                const currentTagIds = Array.from(document.querySelectorAll('.tags-container .tag-chip'))
+                    .map(chip => chip.dataset.tagId);
+
+                // Filter out already added tags
+                const availableTags = tags.filter(t => !currentTagIds.includes(t.id));
+
+                // Check if exact match exists
+                const exactMatch = tags.find(t => t.name.toLowerCase() === query.toLowerCase());
+
+                // Show/hide create section
+                if (!exactMatch && query.length > 0) {
+                    createSection.classList.remove('hidden');
+                    newTagPreview.textContent = query;
+                    newTagPreview.style.backgroundColor = selectedTagColor;
+                    newTagPreview.style.setProperty('--tag-color', selectedTagColor);
+                } else {
+                    createSection.classList.add('hidden');
+                }
+
+                // Build tags grid
+                if (availableTags.length > 0) {
+                    tagsGrid.innerHTML = availableTags.map(tag => `
+                        <button type="button"
+                                onclick="addExistingTag('${taskId}', '${tag.id}', '${escapeHtml(tag.name)}', '${tag.color}')"
+                                class="tag-chip inline-flex items-center text-xs font-medium text-white pl-2 pr-2 py-0.5 hover:opacity-80 transition-opacity"
+                                style="background-color: ${tag.color}; --tag-color: ${tag.color};">
+                            ${escapeHtml(tag.name)}
+                        </button>
+                    `).join('');
+                } else if (exactMatch) {
+                    tagsGrid.innerHTML = '<p class="text-sm text-gray-400 italic py-2">Tag already added to task</p>';
+                } else {
+                    tagsGrid.innerHTML = '';
+                }
+            } catch (error) {
+                console.error('Error searching tags:', error);
+            }
+        }, 150);
+    }
+
+    // Handle Enter key in tag input
+    function handleTagKeydown(event, input, taskId) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            const query = input.value.trim();
+            if (query.length > 0) {
+                createTagWithColor(taskId);
+            }
+        } else if (event.key === 'Escape') {
+            const container = input.closest('.add-tag-container');
+            const dropdown = container.querySelector('.tag-dropdown');
+            dropdown.classList.add('hidden');
+            closeColorPicker();
+            input.value = '';
+        }
+    }
+
+    // Open color picker
+    function openColorPicker(btn) {
+        const popup = btn.closest('.create-tag-section').querySelector('.color-picker-popup');
+        popup.classList.toggle('hidden');
+    }
+
+    // Close color picker
+    function closeColorPicker() {
+        const popups = document.querySelectorAll('.color-picker-popup');
+        popups.forEach(p => p.classList.add('hidden'));
+    }
+
+    // Select tag color
+    function selectTagColor(color) {
+        selectedTagColor = color;
+        const preview = document.querySelector('.new-tag-preview');
+        if (preview) {
+            preview.style.backgroundColor = color;
+            preview.style.setProperty('--tag-color', color);
+        }
+        closeColorPicker();
+    }
+
+    // Add an existing tag to the task
+    async function addExistingTag(taskId, tagId, tagName, tagColor) {
+        console.log('addExistingTag called', { taskId, tagId, tagName, tagColor });
+
+        const container = document.querySelector('.tags-container');
+        const dropdown = container.querySelector('.tag-dropdown');
+        const input = container.querySelector('.tag-search-input');
+
+        dropdown.classList.add('hidden');
+        input.value = '';
+
+        try {
+            console.log('Sending POST to', `/tasks/${taskId}/tags`);
+            const response = await fetch(`/tasks/${taskId}/tags`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ name: tagName })
+            });
+
+            console.log('Response status:', response.status);
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error('Error response:', errorData);
+                throw new Error(errorData.error || 'Failed to add tag');
+            }
+
+            const data = await response.json();
+            console.log('Success response:', data);
+            addTagChipToUI(data.tag);
+            Toastr.success('Tag added');
+        } catch (error) {
+            console.error('Error adding tag:', error);
+            Toastr.error('Failed to add tag');
+        }
+    }
+
+    // Create a new tag with selected color and add it to the task
+    async function createTagWithColor(taskId) {
+        const container = document.querySelector('.tags-container');
+        const dropdown = container.querySelector('.tag-dropdown');
+        const input = container.querySelector('.tag-search-input');
+        const tagName = input.value.trim();
+
+        console.log('createTagWithColor called', { taskId, tagName, selectedTagColor });
+
+        if (!tagName) {
+            console.log('Empty tag name, returning');
+            return;
+        }
+
+        dropdown.classList.add('hidden');
+        const savedTagName = tagName; // Save before clearing input
+        input.value = '';
+
+        // Check if tag already exists on task
+        const existingChips = container.querySelectorAll('.tags-list > .tag-chip');
+        for (const chip of existingChips) {
+            if (chip.textContent.trim().toLowerCase() === savedTagName.toLowerCase()) {
+                Toastr.info('Tag already added');
+                return;
+            }
+        }
+
+        try {
+            console.log('Sending POST to', `/tasks/${taskId}/tags`);
+            const response = await fetch(`/tasks/${taskId}/tags`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ name: savedTagName, color: selectedTagColor })
+            });
+
+            console.log('Response status:', response.status);
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error('Error response:', errorData);
+                throw new Error(errorData.error || 'Failed to create tag');
+            }
+
+            const data = await response.json();
+            console.log('Success response:', data);
+            addTagChipToUI(data.tag);
+            Toastr.success('Tag created');
+
+            // Reset color to default for next tag
+            selectedTagColor = '#3b82f6';
+        } catch (error) {
+            console.error('Error creating tag:', error);
+            Toastr.error(error.message || 'Failed to add tag');
+        }
+    }
+
+    // Add tag chip to the UI
+    function addTagChipToUI(tag) {
+        const container = document.querySelector('.tags-container');
+        const tagsList = container.querySelector('.tags-list');
+        const taskId = container.dataset.taskId;
+
+        // Remove "No tags" message
+        const noMsg = container.parentElement.querySelector('.no-tags-msg');
+        if (noMsg) noMsg.remove();
+
+        const chip = document.createElement('span');
+        chip.className = 'tag-chip group relative inline-flex items-center text-xs font-medium text-white pl-2 pr-5 py-0.5';
+        chip.style.backgroundColor = tag.color;
+        chip.style.setProperty('--tag-color', tag.color);
+        chip.dataset.tagId = tag.id;
+        chip.innerHTML = `
+            ${escapeHtml(tag.name)}
+            <button type="button"
+                    onclick="removeTag('${taskId}', '${tag.id}', this)"
+                    class="absolute right-0.5 top-1/2 -translate-y-1/2 h-4 w-4 items-center justify-center rounded-full hover:bg-black/20 hidden group-hover:inline-flex">
+                <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        `;
+        tagsList.appendChild(chip);
+    }
+
+    // Remove tag from task
+    async function removeTag(taskId, tagId, btn) {
+        const chip = btn.closest('.tag-chip');
+        chip.style.opacity = '0.5';
+
+        try {
+            const response = await fetch(`/tasks/${taskId}/tags/${tagId}`, {
+                method: 'DELETE',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+
+            if (!response.ok) throw new Error('Failed to remove tag');
+
+            chip.remove();
+
+            // Show "No tags" if empty
+            const container = document.querySelector('.tags-container');
+            const chips = container.querySelectorAll('.tag-chip');
+            if (chips.length === 0) {
+                const noMsg = document.createElement('p');
+                noMsg.className = 'no-tags-msg text-sm text-gray-400 italic mt-2';
+                noMsg.textContent = 'No tags';
+                container.parentElement.appendChild(noMsg);
+            }
+
+            Toastr.success('Tag removed');
+        } catch (error) {
+            console.error('Error removing tag:', error);
+            chip.style.opacity = '1';
+            Toastr.error('Failed to remove tag');
+        }
+    }
+
+    // Close tag dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.add-tag-container')) {
+            const dropdowns = document.querySelectorAll('.tag-dropdown');
+            dropdowns.forEach(d => d.classList.add('hidden'));
+            closeColorPicker();
+        }
+        if (!e.target.closest('.color-picker-popup') && !e.target.closest('.color-picker-btn')) {
+            closeColorPicker();
+        }
+    });
     </script>
 </div>
 {% endblock %}
