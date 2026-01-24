@@ -154,10 +154,10 @@
             {% endif %}
         </div>
 
-        {# Tags #}
+        {# Tags (Vue Component) #}
         <div class="mb-6">
             <h3 class="text-sm font-medium text-gray-900 mb-2">Tags</h3>
-            {% include 'task/_tags.html.twig' with {task: task} %}
+            {% include 'task/_tags_vue.html.twig' with {task: task} %}
         </div>
 
         {# Details Grid #}
@@ -250,69 +250,24 @@
                 <button type="button"
                         class="tab-btn px-4 py-2 text-sm font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-900 hover:border-gray-300 -mb-px"
                         data-tab="activity"
-                        onclick="switchTab('activity', this); loadActivityTab('{{ task.id }}');">
+                        onclick="switchTab('activity', this); triggerVueActivityLoad();">
                     Activity
                 </button>
             </div>
 
-            {# Checklist Tab Content #}
+            {# Checklist Tab Content (Vue Component) #}
             <div class="tab-content" id="tab-checklist">
-                {% include 'task/_checklist.html.twig' with {task: task} %}
+                {% include 'task/_checklist_vue.html.twig' with {task: task} %}
             </div>
 
-            {# Comments Tab Content #}
+            {# Comments Tab Content (Vue Component) #}
             <div class="tab-content hidden" id="tab-comments">
-                {# Add Comment Form #}
-                <div class="add-comment-form mb-4">
-                    <div class="flex gap-3">
-                        <div class="flex-shrink-0">
-                            <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary-100">
-                                <span class="text-sm font-medium text-primary-700">
-                                    {{ app.user.firstName|slice(0, 1)|upper }}
-                                </span>
-                            </span>
-                        </div>
-                        <div class="flex-1">
-                            <textarea class="comment-textarea w-full text-sm border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
-                                      rows="2"
-                                      placeholder="Add a comment..."
-                                      data-task-id="{{ task.id }}"></textarea>
-                            <div class="flex justify-end mt-2">
-                                <button type="button"
-                                        onclick="addComment('{{ task.id }}', this)"
-                                        class="add-comment-btn px-3 py-1.5 text-sm bg-primary-600 text-white rounded-md hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        disabled>
-                                    Post Comment
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {# Comments List #}
-                <div class="comments-list space-y-4">
-                    {% for comment in task.comments %}
-                        <div class="comment-item bg-gray-50 rounded-lg p-3" data-comment-id="{{ comment.id }}">
-                            <div class="flex items-center mb-2">
-                                <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary-100 mr-2">
-                                    <span class="text-xs font-medium text-primary-700">
-                                        {{ comment.author.firstName|slice(0, 1)|upper }}
-                                    </span>
-                                </span>
-                                <span class="text-sm font-medium text-gray-900">{{ comment.author.fullName }}</span>
-                                <span class="ml-auto text-xs text-gray-500">{{ comment.createdAt|date('M d, H:i') }}</span>
-                            </div>
-                            <p class="text-sm text-gray-600 whitespace-pre-wrap">{{ comment.content }}</p>
-                        </div>
-                    {% else %}
-                        <p class="no-comments-msg text-sm text-gray-400 italic">No comments yet</p>
-                    {% endfor %}
-                </div>
+                {% include 'task/_comments_vue.html.twig' with {task: task} %}
             </div>
 
-            {# Activity Tab Content #}
+            {# Activity Tab Content (Vue Component) #}
             <div class="tab-content hidden" id="tab-activity">
-                {% include 'task/_activity.html.twig' with {task: task} %}
+                {% include 'task/_activity_vue.html.twig' with {task: task, autoLoad: false} %}
             </div>
         </div>
     </div>

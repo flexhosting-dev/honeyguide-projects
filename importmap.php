@@ -55,4 +55,7 @@ return [
     'vue/components/CommentsEditor' => [
         'path' => './assets/vue/components/CommentsEditor.js',
     ],
+    'vue/components/TaskCard' => [
+        'path' => './assets/vue/components/TaskCard.js',
+    ],
 ];

@@ -154,6 +154,10 @@
         })
         .then(html => {
             content.innerHTML = html;
+            // Trigger Vue component mounting for dynamically loaded content
+            if (typeof mountVueComponents === 'function') {
+                mountVueComponents();
+            }
         })
         .catch(error => {
             console.error('Error loading task:', error);

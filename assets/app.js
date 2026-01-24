@@ -8,19 +8,24 @@ import TagsEditor from 'vue/components/TagsEditor';
 import ChecklistEditor from 'vue/components/ChecklistEditor';
 import ActivityLog from 'vue/components/ActivityLog';
 import CommentsEditor from 'vue/components/CommentsEditor';
+import TaskCard from 'vue/components/TaskCard';
 
 // Register Vue components
 const vueComponents = {
     TagsEditor,
     ChecklistEditor,
     ActivityLog,
-    CommentsEditor
+    CommentsEditor,
+    TaskCard
 };
 
 // Mount Vue components on page load and after Turbo navigations
 function mountVueComponents() {
     autoMountVueComponents(vueComponents);
 }
+
+// Make globally accessible for AJAX-loaded content (e.g., task panel)
+window.mountVueComponents = mountVueComponents;
 
 // Initial mount
 document.addEventListener('DOMContentLoaded', mountVueComponents);
