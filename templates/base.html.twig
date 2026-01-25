@@ -117,7 +117,7 @@
         .tag-chip::before {
             content: '';
             position: absolute;
-            left: -10px;
+            left: -9px;
             top: 0;
             width: 0;
             height: 0;
@@ -315,7 +315,7 @@
 
     {# Toastr JavaScript #}
     <script>
-    const Toastr = {
+    window.Toastr = window.Toastr || {
         container: null,
         defaults: {
             duration: 4000,
@@ -404,8 +404,12 @@
         }
     };
 
-    // Initialize on DOM ready
-    document.addEventListener('DOMContentLoaded', () => Toastr.init());
+    // Initialize on DOM ready and after Turbo navigations
+    if (!window._toastrInitialized) {
+        window._toastrInitialized = true;
+        document.addEventListener('DOMContentLoaded', () => Toastr.init());
+        document.addEventListener('turbo:load', () => Toastr.init());
+    }
     </script>
 
     {% block javascripts %}{% endblock %}

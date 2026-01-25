@@ -111,7 +111,7 @@
 
     <script>
     // Base path for all API calls (handles proxy prefix)
-    const BASE_PATH = '{{ app.request.basePath }}';
+    window.BASE_PATH = '{{ app.request.basePath }}';
 
     function openTaskPanel(taskId, updateUrl = true) {
         const panel = document.getElementById('task-panel');
@@ -1099,7 +1099,7 @@
     }
 
     // ===== CHECKLIST DRAG AND DROP =====
-    let draggedChecklistItem = null;
+    window.draggedChecklistItem = null;
 
     document.addEventListener('mousedown', function(e) {
         // Only allow drag to start from the handle
@@ -1196,8 +1196,8 @@
     });
 
     // ===== TAG FUNCTIONS =====
-    let tagSearchTimeout = null;
-    let selectedTagColor = '#3b82f6'; // Default blue
+    window.tagSearchTimeout = null;
+    window.selectedTagColor = '#3b82f6'; // Default blue
 
     // Search tags as user types
     function searchTags(input, taskId) {
@@ -1343,9 +1343,11 @@
             console.log('Success response:', data);
             addTagChipToUI(data.tag);
             Toastr.success('Tag added');
+            input.focus();
         } catch (error) {
             console.error('Error adding tag:', error);
             Toastr.error('Failed to add tag');
+            input.focus();
         }
     }
 
@@ -1372,6 +1374,7 @@
         for (const chip of existingChips) {
             if (chip.textContent.trim().toLowerCase() === savedTagName.toLowerCase()) {
                 Toastr.info('Tag already added');
+                input.focus();
                 return;
             }
         }
@@ -1399,12 +1402,14 @@
             console.log('Success response:', data);
             addTagChipToUI(data.tag);
             Toastr.success('Tag created');
+            input.focus();
 
             // Reset color to default for next tag
             selectedTagColor = '#3b82f6';
         } catch (error) {
             console.error('Error creating tag:', error);
             Toastr.error(error.message || 'Failed to add tag');
+            input.focus();
         }
     }
 

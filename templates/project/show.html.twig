@@ -245,13 +245,13 @@
 </div>
 
 <script>
-const PROJECT_ID = '{{ project.id }}';
-const STORAGE_KEY_TAB = `project_${PROJECT_ID}_tab`;
-const STORAGE_KEY_VIEW = `project_${PROJECT_ID}_view`;
-const STORAGE_KEY_LAST_PROJECT = 'zoho_last_project';
+window.PROJECT_ID = '{{ project.id }}';
+window.STORAGE_KEY_TAB = `project_${PROJECT_ID}_tab`;
+window.STORAGE_KEY_VIEW = `project_${PROJECT_ID}_view`;
+window.STORAGE_KEY_LAST_PROJECT = 'zoho_last_project';
 
 // Feed lazy loading state
-const feedState = {
+window.feedState = {
     loaded: false,
     loading: false,
     page: 1,
