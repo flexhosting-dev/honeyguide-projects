@@ -7,11 +7,13 @@ use App\Entity\ProjectMember;
 use App\Entity\User;
 use App\Enum\ProjectRole;
 use App\Form\ProjectFormType;
+use App\Repository\ActivityRepository;
 use App\Repository\ProjectRepository;
 use App\Repository\TaskRepository;
 use App\Service\ActivityService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -23,6 +25,7 @@ class ProjectController extends AbstractController
     public function __construct(
         private readonly ProjectRepository $projectRepository,
         private readonly TaskRepository $taskRepository,
+        private readonly ActivityRepository $activityRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly ActivityService $activityService,
     ) {
@@ -140,5 +143,45 @@ class ProjectController extends AbstractController
         }
 
         return $this->redirectToRoute('app_project_index');
+    }
+
+    #[Route('/{id}/feed', name: 'app_project_feed', methods: ['GET'])]
+    #[IsGranted('PROJECT_VIEW', subject: 'project')]
+    public function feed(Request $request, Project $project): JsonResponse
+    {
+        $page = max(1, $request->query->getInt('page', 1));
+        $limit = min(50, max(1, $request->query->getInt('limit', 20)));
+        $offset = ($page - 1) * $limit;
+
+        $activities = $this->activityRepository->findBy(
+            ['project' => $project],
+            ['createdAt' => 'DESC'],
+            $limit + 1, // Fetch one extra to check if there are more
+            $offset
+        );
+
+        $hasMore = count($activities) > $limit;
+        if ($hasMore) {
+            array_pop($activities); // Remove the extra item
+        }
+
+        $data = array_map(fn($activity) => [
+            'id' => $activity->getId(),
+            'description' => $activity->getDescription(),
+            'createdAt' => $activity->getCreatedAt()->format('M d, H:i'),
+            'user' => [
+                'initials' => strtoupper(
+                    substr($activity->getUser()->getFirstName(), 0, 1) .
+                    substr($activity->getUser()->getLastName(), 0, 1)
+                ),
+                'name' => $activity->getUser()->getFirstName() . ' ' . $activity->getUser()->getLastName(),
+            ],
+        ], $activities);
+
+        return $this->json([
+            'activities' => $data,
+            'hasMore' => $hasMore,
+            'page' => $page,
+        ]);
     }
 }

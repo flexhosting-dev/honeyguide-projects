@@ -56,7 +56,7 @@
 
     {# Tabs #}
     <div id="project-tabs">
-        {# Main Navigation Tabs - Order: Milestones, Tasks, Members, Activity #}
+        {# Main Navigation Tabs - Order: Milestones, Tasks, Members, Feed #}
         <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-soft border border-gray-200/50 p-1.5 inline-flex space-x-1">
             {# Milestones Tab - grid icon #}
             <button type="button" onclick="showTab(0)" id="tab-0"
@@ -74,22 +74,48 @@
                 </svg>
                 Tasks
             </button>
-            {# Members Tab #}
+            {# Members Tab - hidden on mobile, shown in "More" menu #}
             <button type="button" onclick="showTab(2)" id="tab-2"
-                    class="tab-btn inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 border border-transparent">
+                    class="tab-btn hidden md:inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 border border-transparent">
                 <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
                 </svg>
                 Members
             </button>
-            {# Activity Tab - pulse/chart icon #}
+            {# Feed Tab - hidden on mobile, shown in "More" menu #}
             <button type="button" onclick="showTab(3)" id="tab-3"
-                    class="tab-btn inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 border border-transparent">
+                    class="tab-btn hidden md:inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 border border-transparent">
                 <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5m.75-9 3-3 2.148 2.148A12.061 12.061 0 0 1 16.5 7.605" />
                 </svg>
-                Activity
+                Feed
             </button>
+
+            {# "More" dropdown - shown only on mobile #}
+            <div class="relative md:hidden">
+                <button type="button" onclick="toggleMoreMenu()" id="more-menu-btn"
+                        class="more-tab-btn inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 border border-transparent">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM12.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM18.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+                    </svg>
+                </button>
+                <div id="more-menu-dropdown" class="hidden absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 z-50 py-1">
+                    <button type="button" onclick="showTabFromMore(2)"
+                            class="more-menu-item w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" data-tab="2">
+                        <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
+                        </svg>
+                        Members
+                    </button>
+                    <button type="button" onclick="showTabFromMore(3)"
+                            class="more-menu-item w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" data-tab="3">
+                        <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5m.75-9 3-3 2.148 2.148A12.061 12.061 0 0 1 16.5 7.605" />
+                        </svg>
+                        Feed
+                    </button>
+                </div>
+            </div>
         </div>
 
         {# Milestones Panel (First) #}
@@ -150,48 +176,60 @@
             {% include 'member/_list.html.twig' with {project: project, members: project.members} %}
         </div>
 
-        {# Activity Panel (Fourth) #}
+        {# Feed Panel (Fourth) - Lazy loaded #}
         <div id="panel-3" class="tab-panel hidden pt-4">
             <div class="bg-white/80 backdrop-blur-sm shadow-soft rounded-xl">
                 <div class="px-4 py-5 sm:p-6">
-                    {% if project.activities|length > 0 %}
+                    {# Loading state #}
+                    <div id="feed-loading" class="flex justify-center py-8">
+                        <svg class="animate-spin h-8 w-8 text-primary-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
+
+                    {# Feed content container #}
+                    <div id="feed-content" class="hidden">
                         <div class="flow-root">
-                            <ul role="list" class="-mb-8">
-                                {% for activity in project.activities|slice(0, 20) %}
-                                    <li>
-                                        <div class="relative pb-8">
-                                            {% if not loop.last %}
-                                                <span class="absolute left-4 top-4 -ml-px h-full w-0.5 bg-gradient-to-b from-green-200 to-blue-200" aria-hidden="true"></span>
-                                            {% endif %}
-                                            <div class="relative flex space-x-3">
-                                                <div>
-                                                    <span class="h-8 w-8 rounded-full bg-gradient-to-br from-green-100 to-blue-100 flex items-center justify-center ring-4 ring-white">
-                                                        <span class="text-xs font-medium text-gray-700">
-                                                            {{ activity.user.firstName|slice(0, 1)|upper }}{{ activity.user.lastName|slice(0, 1)|upper }}
-                                                        </span>
-                                                    </span>
-                                                </div>
-                                                <div class="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
-                                                    <div>
-                                                        <p class="text-sm text-gray-600">{{ activity.description }}</p>
-                                                    </div>
-                                                    <div class="whitespace-nowrap text-right text-xs text-gray-400">
-                                                        <time>{{ activity.createdAt|date('M d, H:i') }}</time>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </li>
-                                {% endfor %}
+                            <ul id="feed-list" role="list" class="-mb-8">
+                                {# Feed items loaded via JS #}
                             </ul>
                         </div>
-                    {% else %}
+
+                        {# Load more indicator #}
+                        <div id="feed-load-more" class="hidden flex justify-center py-4 mt-4">
+                            <svg class="animate-spin h-6 w-6 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </div>
+
+                        {# End of feed message #}
+                        <div id="feed-end" class="hidden mt-6">
+                            <div class="relative">
+                                <div class="absolute inset-0 flex items-center" aria-hidden="true">
+                                    <div class="w-full border-t border-gray-200"></div>
+                                </div>
+                                <div class="relative flex justify-center">
+                                    <span class="bg-white px-3 flex items-center gap-2 text-sm text-gray-400">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                        </svg>
+                                        You're all caught up
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Empty state #}
+                    <div id="feed-empty" class="hidden">
                         {% include 'components/_empty_state.html.twig' with {
                             icon: 'comment',
                             title: 'No activity yet',
-                            description: 'Activity will appear here as team members work on this project.'
+                            description: 'Feed will appear here as team members work on this project.'
                         } %}
-                    {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
@@ -204,6 +242,14 @@ const STORAGE_KEY_TAB = `project_${PROJECT_ID}_tab`;
 const STORAGE_KEY_VIEW = `project_${PROJECT_ID}_view`;
 const STORAGE_KEY_LAST_PROJECT = 'zoho_last_project';
 
+// Feed lazy loading state
+const feedState = {
+    loaded: false,
+    loading: false,
+    page: 1,
+    hasMore: true
+};
+
 function showTab(index, save = true) {
     // Update tab buttons
     document.querySelectorAll('.tab-btn').forEach((btn, i) => {
@@ -213,6 +259,31 @@ function showTab(index, save = true) {
         } else {
             btn.classList.remove('border-primary-500', 'text-primary-600', 'bg-primary-50', 'border');
             btn.classList.add('text-gray-600', 'hover:bg-gray-50', 'border-transparent');
+        }
+    });
+
+    // Update "More" button styling (highlight if a hidden tab is active)
+    const moreBtn = document.querySelector('.more-tab-btn');
+    if (moreBtn) {
+        const isMoreTabActive = index >= 2; // Members (2) and Feed (3) are in "More" menu
+        if (isMoreTabActive) {
+            moreBtn.classList.remove('text-gray-600', 'hover:bg-gray-50', 'border-transparent');
+            moreBtn.classList.add('border-primary-500', 'text-primary-600', 'bg-primary-50', 'border');
+        } else {
+            moreBtn.classList.remove('border-primary-500', 'text-primary-600', 'bg-primary-50', 'border');
+            moreBtn.classList.add('text-gray-600', 'hover:bg-gray-50', 'border-transparent');
+        }
+    }
+
+    // Update "More" menu items
+    document.querySelectorAll('.more-menu-item').forEach(item => {
+        const tabIndex = parseInt(item.dataset.tab);
+        if (tabIndex === index) {
+            item.classList.add('bg-primary-50', 'text-primary-600');
+            item.classList.remove('text-gray-700');
+        } else {
+            item.classList.remove('bg-primary-50', 'text-primary-600');
+            item.classList.add('text-gray-700');
         }
     });
 
@@ -229,7 +300,31 @@ function showTab(index, save = true) {
     if (save) {
         localStorage.setItem(STORAGE_KEY_TAB, index);
     }
+
+    // Lazy load feed when Feed tab is opened
+    if (index === 3 && !feedState.loaded && !feedState.loading) {
+        loadFeed();
+    }
 }
+
+function toggleMoreMenu() {
+    const dropdown = document.getElementById('more-menu-dropdown');
+    dropdown.classList.toggle('hidden');
+}
+
+function showTabFromMore(index) {
+    showTab(index);
+    document.getElementById('more-menu-dropdown').classList.add('hidden');
+}
+
+// Close "More" menu when clicking outside
+document.addEventListener('click', function(e) {
+    const moreBtn = document.getElementById('more-menu-btn');
+    const dropdown = document.getElementById('more-menu-dropdown');
+    if (moreBtn && dropdown && !moreBtn.contains(e.target) && !dropdown.contains(e.target)) {
+        dropdown.classList.add('hidden');
+    }
+});
 
 function showView(index, save = true) {
     // Update view buttons
@@ -258,6 +353,112 @@ function showView(index, save = true) {
     }
 }
 
+// Feed lazy loading and infinite scroll
+async function loadFeed(append = false) {
+    if (feedState.loading || (!append && feedState.loaded) || (append && !feedState.hasMore)) {
+        return;
+    }
+
+    feedState.loading = true;
+
+    const loadingEl = document.getElementById('feed-loading');
+    const loadMoreEl = document.getElementById('feed-load-more');
+    const contentEl = document.getElementById('feed-content');
+    const emptyEl = document.getElementById('feed-empty');
+    const listEl = document.getElementById('feed-list');
+    const endEl = document.getElementById('feed-end');
+
+    if (append) {
+        loadMoreEl.classList.remove('hidden');
+    }
+
+    try {
+        const response = await fetch(`${BASE_PATH}/projects/${PROJECT_ID}/feed?page=${feedState.page}&limit=20`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+
+        if (!response.ok) throw new Error('Failed to load feed');
+
+        const data = await response.json();
+
+        if (!append) {
+            loadingEl.classList.add('hidden');
+
+            if (data.activities.length === 0) {
+                emptyEl.classList.remove('hidden');
+                feedState.loaded = true;
+                feedState.loading = false;
+                return;
+            }
+
+            contentEl.classList.remove('hidden');
+        }
+
+        // Render activities
+        data.activities.forEach((activity, index) => {
+            const isLast = !data.hasMore && index === data.activities.length - 1;
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <div class="relative pb-8">
+                    ${!isLast ? '<span class="absolute left-4 top-4 -ml-px h-full w-0.5 bg-gradient-to-b from-green-200 to-blue-200" aria-hidden="true"></span>' : ''}
+                    <div class="relative flex space-x-3">
+                        <div>
+                            <span class="h-8 w-8 rounded-full bg-gradient-to-br from-green-100 to-blue-100 flex items-center justify-center ring-4 ring-white">
+                                <span class="text-xs font-medium text-gray-700">${activity.user.initials}</span>
+                            </span>
+                        </div>
+                        <div class="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
+                            <div>
+                                <p class="text-sm text-gray-600">${activity.description}</p>
+                            </div>
+                            <div class="whitespace-nowrap text-right text-xs text-gray-400">
+                                <time>${activity.createdAt}</time>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            listEl.appendChild(li);
+        });
+
+        feedState.hasMore = data.hasMore;
+        feedState.page++;
+        feedState.loaded = true;
+
+        if (!data.hasMore) {
+            endEl.classList.remove('hidden');
+        }
+
+    } catch (error) {
+        console.error('Error loading feed:', error);
+        if (!append) {
+            loadingEl.innerHTML = '<p class="text-red-500">Failed to load feed</p>';
+        }
+    } finally {
+        feedState.loading = false;
+        loadMoreEl.classList.add('hidden');
+    }
+}
+
+// Infinite scroll for feed
+function setupFeedScroll() {
+    const panel = document.getElementById('panel-3');
+    const contentEl = document.getElementById('feed-content');
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting && feedState.loaded && feedState.hasMore && !feedState.loading) {
+                loadFeed(true);
+            }
+        });
+    }, { rootMargin: '100px' });
+
+    const loadMoreEl = document.getElementById('feed-load-more');
+    if (loadMoreEl) {
+        observer.observe(loadMoreEl);
+    }
+}
+
 // Restore state on page load
 document.addEventListener('DOMContentLoaded', function() {
     // Save this as last visited project
@@ -274,6 +475,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (savedView !== null) {
         showView(parseInt(savedView), false);
     }
+
+    // Setup feed infinite scroll
+    setupFeedScroll();
 });
 </script>
 {% endblock %}

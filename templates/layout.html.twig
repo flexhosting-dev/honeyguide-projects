@@ -310,6 +310,11 @@
 
             closeAllDropdowns();
             Toastr.success('Status updated');
+
+            // Notify other components (e.g., KanbanBoard)
+            document.dispatchEvent(new CustomEvent('task-updated', {
+                detail: { taskId, field: 'status', value: status, label: statusLabels[status] }
+            }));
         } catch (error) {
             console.error('Error updating status:', error);
             Toastr.error('Failed to update status');
@@ -351,6 +356,11 @@
 
             closeAllDropdowns();
             Toastr.success('Priority updated');
+
+            // Notify other components (e.g., KanbanBoard)
+            document.dispatchEvent(new CustomEvent('task-updated', {
+                detail: { taskId, field: 'priority', value: priority, label: priorityLabels[priority] }
+            }));
         } catch (error) {
             console.error('Error updating priority:', error);
             Toastr.error('Failed to update priority');
@@ -377,6 +387,11 @@
 
             closeAllDropdowns();
             Toastr.success('Milestone updated');
+
+            // Notify other components (e.g., KanbanBoard)
+            document.dispatchEvent(new CustomEvent('task-updated', {
+                detail: { taskId, field: 'milestone', value: milestoneId, label: milestoneName }
+            }));
         } catch (error) {
             console.error('Error updating milestone:', error);
             Toastr.error('Failed to update milestone');
@@ -466,6 +481,14 @@
             }
 
             Toastr.success('Due date updated');
+
+            // Notify other components (e.g., KanbanBoard)
+            const taskId = endpoint.match(/\/tasks\/(\d+)\//)?.[1];
+            if (taskId) {
+                document.dispatchEvent(new CustomEvent('task-updated', {
+                    detail: { taskId, field: 'dueDate', value: value || null }
+                }));
+            }
         } catch (error) {
             console.error('Error updating due date:', error);
             Toastr.error(error.message || 'Failed to update due date');
@@ -500,6 +523,14 @@
 
                 e.target.dataset.original = newValue;
                 Toastr.success('Title updated');
+
+                // Notify other components (e.g., KanbanBoard)
+                const taskId = endpoint.match(/\/tasks\/(\d+)\//)?.[1];
+                if (taskId) {
+                    document.dispatchEvent(new CustomEvent('task-updated', {
+                        detail: { taskId, field: 'title', value: newValue }
+                    }));
+                }
             } catch (error) {
                 console.error('Error updating title:', error);
                 e.target.textContent = original;

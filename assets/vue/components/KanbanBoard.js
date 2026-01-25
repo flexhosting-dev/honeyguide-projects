@@ -380,13 +380,52 @@ export default {
             }
         };
 
+        // Handle task updates from external sources (e.g., task panel)
+        const handleTaskUpdate = (e) => {
+            const { taskId, field, value, label } = e.detail;
+            const taskIndex = tasks.value.findIndex(t => t.id === taskId || t.id === parseInt(taskId));
+            if (taskIndex === -1) return;
+
+            const task = tasks.value[taskIndex];
+
+            if (field === 'status') {
+                if (typeof task.status === 'object') {
+                    task.status.value = value;
+                    task.status.label = label;
+                } else {
+                    tasks.value[taskIndex].status = { value, label };
+                }
+            } else if (field === 'priority') {
+                if (typeof task.priority === 'object') {
+                    task.priority.value = value;
+                    task.priority.label = label;
+                } else {
+                    tasks.value[taskIndex].priority = { value, label };
+                }
+            } else if (field === 'milestone') {
+                tasks.value[taskIndex].milestoneId = value;
+                if (task.milestone) {
+                    task.milestone.id = value;
+                    task.milestone.name = label;
+                } else {
+                    tasks.value[taskIndex].milestone = { id: value, name: label };
+                }
+            } else if (field === 'title') {
+                tasks.value[taskIndex].title = value;
+            } else if (field === 'dueDate') {
+                tasks.value[taskIndex].dueDate = value;
+            }
+        };
+
         onMounted(() => {
             loadSavedState();
             window.addEventListener('popstate', handlePopState);
+            document.addEventListener('task-updated', handleTaskUpdate);
         });
 
         onUnmounted(() => {
             window.removeEventListener('popstate', handlePopState);
+            document.removeEventListener('task-updated', handleTaskUpdate);
         });
 
         return {

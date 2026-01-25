@@ -107,9 +107,12 @@
         /* Price tag shape for tags */
         .tag-chip {
             position: relative;
-            border-radius: 2px 4px 4px 2px;
+            border-radius: 0 4px 4px 0;
             margin-left: 10px;
-            line-height: 1.4;
+            line-height: 1;
+            height: 20px;
+            display: inline-flex;
+            align-items: center;
         }
         .tag-chip::before {
             content: '';
@@ -125,7 +128,7 @@
         .tag-chip::after {
             content: '';
             position: absolute;
-            left: 0;
+            left: -1px;
             top: 50%;
             transform: translateY(-50%);
             width: 4px;
