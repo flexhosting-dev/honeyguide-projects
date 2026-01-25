@@ -1,12 +1,7 @@
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
-import TaskCard from 'vue/components/TaskCard';
+import { ref, computed, onMounted, onUnmounted, nextTick, defineAsyncComponent } from 'vue';
 
 export default {
     name: 'KanbanBoard',
-
-    components: {
-        TaskCard
-    },
 
     props: {
         projectId: {
@@ -28,7 +23,7 @@ export default {
     },
 
     setup(props) {
-        const tasks = ref([...props.initialTasks]);
+        const tasks = ref(Array.isArray(props.initialTasks) ? [...props.initialTasks] : []);
         const currentMode = ref('status');
         const collapsedColumns = ref({});
         const draggedTask = ref(null);
@@ -263,22 +258,31 @@ export default {
             const taskIndex = tasks.value.findIndex(t => t.id === task.id);
             if (taskIndex === -1) return;
 
+            // Find the column config to get the label for the new value
+            const column = columns.value.find(c => c.value === newValue);
+            const newLabel = column?.label || newValue;
+
             if (currentMode.value === 'status') {
                 if (typeof tasks.value[taskIndex].status === 'object') {
                     tasks.value[taskIndex].status.value = newValue;
+                    tasks.value[taskIndex].status.label = newLabel;
                 } else {
-                    tasks.value[taskIndex].status = newValue;
+                    tasks.value[taskIndex].status = { value: newValue, label: newLabel };
                 }
             } else if (currentMode.value === 'priority') {
                 if (typeof tasks.value[taskIndex].priority === 'object') {
                     tasks.value[taskIndex].priority.value = newValue;
+                    tasks.value[taskIndex].priority.label = newLabel;
                 } else {
-                    tasks.value[taskIndex].priority = newValue;
+                    tasks.value[taskIndex].priority = { value: newValue, label: newLabel };
                 }
             } else if (currentMode.value === 'milestone') {
                 tasks.value[taskIndex].milestoneId = newValue;
                 if (tasks.value[taskIndex].milestone) {
                     tasks.value[taskIndex].milestone.id = newValue;
+                    tasks.value[taskIndex].milestone.name = newLabel;
+                } else {
+                    tasks.value[taskIndex].milestone = { id: newValue, name: newLabel };
                 }
             }
         };
@@ -331,6 +335,42 @@ export default {
             }
         };
 
+        // Task card helper functions
+        const getPriorityClasses = (task) => {
+            const priority = task.priority?.value || task.priority || 'none';
+            const classes = {
+                'high': 'bg-red-100 text-red-700',
+                'medium': 'bg-yellow-100 text-yellow-700',
+                'low': 'bg-blue-100 text-blue-700',
+                'none': 'bg-gray-100 text-gray-700'
+            };
+            return classes[priority] || classes['none'];
+        };
+
+        const getPriorityLabel = (task) => {
+            return task.priority?.label || 'None';
+        };
+
+        const isTaskOverdue = (task) => {
+            if (!task.dueDate) return false;
+            const dueDate = new Date(task.dueDate);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return dueDate < today && task.status?.value !== 'completed';
+        };
+
+        const formatDueDate = (task) => {
+            if (!task.dueDate) return null;
+            const date = new Date(task.dueDate);
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        };
+
+        const getAssigneeInitials = (assignee) => {
+            const firstName = assignee.user?.firstName || assignee.firstName || '';
+            const lastName = assignee.user?.lastName || assignee.lastName || '';
+            return (firstName.charAt(0) + lastName.charAt(0)).toUpperCase();
+        };
+
         // Handle browser back/forward
         const handlePopState = (e) => {
             const urlParams = new URLSearchParams(window.location.search);
@@ -367,7 +407,12 @@ export default {
             handleDragOver,
             handleDragLeave,
             handleDrop,
-            handleTaskClick
+            handleTaskClick,
+            getPriorityClasses,
+            getPriorityLabel,
+            isTaskOverdue,
+            formatDueDate,
+            getAssigneeInitials
         };
     },
 
@@ -414,7 +459,6 @@ export default {
 
             <!-- Kanban columns -->
             <div
-                v-if="tasks.length > 0"
                 class="kanban-columns flex gap-4 overflow-x-auto pb-2"
                 :class="{ 'kanban-milestone-mode': currentMode === 'milestone' }"
             >
@@ -432,45 +476,107 @@ export default {
                     @dragleave="handleDragLeave($event, column.value)"
                     @drop="handleDrop($event, column.value)"
                 >
-                    <!-- Expanded state -->
-                    <template v-if="!isCollapsed(column.value)">
-                        <div class="kanban-header p-4 pb-0">
-                            <div class="flex items-center justify-between mb-4">
-                                <div class="flex items-center gap-2">
-                                    <span
-                                        class="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium text-white"
-                                        :class="column.badgeColor"
-                                    >
-                                        {{ column.label }} ({{ tasksByColumn[column.value]?.length || 0 }})
-                                    </span>
-                                </div>
-                                <button
-                                    type="button"
-                                    @click="toggleCollapse(column.value)"
-                                    class="p-1 rounded hover:bg-gray-200 text-gray-500 hover:text-gray-700"
-                                    title="Collapse"
+                    <!-- Column header (shared between expanded/collapsed) -->
+                    <div class="kanban-header p-4 transition-all duration-300" :class="{ 'pb-0': !isCollapsed(column.value) }">
+                        <div class="flex items-center justify-between transition-all duration-300" :class="{ 'mb-4': !isCollapsed(column.value) }">
+                            <div class="flex items-center gap-2 overflow-hidden">
+                                <span
+                                    class="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium text-white whitespace-nowrap"
+                                    :class="column.badgeColor"
                                 >
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/>
-                                    </svg>
-                                </button>
+                                    {{ column.label }} ({{ tasksByColumn[column.value]?.length || 0 }})
+                                </span>
                             </div>
-                            <p v-if="column.dueDate" class="text-xs text-gray-500 -mt-2 mb-2">
-                                Due {{ new Date(column.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }}
-                            </p>
+                            <button
+                                type="button"
+                                @click="toggleCollapse(column.value)"
+                                class="p-1 rounded hover:bg-gray-200 text-gray-500 hover:text-gray-700 flex-shrink-0"
+                                :title="isCollapsed(column.value) ? 'Expand' : 'Collapse'"
+                            >
+                                <svg
+                                    class="w-4 h-4 transition-transform duration-300"
+                                    :class="{ 'rotate-[-90deg]': isCollapsed(column.value) }"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                                </svg>
+                            </button>
                         </div>
+                        <p v-show="column.dueDate && !isCollapsed(column.value)" class="text-xs text-gray-500 -mt-2 mb-2 transition-opacity duration-300" :class="{ 'opacity-0': isCollapsed(column.value) }">
+                            Due {{ new Date(column.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }}
+                        </p>
+                    </div>
 
-                        <div class="kanban-content p-4 pt-0 flex-1 overflow-y-auto">
+                    <!-- Content area with animation -->
+                    <div
+                        class="kanban-content-wrapper transition-all duration-300 ease-in-out overflow-hidden"
+                        :class="isCollapsed(column.value) ? 'max-h-0 opacity-0' : 'max-h-[2000px] opacity-100'"
+                    >
+                        <div class="kanban-content p-4 pt-0 overflow-y-auto">
                             <div class="kanban-dropzone space-y-3 min-h-[100px]">
-                                <TaskCard
+                                <!-- Inline Task Card -->
+                                <div
                                     v-for="task in tasksByColumn[column.value]"
                                     :key="task.id"
-                                    :task="task"
-                                    :draggable="true"
+                                    :data-task-id="task.id"
+                                    draggable="true"
                                     @click="handleTaskClick(task)"
                                     @dragstart="handleDragStart($event, task)"
                                     @dragend="handleDragEnd"
-                                />
+                                    class="task-card bg-white rounded-lg shadow-sm border border-gray-200 p-4 cursor-move hover:shadow-md transition-all duration-200"
+                                    :class="{ 'opacity-40 scale-95': draggedTask?.id === task.id }"
+                                >
+                                    <div class="flex items-start justify-between">
+                                        <h4 class="text-sm font-medium text-gray-900 flex-1">
+                                            <a href="#" class="hover:text-primary-600" @click.prevent="handleTaskClick(task)">
+                                                {{ task.title }}
+                                            </a>
+                                        </h4>
+                                        <span
+                                            class="ml-2 flex-shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                                            :class="getPriorityClasses(task)"
+                                        >
+                                            {{ getPriorityLabel(task) }}
+                                        </span>
+                                    </div>
+                                    <p v-if="task.projectName" class="mt-1 text-xs text-gray-500">{{ task.projectName }}</p>
+                                    <div class="mt-3 flex items-center justify-between">
+                                        <div class="flex items-center space-x-3">
+                                            <span v-if="formatDueDate(task)" class="flex items-center text-xs" :class="isTaskOverdue(task) ? 'text-red-600 font-medium' : 'text-gray-500'">
+                                                <svg class="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+                                                </svg>
+                                                {{ formatDueDate(task) }}
+                                            </span>
+                                            <span v-if="task.commentCount > 0" class="flex items-center text-xs text-gray-500">
+                                                <svg class="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 0 1-.923 1.785A5.969 5.969 0 0 0 6 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337Z" />
+                                                </svg>
+                                                {{ task.commentCount }}
+                                            </span>
+                                            <span v-if="task.checklistCount > 0" class="flex items-center text-xs text-gray-500">
+                                                <svg class="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                                {{ task.completedChecklistCount || 0 }}/{{ task.checklistCount }}
+                                            </span>
+                                        </div>
+                                        <div v-if="task.assignees?.length > 0" class="flex -space-x-1">
+                                            <span
+                                                v-for="assignee in task.assignees.slice(0, 3)"
+                                                :key="assignee.id"
+                                                class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary-100 ring-2 ring-white"
+                                            >
+                                                <span class="text-xs font-medium text-primary-700">{{ getAssigneeInitials(assignee) }}</span>
+                                            </span>
+                                            <span v-if="task.assignees.length > 3" class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 ring-2 ring-white text-xs font-medium text-gray-500">
+                                                +{{ task.assignees.length - 3 }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
 
                                 <!-- Drop placeholder when empty and dragging -->
                                 <div
@@ -481,36 +587,12 @@ export default {
                                 </div>
                             </div>
                         </div>
-                    </template>
-
-                    <!-- Collapsed state -->
-                    <template v-else>
-                        <div class="kanban-collapsed-content flex flex-col items-center p-3 h-full">
-                            <button
-                                type="button"
-                                @click="toggleCollapse(column.value)"
-                                class="p-1 rounded hover:bg-gray-200 text-gray-500 hover:text-gray-700 mb-2"
-                                title="Expand"
-                            >
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"/>
-                                </svg>
-                            </button>
-                            <div class="kanban-vertical-title">
-                                <span
-                                    class="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium text-white whitespace-nowrap"
-                                    :class="column.badgeColor"
-                                >
-                                    {{ column.label }} ({{ tasksByColumn[column.value]?.length || 0 }})
-                                </span>
-                            </div>
-                        </div>
-                    </template>
+                    </div>
                 </div>
             </div>
 
-            <!-- Empty state -->
-            <div v-else class="text-center py-12">
+            <!-- Empty state when no tasks -->
+            <div v-if="tasks.length === 0" class="text-center py-12">
                 <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
@@ -518,92 +600,5 @@ export default {
                 <p class="mt-1 text-sm text-gray-500">Create milestones first, then add tasks to them.</p>
             </div>
         </div>
-
-        <style scoped>
-        .kanban-columns {
-            min-height: 500px;
-            max-height: 70vh;
-            align-items: stretch;
-        }
-
-        .kanban-column-expanded {
-            flex: 1 0 220px;
-            min-width: 220px;
-            max-width: 400px;
-        }
-
-        .kanban-column-collapsed {
-            flex: 0 0 48px;
-            min-width: 48px;
-            max-width: 48px;
-        }
-
-        .kanban-milestone-mode .kanban-column-expanded {
-            flex: 0 0 288px;
-            min-width: 288px;
-            max-width: 288px;
-        }
-
-        .kanban-content {
-            scrollbar-width: thin;
-            scrollbar-color: #d1d5db transparent;
-        }
-
-        .kanban-vertical-title {
-            writing-mode: vertical-rl;
-            text-orientation: mixed;
-            transform: rotate(180deg);
-        }
-
-        .drop-placeholder {
-            background: #f9fafb;
-            border: 2px dashed #d1d5db;
-            border-radius: 0.5rem;
-            padding: 1.25rem 1rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 70px;
-        }
-
-        .drop-placeholder span {
-            color: #9ca3af;
-            font-size: 0.875rem;
-        }
-
-        @media (max-width: 1023px) {
-            .kanban-columns {
-                flex-direction: column;
-                max-height: none;
-            }
-
-            .kanban-column-expanded,
-            .kanban-column-collapsed {
-                flex: none !important;
-                min-width: 100% !important;
-                max-width: 100% !important;
-            }
-
-            .kanban-column-collapsed {
-                min-height: 48px;
-                max-height: 48px;
-            }
-
-            .kanban-content {
-                max-height: 300px;
-            }
-
-            .kanban-collapsed-content {
-                flex-direction: row;
-                height: auto;
-            }
-
-            .kanban-vertical-title {
-                writing-mode: horizontal-tb;
-                transform: none;
-                margin-left: 0.5rem;
-            }
-        }
-        </style>
     `
 };
