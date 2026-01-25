@@ -21,6 +21,11 @@ export function mountVueComponent(elementId, component, props = {}) {
 // Auto-mount Vue components on elements with data-vue-component attribute
 export function autoMountVueComponents(components) {
     document.querySelectorAll('[data-vue-component]').forEach(element => {
+        // Skip if already mounted
+        if (element.__vue_app__) {
+            return;
+        }
+
         const componentName = element.dataset.vueComponent;
         const component = components[componentName];
 
@@ -40,6 +45,13 @@ export function autoMountVueComponents(components) {
                 // Try to parse JSON values
                 try {
                     value = JSON.parse(value);
+                    // Convert object with numeric keys to array (Twig |map sometimes produces this)
+                    if (value && typeof value === 'object' && !Array.isArray(value)) {
+                        const keys = Object.keys(value);
+                        if (keys.length > 0 && keys.every(k => /^\d+$/.test(k))) {
+                            value = Object.values(value);
+                        }
+                    }
                 } catch (e) {
                     // Keep as string if not valid JSON
                 }

@@ -20,11 +20,11 @@
     data-vue-component="KanbanBoard"
     data-vue-project-id="{{ project.id }}"
     data-vue-initial-tasks='{{ allTasks|map(task => {
-        id: task.id|default(task.id.toString()),
+        id: task.id ~ '',
         title: task.title,
         status: { value: task.status.value, label: task.status.label },
         priority: { value: task.priority.value, label: task.priority.label },
-        milestoneId: task.milestone.id|default(task.milestone.id.toString()),
+        milestoneId: task.milestone.id ~ '',
         projectName: project.name,
         dueDate: task.dueDate ? task.dueDate|date('Y-m-d') : null,
         position: task.position,
@@ -32,22 +32,22 @@
         checklistCount: task.checklistCount|default(0),
         completedChecklistCount: task.completedChecklistCount|default(0),
         assignees: task.assignees|map(a => {
-            id: a.id|default(a.id.toString()),
+            id: a.id ~ '',
             user: {
-                id: a.user.id|default(a.user.id.toString()),
+                id: a.user.id ~ '',
                 firstName: a.user.firstName,
                 lastName: a.user.lastName,
                 fullName: a.user.fullName
             }
         }),
         tags: task.tags|map(t => {
-            id: t.id|default(t.id.toString()),
+            id: t.id ~ '',
             name: t.name,
             color: t.color
         })
     })|json_encode|e('html_attr') }}'
     data-vue-milestones='{{ project.milestones|map(m => {
-        id: m.id|default(m.id.toString()),
+        id: m.id ~ '',
         name: m.name,
         dueDate: m.dueDate ? m.dueDate|date('Y-m-d') : null
     })|json_encode|e('html_attr') }}'

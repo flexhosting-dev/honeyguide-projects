@@ -7,7 +7,7 @@
 <div
     data-vue-component="ChecklistEditor"
     data-vue-task-id="{{ task.id }}"
-    data-vue-initial-items='{{ task.checklistItems|map(item => {id: item.id|default(item.id.toString()), title: item.title, isCompleted: item.isCompleted, position: item.position})|json_encode|e('html_attr') }}'
+    data-vue-initial-items='{{ task.checklistItems|map(item => {id: item.id ~ '', title: item.title, isCompleted: item.isCompleted, position: item.position})|json_encode|e('html_attr') }}'
     data-vue-base-path="{{ app.request.basePath }}"
 >
     {# Fallback content shown before Vue mounts #}

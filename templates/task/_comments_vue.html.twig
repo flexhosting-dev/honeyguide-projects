@@ -10,11 +10,11 @@
     data-vue-current-user-id="{{ app.user.id }}"
     data-vue-current-user-initials="{{ app.user.firstName|slice(0, 1)|upper }}"
     data-vue-initial-comments='{{ task.comments|map(c => {
-        id: c.id|default(c.id.toString()),
+        id: c.id ~ '',
         content: c.content,
         authorName: c.author.fullName,
         authorInitials: c.author.firstName|slice(0, 1)|upper,
-        authorId: c.author.id|default(c.author.id.toString()),
+        authorId: c.author.id ~ '',
         createdAt: c.createdAt|date('M d, H:i')
     })|json_encode|e('html_attr') }}'
     data-vue-base-path="{{ app.request.basePath }}"

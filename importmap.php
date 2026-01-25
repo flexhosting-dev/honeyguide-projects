@@ -28,18 +28,6 @@ return [
     'vue' => [
         'version' => '3.5.27',
     ],
-    '@vue/runtime-dom' => [
-        'version' => '3.5.27',
-    ],
-    '@vue/runtime-core' => [
-        'version' => '3.5.27',
-    ],
-    '@vue/shared' => [
-        'version' => '3.5.27',
-    ],
-    '@vue/reactivity' => [
-        'version' => '3.5.27',
-    ],
     'vue/index' => [
         'path' => './assets/vue/index.js',
     ],

@@ -1,4 +1,4 @@
-import { ref, computed, onMounted, nextTick } from 'vue';
+import { ref, computed, onMounted, nextTick, watch } from 'vue';
 
 export default {
     name: 'ChecklistEditor',
@@ -24,6 +24,7 @@ export default {
         const isLoading = ref(false);
         const editingItemId = ref(null);
         const editingTitle = ref('');
+        const newItemInput = ref(null);
 
         const basePath = props.basePath || window.BASE_PATH || '';
 
@@ -34,6 +35,17 @@ export default {
             if (totalCount.value === 0) return 0;
             return (completedCount.value / totalCount.value) * 100;
         });
+
+        // Update tab count in the DOM
+        const updateTabCount = () => {
+            const countEl = document.querySelector('.checklist-count');
+            if (countEl) {
+                countEl.textContent = `(${totalCount.value})`;
+            }
+        };
+
+        // Watch for changes and update tab count
+        watch(totalCount, updateTabCount);
 
         // Add new item
         const addItem = async () => {
@@ -55,6 +67,12 @@ export default {
                     const data = await response.json();
                     items.value.push(data.item);
                     newItemTitle.value = '';
+                    // Refocus input for adding more items
+                    nextTick(() => {
+                        if (newItemInput.value) {
+                            newItemInput.value.focus();
+                        }
+                    });
                 }
             } catch (error) {
                 console.error('Error adding checklist item:', error);
@@ -186,6 +204,7 @@ export default {
             isLoading,
             editingItemId,
             editingTitle,
+            newItemInput,
             totalCount,
             completedCount,
             progressPercent,
@@ -220,6 +239,7 @@ export default {
             <div class="add-checklist-form mb-4">
                 <div class="flex gap-2">
                     <input
+                        ref="newItemInput"
                         type="text"
                         v-model="newItemTitle"
                         @keydown="onNewItemKeydown"

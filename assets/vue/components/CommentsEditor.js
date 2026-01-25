@@ -1,4 +1,4 @@
-import { ref, computed, nextTick } from 'vue';
+import { ref, computed, nextTick, watch } from 'vue';
 
 export default {
     name: 'CommentsEditor',
@@ -47,6 +47,20 @@ export default {
         const canAddComment = computed(() => {
             return newComment.value.trim().length > 0 && !isLoading.value;
         });
+
+        // Computed for comment count
+        const commentCount = computed(() => comments.value.length);
+
+        // Update tab count in the DOM
+        const updateTabCount = () => {
+            const countEl = document.querySelector('.comments-count');
+            if (countEl) {
+                countEl.textContent = commentCount.value > 0 ? `(${commentCount.value})` : '';
+            }
+        };
+
+        // Watch for changes and update tab count
+        watch(commentCount, updateTabCount);
 
         // Add new comment
         const addComment = async () => {
