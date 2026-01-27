@@ -1478,7 +1478,965 @@ POST /tasks/bulk-update
 
 ---
 
-## 8. Additional Future Considerations
+## 8. Rich Text Editor & File Attachments
+
+**Priority:** High
+**Complexity:** Medium
+**Impact:** Enhanced content creation and document management
+
+### Overview
+Add rich text editing (basic formatting) and file attachments to descriptions across Projects, Milestones, and Tasks. Transform plain text fields into full-featured content areas.
+
+### Scope
+
+| Entity | Rich Text | Attachments |
+|--------|-----------|-------------|
+| Project Description | ✓ | ✓ |
+| Milestone Description | ✓ | ✓ |
+| Task Description | ✓ | ✓ |
+
+### Rich Text Editor Features
+
+**Basic Formatting Toolbar:**
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│ B  I  U  S  │ H1 H2 H3 │ • ─ 1. │ "" │ <> │ 🔗 │ 📎 │         [Markdown] │
+└────────────────────────────────────────────────────────────────────────────┘
+│                                                                            │
+│ This is **bold** and _italic_ text.                                       │
+│                                                                            │
+│ ## Heading                                                                 │
+│                                                                            │
+│ - Bullet point                                                             │
+│ - Another item                                                             │
+│                                                                            │
+│ 1. Numbered list                                                           │
+│ 2. Second item                                                             │
+│                                                                            │
+│ > Blockquote for important notes                                          │
+│                                                                            │
+│ `inline code` and code blocks                                             │
+│                                                                            │
+│ [Link text](https://example.com)                                          │
+│                                                                            │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Supported Formatting:**
+| Format | Toolbar | Shortcut | Markdown |
+|--------|---------|----------|----------|
+| Bold | B | Ctrl+B | `**text**` |
+| Italic | I | Ctrl+I | `_text_` |
+| Underline | U | Ctrl+U | — |
+| Strikethrough | S | — | `~~text~~` |
+| Heading 1 | H1 | — | `# text` |
+| Heading 2 | H2 | — | `## text` |
+| Heading 3 | H3 | — | `### text` |
+| Bullet List | • | — | `- item` |
+| Numbered List | 1. | — | `1. item` |
+| Blockquote | "" | — | `> text` |
+| Code Inline | <> | — | `` `code` `` |
+| Code Block | <> | — | ``` ``` |
+| Link | 🔗 | Ctrl+K | `[text](url)` |
+| Horizontal Rule | ─ | — | `---` |
+
+**Editor Library Options:**
+1. **Tiptap** (Recommended) - Vue-friendly, extensible, MIT license
+2. **Editor.js** - Block-based, clean output
+3. **Quill** - Popular, rich features
+4. **SimpleMDE** - Markdown-focused, lightweight
+
+**Recommended: Tiptap**
+```javascript
+import { Editor } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import Link from '@tiptap/extension-link'
+
+const editor = new Editor({
+  element: document.querySelector('#editor'),
+  extensions: [StarterKit, Link],
+  content: initialContent,
+  onUpdate: ({ editor }) => {
+    // Auto-save or track changes
+  }
+})
+```
+
+### File Attachments
+
+**Attachment UI in Description:**
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│ [Editor toolbar...]                                              [📎 Add] │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                            │
+│ Description content here...                                                │
+│                                                                            │
+├────────────────────────────────────────────────────────────────────────────┤
+│ ATTACHMENTS (3)                                                            │
+│ ┌──────────────────────────────────────────────────────────────────────┐  │
+│ │ 📄 requirements.pdf (2.4 MB)                    [View] [Download] [×] │  │
+│ │ 🖼️ mockup-v2.png (890 KB)                      [View] [Download] [×] │  │
+│ │ 📊 data-analysis.xlsx (1.2 MB)                 [View] [Download] [×] │  │
+│ └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                            │
+│ [Drop files here or click to upload]                                       │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Attachment Features:**
+- Drag & drop upload zone
+- Click to browse files
+- Multiple file upload
+- Progress indicator during upload
+- File type icons (PDF, image, document, spreadsheet, etc.)
+- Image preview (thumbnails for images)
+- View in modal/new tab
+- Download button
+- Delete with confirmation
+- File size display
+- Upload limits (configurable, e.g., 10MB per file, 50MB per entity)
+
+**Supported File Types:**
+| Category | Extensions | Max Size |
+|----------|------------|----------|
+| Images | jpg, png, gif, webp, svg | 5 MB |
+| Documents | pdf, doc, docx, txt, rtf | 10 MB |
+| Spreadsheets | xls, xlsx, csv | 10 MB |
+| Archives | zip, rar, 7z | 20 MB |
+| Other | * (configurable whitelist) | 10 MB |
+
+### Data Model
+
+**Attachment Entity:**
+```php
+// src/Entity/Attachment.php
+#[ORM\Entity]
+class Attachment
+{
+    #[ORM\Id]
+    #[ORM\Column(type: 'uuid')]
+    private Uuid $id;
+
+    #[ORM\Column(length: 255)]
+    private string $originalName;
+
+    #[ORM\Column(length: 255)]
+    private string $storedName;  // UUID-based for uniqueness
+
+    #[ORM\Column(length: 100)]
+    private string $mimeType;
+
+    #[ORM\Column(type: 'integer')]
+    private int $size;  // bytes
+
+    #[ORM\Column(length: 500)]
+    private string $path;
+
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    private User $uploadedBy;
+
+    #[ORM\Column]
+    private \DateTimeImmutable $uploadedAt;
+
+    // Polymorphic relation
+    #[ORM\Column(length: 50)]
+    private string $attachableType;  // 'project', 'milestone', 'task', 'comment'
+
+    #[ORM\Column(type: 'uuid')]
+    private Uuid $attachableId;
+}
+```
+
+**Entity Updates:**
+```php
+// src/Entity/Task.php (and Project, Milestone)
+#[ORM\Column(type: 'text', nullable: true)]
+private ?string $description = null;  // Now stores HTML
+
+#[ORM\Column(type: 'text', nullable: true)]
+private ?string $descriptionPlain = null;  // Plain text for search
+
+// Attachments loaded via repository query (polymorphic)
+public function getAttachments(): array;
+```
+
+### API Endpoints
+
+| Method | Route | Purpose |
+|--------|-------|---------|
+| POST | `/attachments/upload` | Upload file, returns attachment object |
+| DELETE | `/attachments/{id}` | Delete attachment |
+| GET | `/attachments/{id}/download` | Download file |
+| GET | `/{type}/{id}/attachments` | List attachments for entity |
+| POST | `/{type}/{id}/description` | Update description (HTML content) |
+
+**Upload Response:**
+```json
+{
+  "id": "uuid",
+  "originalName": "document.pdf",
+  "mimeType": "application/pdf",
+  "size": 2457600,
+  "url": "/attachments/uuid/download",
+  "thumbnail": "/attachments/uuid/thumbnail"  // for images
+}
+```
+
+### Storage Strategy
+
+**Directory Structure:**
+```
+var/uploads/
+├── attachments/
+│   ├── 2026/
+│   │   ├── 01/
+│   │   │   ├── abc123-document.pdf
+│   │   │   ├── def456-image.png
+│   │   │   └── def456-image-thumb.png
+│   │   └── 02/
+│   └── ...
+```
+
+**Storage Options:**
+1. **Local filesystem** (default) - Simple, works everywhere
+2. **AWS S3** - Scalable, CDN-friendly
+3. **Flysystem abstraction** - Switch between storage backends
+
+### Security Considerations
+
+- Validate file types (check magic bytes, not just extension)
+- Scan for malware (ClamAV integration)
+- Randomize stored filenames (prevent enumeration)
+- Check file size before upload completes
+- Serve files through controller (not direct public access)
+- CSRF protection on upload/delete
+- Permission check (can user access this entity?)
+
+### Implementation Phases
+
+1. **Attachment Infrastructure**
+   - Create Attachment entity and migration
+   - File upload service with validation
+   - Storage abstraction (local first)
+   - Download controller with auth check
+
+2. **Rich Text Editor**
+   - Integrate Tiptap (or chosen editor)
+   - Create Vue component wrapper
+   - Toolbar customization
+   - HTML sanitization (prevent XSS)
+
+3. **Task Description**
+   - Replace textarea with rich editor
+   - Add attachment zone below editor
+   - Update panel and detail page
+
+4. **Project & Milestone**
+   - Add rich editor to project description
+   - Add rich editor to milestone description
+   - Attachment support for both
+
+5. **Image Handling**
+   - Generate thumbnails on upload
+   - Image preview in lightbox
+   - Paste image from clipboard
+
+### Files Affected
+
+**Backend:**
+- New: `src/Entity/Attachment.php`
+- New: `src/Service/FileUploadService.php`
+- New: `src/Controller/AttachmentController.php`
+- New: `migrations/VersionXXX.php`
+- Modified: `src/Entity/Task.php` - HTML description field
+- Modified: `src/Entity/Project.php`
+- Modified: `src/Entity/Milestone.php`
+- Config: `config/services.yaml` - Upload paths, limits
+
+**Frontend:**
+- New: `assets/vue/components/RichTextEditor.js`
+- New: `assets/vue/components/AttachmentZone.js`
+- New: `assets/vue/components/AttachmentList.js`
+- Modified: `templates/task/_panel.html.twig`
+- Modified: `templates/task/show.html.twig`
+- Modified: `templates/project/show.html.twig`
+- Modified: `templates/milestone/show.html.twig`
+
+---
+
+## 9. Enhanced Comments (Attachments & @Mentions)
+
+**Priority:** Medium
+**Complexity:** Medium
+**Impact:** Improved team communication and collaboration
+
+### Overview
+Enhance the task comment system with file attachments and @mention functionality for notifying team members directly within comments.
+
+### Enhanced Comment UI
+
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│ COMMENTS (5)                                                               │
+├────────────────────────────────────────────────────────────────────────────┤
+│ ┌────────────────────────────────────────────────────────────────────────┐ │
+│ │ 👤 John Doe                                              2 hours ago  │ │
+│ │                                                                        │ │
+│ │ @Jane can you review the API changes? I've attached the updated       │ │
+│ │ specs document.                                                        │ │
+│ │                                                                        │ │
+│ │ 📎 Attachments:                                                        │ │
+│ │ ┌──────────────────────────────────────┐                               │ │
+│ │ │ 📄 api-specs-v2.pdf (1.2 MB) [View]  │                               │ │
+│ │ └──────────────────────────────────────┘                               │ │
+│ │                                                        [Edit] [Delete] │ │
+│ └────────────────────────────────────────────────────────────────────────┘ │
+│                                                                            │
+│ ┌────────────────────────────────────────────────────────────────────────┐ │
+│ │ 👤 Jane Smith                                           30 mins ago   │ │
+│ │                                                                        │ │
+│ │ @John looks good! Just a few minor changes needed:                    │ │
+│ │ - Update the auth endpoint                                             │ │
+│ │ - Add rate limiting docs                                               │ │
+│ │                                                        [Edit] [Delete] │ │
+│ └────────────────────────────────────────────────────────────────────────┘ │
+│                                                                            │
+├────────────────────────────────────────────────────────────────────────────┤
+│ ┌────────────────────────────────────────────────────────────────────────┐ │
+│ │ Add a comment...                                                       │ │
+│ │                                                                        │ │
+│ │ Type @ to mention someone                                   [📎] [➤] │ │
+│ └────────────────────────────────────────────────────────────────────────┘ │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+### @Mentions Feature
+
+**Mention Autocomplete:**
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│ Hey @j█                                                                    │
+│     ┌─────────────────────────────┐                                        │
+│     │ 👤 John Doe                 │                                        │
+│     │ 👤 Jane Smith               │                                        │
+│     │ 👤 James Wilson             │                                        │
+│     └─────────────────────────────┘                                        │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Mention Features:**
+- Type `@` to trigger autocomplete
+- Filter by typing name
+- Arrow keys to navigate, Enter to select
+- Shows project members first, then all users
+- Mentioned users appear as styled chips/links
+- Click mention to view user profile
+
+**Mention Display:**
+```html
+<!-- Stored in database -->
+Hey <mention data-user-id="uuid">@John Doe</mention> can you check this?
+
+<!-- Rendered -->
+Hey <a href="/users/uuid" class="mention">@John Doe</a> can you check this?
+```
+
+### Comment Attachments
+
+**Attachment Button in Comment Input:**
+- Paperclip icon next to send button
+- Opens file picker
+- Drag & drop onto comment area
+- Paste image from clipboard
+- Multiple files per comment
+- Same file type/size limits as description attachments
+
+**Comment with Attachments Storage:**
+```php
+// Comment can have multiple attachments via polymorphic relation
+// attachableType = 'comment', attachableId = comment.id
+```
+
+### Notifications
+
+**When @Mentioned:**
+1. **In-App Notification**
+   ```
+   🔔 John Doe mentioned you in a comment on "API Integration"
+   ```
+
+2. **Email Notification** (if enabled)
+   ```
+   Subject: John mentioned you in "API Integration"
+
+   John Doe mentioned you in a comment:
+
+   "@Jane can you review the API changes?"
+
+   [View Comment]
+   ```
+
+3. **Real-Time** (with WebSocket feature)
+   - Instant notification popup
+   - Unread badge on notifications icon
+
+**Notification Entity:**
+```php
+#[ORM\Entity]
+class Notification
+{
+    #[ORM\Id]
+    #[ORM\Column(type: 'uuid')]
+    private Uuid $id;
+
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    private User $recipient;
+
+    #[ORM\Column(length: 50)]
+    private string $type;  // 'mention', 'assignment', 'due_date', etc.
+
+    #[ORM\Column(type: 'json')]
+    private array $data;  // { actorId, taskId, commentId, ... }
+
+    #[ORM\Column]
+    private bool $isRead = false;
+
+    #[ORM\Column]
+    private \DateTimeImmutable $createdAt;
+}
+```
+
+### Data Model Updates
+
+**Comment Entity:**
+```php
+// src/Entity/Comment.php
+#[ORM\Column(type: 'text')]
+private string $content;  // Now can contain mention markup
+
+#[ORM\Column(type: 'json', nullable: true)]
+private ?array $mentionedUserIds = null;  // For quick notification lookup
+
+// Attachments via polymorphic Attachment entity
+public function getAttachments(): array;
+public function getMentionedUsers(): array;
+```
+
+### API Endpoints
+
+| Method | Route | Purpose |
+|--------|-------|---------|
+| GET | `/projects/{id}/members/search?q=` | Search users for @mention |
+| POST | `/tasks/{id}/comments` | Create comment (with mentions/attachments) |
+| GET | `/notifications` | Get user notifications |
+| POST | `/notifications/mark-read` | Mark notifications as read |
+
+**Create Comment Request:**
+```json
+{
+  "content": "Hey <mention data-user-id=\"uuid\">@John</mention> check this",
+  "mentionedUserIds": ["uuid1", "uuid2"],
+  "attachmentIds": ["attach-uuid-1", "attach-uuid-2"]
+}
+```
+
+### Implementation Phases
+
+1. **@Mention Autocomplete**
+   - User search endpoint (project members)
+   - Autocomplete dropdown component
+   - Mention insertion in editor
+   - Mention parsing and storage
+
+2. **Mention Display**
+   - Render mentions as styled links
+   - User hover card (optional)
+
+3. **Notifications**
+   - Notification entity and migration
+   - Create notifications on mention
+   - Notification list UI
+   - Mark as read functionality
+
+4. **Comment Attachments**
+   - Add attachment button to comment form
+   - File upload integration
+   - Display attachments in comments
+   - Delete attachment from comment
+
+5. **Email Notifications**
+   - Email templates for mentions
+   - User preference for email notifications
+   - Queue emails for async sending
+
+### Files Affected
+
+**Backend:**
+- New: `src/Entity/Notification.php`
+- New: `src/Service/NotificationService.php`
+- New: `src/Service/MentionParser.php`
+- Modified: `src/Entity/Comment.php` - Add mentionedUserIds
+- Modified: `src/Controller/CommentController.php` - Handle mentions
+- New: `src/Controller/NotificationController.php`
+- New: `migrations/VersionXXX.php`
+
+**Frontend:**
+- New: `assets/vue/components/MentionInput.js` - Autocomplete editor
+- New: `assets/vue/components/NotificationDropdown.js`
+- Modified: `assets/vue/components/CommentsEditor.js` - Integrate mentions
+- Modified: `templates/layout.html.twig` - Notification bell icon
+- New: `templates/notification/_list.html.twig`
+
+### Editor Integration
+
+**Using Tiptap Mention Extension:**
+```javascript
+import Mention from '@tiptap/extension-mention'
+
+const editor = new Editor({
+  extensions: [
+    StarterKit,
+    Mention.configure({
+      HTMLAttributes: { class: 'mention' },
+      suggestion: {
+        items: ({ query }) => fetchUsers(query),
+        render: () => ({ /* dropdown renderer */ }),
+      },
+    }),
+  ],
+})
+```
+
+---
+
+## 10. User Notifications System
+
+**Priority:** High
+**Complexity:** Medium
+**Impact:** Keeps users informed and engaged with project activity
+
+### Overview
+Comprehensive notification system with in-app notifications, optional email notifications, and user-customizable preferences for notification types and delivery methods.
+
+### Notification Types
+
+| Event | Description | Default In-App | Default Email |
+|-------|-------------|----------------|---------------|
+| **Task Assigned** | You were assigned to a task | ✓ | ✓ |
+| **Task Unassigned** | You were removed from a task | ✓ | ○ |
+| **Task Completed** | A task you're assigned to was completed | ✓ | ○ |
+| **Task Due Soon** | Task due in 24/48 hours | ✓ | ✓ |
+| **Task Overdue** | Task is past due date | ✓ | ✓ |
+| **Comment Added** | New comment on your task | ✓ | ✓ |
+| **@Mentioned** | Someone mentioned you | ✓ | ✓ |
+| **Comment Reply** | Reply to your comment | ✓ | ○ |
+| **Project Invited** | Added to a project | ✓ | ✓ |
+| **Project Removed** | Removed from a project | ✓ | ✓ |
+| **Milestone Due** | Milestone due soon | ✓ | ○ |
+| **Task Status Changed** | Status change on your task | ✓ | ○ |
+| **Attachment Added** | File added to your task | ○ | ○ |
+| **Subtask Completed** | Subtask of your task completed | ○ | ○ |
+
+### In-App Notifications UI
+
+**Notification Bell (Header):**
+```
+┌────────────────────────────────────────────────────────────────┐
+│  WorkFlow                           🔍   🔔(3)   👤 John ▼    │
+└────────────────────────────────────────────────────────────────┘
+                                           │
+                                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│ NOTIFICATIONS                              [Mark all read]  │
+├─────────────────────────────────────────────────────────────┤
+│ ● Jane Smith assigned you to "API Integration"    2m ago   │
+│   Project Alpha                                    [View]   │
+├─────────────────────────────────────────────────────────────┤
+│ ● Bob mentioned you in a comment                  15m ago   │
+│   "Setup database schema"                          [View]   │
+├─────────────────────────────────────────────────────────────┤
+│ ● Task "Login UI" is due tomorrow                  1h ago   │
+│   Project Beta                                     [View]   │
+├─────────────────────────────────────────────────────────────┤
+│ ○ Alice completed "Unit tests"                     3h ago   │
+│   Project Alpha                                    [View]   │
+├─────────────────────────────────────────────────────────────┤
+│ ○ You were added to Project Gamma                Yesterday  │
+│                                                    [View]   │
+├─────────────────────────────────────────────────────────────┤
+│                    [View All Notifications]                 │
+└─────────────────────────────────────────────────────────────┘
+
+● = Unread    ○ = Read
+```
+
+**Full Notifications Page (`/notifications`):**
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ NOTIFICATIONS                                                               │
+├──────────────────┬──────────────────────────────────────────────────────────┤
+│ FILTERS          │                                                          │
+│                  │  ┌─────────────────────────────────────────────────────┐ │
+│ ○ All            │  │ ● Jane Smith assigned you to "API Integration"     │ │
+│ ● Unread (3)     │  │   Project Alpha · 2 minutes ago                     │ │
+│ ○ Mentions       │  │                                            [View →] │ │
+│ ○ Assignments    │  └─────────────────────────────────────────────────────┘ │
+│ ○ Comments       │                                                          │
+│ ○ Due Dates      │  ┌─────────────────────────────────────────────────────┐ │
+│                  │  │ ● Bob mentioned you in a comment                    │ │
+│ ───────────────  │  │   "Hey @John can you review this?"                  │ │
+│                  │  │   Setup database schema · 15 minutes ago            │ │
+│ [⚙️ Settings]    │  │                                            [View →] │ │
+│                  │  └─────────────────────────────────────────────────────┘ │
+│                  │                                                          │
+│                  │  ┌─────────────────────────────────────────────────────┐ │
+│                  │  │ ● Task "Login UI" is due tomorrow                   │ │
+│                  │  │   Project Beta · 1 hour ago                         │ │
+│                  │  │                                            [View →] │ │
+│                  │  └─────────────────────────────────────────────────────┘ │
+│                  │                                                          │
+│                  │  [Load More...]                                          │
+└──────────────────┴──────────────────────────────────────────────────────────┘
+```
+
+### User Notification Preferences
+
+**Settings Page (`/settings/notifications`):**
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ NOTIFICATION PREFERENCES                                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│ EMAIL SETTINGS                                                              │
+│ ┌─────────────────────────────────────────────────────────────────────────┐ │
+│ │ Email Frequency:  ○ Instant  ● Daily Digest  ○ Weekly Digest  ○ Never  │ │
+│ │                                                                         │ │
+│ │ Daily digest sent at: [09:00 AM ▼]                                      │ │
+│ └─────────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+│ NOTIFICATION TYPES                                            In-App  Email │
+│ ─────────────────────────────────────────────────────────────────────────── │
+│                                                                             │
+│ TASKS                                                                       │
+│ ├─ Assigned to task                                            [✓]    [✓]  │
+│ ├─ Unassigned from task                                        [✓]    [ ]  │
+│ ├─ Task completed                                              [✓]    [ ]  │
+│ ├─ Task status changed                                         [✓]    [ ]  │
+│ ├─ Task due in 24 hours                                        [✓]    [✓]  │
+│ └─ Task overdue                                                [✓]    [✓]  │
+│                                                                             │
+│ COMMENTS                                                                    │
+│ ├─ New comment on your task                                    [✓]    [✓]  │
+│ ├─ @Mentioned in comment                                       [✓]    [✓]  │
+│ └─ Reply to your comment                                       [✓]    [ ]  │
+│                                                                             │
+│ PROJECTS                                                                    │
+│ ├─ Added to project                                            [✓]    [✓]  │
+│ ├─ Removed from project                                        [✓]    [✓]  │
+│ └─ Milestone due soon                                          [✓]    [ ]  │
+│                                                                             │
+│ ATTACHMENTS                                                                 │
+│ └─ File added to your task                                     [ ]    [ ]  │
+│                                                                             │
+│                                                       [Reset to Defaults]  │
+│                                                       [Save Preferences]   │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Data Model
+
+**Notification Entity:**
+```php
+// src/Entity/Notification.php
+#[ORM\Entity(repositoryClass: NotificationRepository::class)]
+#[ORM\Index(columns: ['recipient_id', 'is_read', 'created_at'])]
+class Notification
+{
+    #[ORM\Id]
+    #[ORM\Column(type: 'uuid')]
+    private Uuid $id;
+
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(nullable: false)]
+    private User $recipient;
+
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    private ?User $actor = null;  // Who triggered the notification
+
+    #[ORM\Column(length: 50)]
+    private string $type;  // 'task_assigned', 'mentioned', 'comment', etc.
+
+    #[ORM\Column(type: 'json')]
+    private array $data;
+    // {
+    //   taskId, taskTitle,
+    //   projectId, projectName,
+    //   commentId, commentPreview,
+    //   ...
+    // }
+
+    #[ORM\Column]
+    private bool $isRead = false;
+
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $readAt = null;
+
+    #[ORM\Column]
+    private \DateTimeImmutable $createdAt;
+
+    #[ORM\Column]
+    private bool $emailSent = false;
+
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $emailSentAt = null;
+}
+```
+
+**User Notification Preferences:**
+```php
+// src/Entity/UserNotificationPreference.php
+#[ORM\Entity]
+#[ORM\Table(uniqueConstraints: [
+    new ORM\UniqueConstraint(columns: ['user_id', 'notification_type'])
+])]
+class UserNotificationPreference
+{
+    #[ORM\Id]
+    #[ORM\Column(type: 'uuid')]
+    private Uuid $id;
+
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    private User $user;
+
+    #[ORM\Column(length: 50)]
+    private string $notificationType;
+
+    #[ORM\Column]
+    private bool $inAppEnabled = true;
+
+    #[ORM\Column]
+    private bool $emailEnabled = true;
+}
+
+// Or simpler: JSON column on User entity
+// src/Entity/User.php
+#[ORM\Column(type: 'json')]
+private array $notificationPreferences = [
+    'email_frequency' => 'instant',  // 'instant', 'daily', 'weekly', 'never'
+    'email_time' => '09:00',
+    'types' => [
+        'task_assigned' => ['in_app' => true, 'email' => true],
+        'mentioned' => ['in_app' => true, 'email' => true],
+        // ...
+    ]
+];
+```
+
+### Notification Service
+
+```php
+// src/Service/NotificationService.php
+class NotificationService
+{
+    public function notify(
+        User $recipient,
+        string $type,
+        array $data,
+        ?User $actor = null
+    ): void {
+        // Check user preferences
+        $prefs = $this->getUserPreferences($recipient, $type);
+
+        // Create in-app notification if enabled
+        if ($prefs['in_app']) {
+            $notification = new Notification();
+            $notification->setRecipient($recipient);
+            $notification->setActor($actor);
+            $notification->setType($type);
+            $notification->setData($data);
+            $this->em->persist($notification);
+
+            // Real-time push (if WebSocket enabled)
+            $this->realtimePusher->push($recipient, $notification);
+        }
+
+        // Queue email if enabled
+        if ($prefs['email']) {
+            $this->emailQueue->add($recipient, $type, $data);
+        }
+    }
+
+    public function notifyMany(array $recipients, string $type, array $data): void
+    {
+        foreach ($recipients as $recipient) {
+            $this->notify($recipient, $type, $data);
+        }
+    }
+}
+```
+
+### Email Notifications
+
+**Email Frequency Options:**
+1. **Instant** - Email sent immediately (via queue)
+2. **Daily Digest** - All notifications compiled into one daily email
+3. **Weekly Digest** - Weekly summary email
+4. **Never** - No emails, in-app only
+
+**Email Templates:**
+
+*Instant Email (Task Assigned):*
+```
+Subject: You've been assigned to "API Integration"
+
+Hi John,
+
+Jane Smith assigned you to a task:
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+API Integration
+Project: Project Alpha
+Due: January 25, 2026
+Priority: High
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[View Task]
+
+---
+You're receiving this because you have email notifications enabled.
+[Manage notification preferences]
+```
+
+*Daily Digest:*
+```
+Subject: Your WorkFlow Daily Digest - 5 notifications
+
+Hi John,
+
+Here's what happened today:
+
+TASKS
+• You were assigned to "API Integration" by Jane
+• "Login UI" is due tomorrow
+• Bob completed "Database setup"
+
+COMMENTS
+• Jane mentioned you: "@John can you review?"
+• 2 new comments on "Homepage design"
+
+[View All in WorkFlow]
+
+---
+[Manage notification preferences]
+```
+
+### API Endpoints
+
+| Method | Route | Purpose |
+|--------|-------|---------|
+| GET | `/notifications` | List notifications (paginated) |
+| GET | `/notifications/unread-count` | Get unread count for badge |
+| POST | `/notifications/{id}/read` | Mark single as read |
+| POST | `/notifications/mark-all-read` | Mark all as read |
+| DELETE | `/notifications/{id}` | Delete notification |
+| GET | `/settings/notifications` | Get preferences |
+| PUT | `/settings/notifications` | Update preferences |
+
+**Notifications Response:**
+```json
+{
+  "notifications": [
+    {
+      "id": "uuid",
+      "type": "task_assigned",
+      "actor": { "id": "uuid", "name": "Jane Smith", "initials": "JS" },
+      "data": {
+        "taskId": "uuid",
+        "taskTitle": "API Integration",
+        "projectId": "uuid",
+        "projectName": "Project Alpha"
+      },
+      "isRead": false,
+      "createdAt": "2026-01-28T10:30:00Z",
+      "timeAgo": "2 minutes ago"
+    }
+  ],
+  "unreadCount": 3,
+  "hasMore": true
+}
+```
+
+### Implementation Phases
+
+1. **Core Notification System**
+   - Notification entity and migration
+   - NotificationService
+   - Create notifications on events (assigned, commented, etc.)
+   - Repository queries
+
+2. **In-App UI**
+   - Notification bell component
+   - Dropdown list
+   - Unread badge counter
+   - Mark as read functionality
+   - Full notifications page
+
+3. **User Preferences**
+   - Preferences storage (JSON on User or separate entity)
+   - Settings page UI
+   - Apply preferences in NotificationService
+
+4. **Email - Instant**
+   - Email templates (Twig)
+   - Queue system (Symfony Messenger)
+   - Send emails for enabled notification types
+
+5. **Email - Digests**
+   - Scheduled command for daily/weekly digests
+   - Compile notifications into digest
+   - Track last digest sent
+
+6. **Real-Time (with WebSocket feature)**
+   - Push notifications to connected clients
+   - Update badge count instantly
+   - Toast popup for new notifications
+
+### Files Affected
+
+**Backend:**
+- New: `src/Entity/Notification.php`
+- New: `src/Repository/NotificationRepository.php`
+- New: `src/Service/NotificationService.php`
+- New: `src/Controller/NotificationController.php`
+- New: `src/Controller/NotificationSettingsController.php`
+- New: `src/Message/SendNotificationEmail.php`
+- New: `src/MessageHandler/SendNotificationEmailHandler.php`
+- New: `src/Command/SendDigestEmailsCommand.php`
+- New: `migrations/VersionXXX.php`
+- Modified: `src/Entity/User.php` - Add preferences
+- Modified: `src/Controller/TaskController.php` - Trigger notifications
+- Modified: `src/Controller/CommentController.php` - Trigger notifications
+- New: `templates/email/notification/*.html.twig` - Email templates
+
+**Frontend:**
+- New: `assets/vue/components/NotificationBell.js`
+- New: `assets/vue/components/NotificationDropdown.js`
+- New: `assets/vue/components/NotificationItem.js`
+- New: `templates/notification/index.html.twig` - Full page
+- New: `templates/settings/notifications.html.twig` - Preferences
+- Modified: `templates/layout.html.twig` - Add bell to header
+
+### Cleanup & Retention
+
+- Auto-delete read notifications after 30 days
+- Auto-delete all notifications after 90 days
+- Scheduled cleanup command
+- User can manually clear all notifications
+
+---
+
+## 11. Additional Future Considerations
 
 ### Offline Support (Service Workers)
 - Cache tasks locally for offline viewing
