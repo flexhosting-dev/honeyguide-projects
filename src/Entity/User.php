@@ -37,7 +37,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $googleId = null;
 
-    #[ORM\ManyToOne(targetEntity: Role::class)]
+    #[ORM\ManyToOne(targetEntity: Role::class, fetch: 'EAGER')]
     #[ORM\JoinColumn(nullable: true)]
     private ?Role $portalRole = null;
 

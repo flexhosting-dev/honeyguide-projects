@@ -58,7 +58,7 @@
                 </li>
                 {% endif %}
 
-                {% if app.user.isPortalAdmin is defined and app.user.isPortalAdmin %}
+                {% if app.user.portalRole and app.user.isPortalAdmin %}
                 <li>
                     <div class="text-xs font-semibold leading-6 text-gray-400">Administration</div>
                     <ul role="list" class="-mx-2 mt-2 space-y-1">
