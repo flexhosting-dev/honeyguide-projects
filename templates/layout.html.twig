@@ -526,6 +526,14 @@
             }
 
             Toastr.success('Start date updated');
+
+            // Notify other components
+            const taskId = endpoint.match(/\/tasks\/([^\/]+)\//)?.[1];
+            if (taskId) {
+                document.dispatchEvent(new CustomEvent('task-updated', {
+                    detail: { taskId, field: 'startDate', value: value || null }
+                }));
+            }
         } catch (error) {
             console.error('Error updating start date:', error);
             Toastr.error(error.message || 'Failed to update start date');
@@ -577,7 +585,7 @@
             Toastr.success('Due date updated');
 
             // Notify other components (e.g., KanbanBoard)
-            const taskId = endpoint.match(/\/tasks\/(\d+)\//)?.[1];
+            const taskId = endpoint.match(/\/tasks\/([^\/]+)\//)?.[1];
             if (taskId) {
                 document.dispatchEvent(new CustomEvent('task-updated', {
                     detail: { taskId, field: 'dueDate', value: value || null }
@@ -619,7 +627,7 @@
                 Toastr.success('Title updated');
 
                 // Notify other components (e.g., KanbanBoard)
-                const taskId = endpoint.match(/\/tasks\/(\d+)\//)?.[1];
+                const taskId = endpoint.match(/\/tasks\/([^\/]+)\//)?.[1];
                 if (taskId) {
                     document.dispatchEvent(new CustomEvent('task-updated', {
                         detail: { taskId, field: 'title', value: newValue }
@@ -703,6 +711,14 @@
             editor.classList.add('hidden');
             display.classList.remove('hidden');
             Toastr.success('Description updated');
+
+            // Notify other components
+            const taskId = endpoint.match(/\/tasks\/([^\/]+)\//)?.[1];
+            if (taskId) {
+                document.dispatchEvent(new CustomEvent('task-updated', {
+                    detail: { taskId, field: 'description', value: newValue }
+                }));
+            }
         } catch (error) {
             console.error('Error updating description:', error);
             Toastr.error('Failed to update description');
@@ -738,10 +754,33 @@
             }
 
             Toastr.success('Assignee removed');
+
+            // Notify other components
+            dispatchAssigneesUpdated(taskId, container);
         } catch (error) {
             console.error('Error removing assignee:', error);
             Toastr.error('Failed to remove assignee');
         }
+    }
+
+    // Helper to dispatch assignee update events
+    function dispatchAssigneesUpdated(taskId, container) {
+        const chips = container.querySelectorAll('.assignee-chip');
+        const assignees = Array.from(chips).map(chip => {
+            const initials = chip.querySelector('.text-primary-700')?.textContent?.trim() || '';
+            const fullName = chip.textContent.replace(initials, '').trim();
+            return {
+                id: chip.dataset.userId,
+                user: {
+                    id: chip.dataset.userId,
+                    fullName: fullName,
+                    firstName: fullName.split(' ')[0] || ''
+                }
+            };
+        });
+        document.dispatchEvent(new CustomEvent('task-assignees-updated', {
+            detail: { taskId, assignees }
+        }));
     }
 
     async function showAddAssigneeDropdown(btn) {
@@ -836,6 +875,9 @@
 
             closeAllDropdowns();
             Toastr.success('Assignee added');
+
+            // Notify other components
+            dispatchAssigneesUpdated(taskId, container);
         } catch (error) {
             console.error('Error adding assignee:', error);
             Toastr.error('Failed to add assignee');

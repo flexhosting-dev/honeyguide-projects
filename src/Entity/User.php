@@ -54,6 +54,15 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column]
     private bool $isVerified = false;
 
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $avatar = null;
+
+    #[ORM\Column(length: 100, nullable: true)]
+    private ?string $jobTitle = null;
+
+    #[ORM\Column(length: 100, nullable: true)]
+    private ?string $department = null;
+
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
 
@@ -266,5 +275,43 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function getActivities(): Collection
     {
         return $this->activities;
+    }
+
+    public function getAvatar(): ?string
+    {
+        return $this->avatar;
+    }
+
+    public function setAvatar(?string $avatar): static
+    {
+        $this->avatar = $avatar;
+        return $this;
+    }
+
+    public function getJobTitle(): ?string
+    {
+        return $this->jobTitle;
+    }
+
+    public function setJobTitle(?string $jobTitle): static
+    {
+        $this->jobTitle = $jobTitle;
+        return $this;
+    }
+
+    public function getDepartment(): ?string
+    {
+        return $this->department;
+    }
+
+    public function setDepartment(?string $department): static
+    {
+        $this->department = $department;
+        return $this;
+    }
+
+    public function getInitials(): string
+    {
+        return strtoupper(substr($this->firstName, 0, 1) . substr($this->lastName, 0, 1));
     }
 }

@@ -41,7 +41,10 @@
              class="task-card bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-all duration-200">
             <div class="flex items-start justify-between">
                 <h4 class="text-sm font-medium text-gray-900 flex-1">
-                    <a href="{{ path('app_task_show', {id: task.id}) }}" class="hover:text-primary-600">
+                    <a href="{{ path('app_task_show', {id: task.id}) }}"
+                       class="hover:text-primary-600 task-link"
+                       data-task-id="{{ task.id }}"
+                       onclick="event.preventDefault(); openTaskPanel('{{ task.id }}');">
                         {{ task.title }}
                     </a>
                 </h4>

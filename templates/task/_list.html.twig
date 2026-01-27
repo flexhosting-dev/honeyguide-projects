@@ -1,5 +1,5 @@
 {# Task List View #}
-<div class="bg-white shadow rounded-lg overflow-hidden">
+<div class="bg-white shadow rounded-lg overflow-hidden" id="task-list-container">
     {% if tasks|length > 0 %}
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
@@ -17,68 +17,79 @@
             </thead>
             <tbody class="divide-y divide-gray-200 bg-white">
                 {% for task in tasks %}
-                    <tr class="hover:bg-gray-50">
+                    <tr class="task-list-row hover:bg-gray-50 cursor-pointer"
+                        data-task-id="{{ task.id }}"
+                        onclick="openTaskPanel('{{ task.id }}')">
                         <td class="whitespace-nowrap py-4 pl-4 pr-3 sm:pl-6">
-                            <a href="{{ path('app_task_show', {id: task.id}) }}" class="text-sm font-medium text-gray-900 hover:text-primary-600">
+                            <a href="{{ path('app_task_show', {id: task.id}) }}"
+                               class="task-title text-sm font-medium text-gray-900 hover:text-primary-600 task-link"
+                               data-task-id="{{ task.id }}"
+                               onclick="event.preventDefault(); event.stopPropagation(); openTaskPanel('{{ task.id }}');">
                                 {{ task.title }}
                             </a>
                             {% if task.description %}
-                                <p class="text-xs text-gray-500 truncate max-w-xs">{{ task.description|slice(0, 50) }}{% if task.description|length > 50 %}...{% endif %}</p>
+                                <p class="task-description text-xs text-gray-500 truncate max-w-xs">{{ task.description|slice(0, 50) }}{% if task.description|length > 50 %}...{% endif %}</p>
+                            {% else %}
+                                <p class="task-description text-xs text-gray-500 truncate max-w-xs hidden"></p>
                             {% endif %}
                         </td>
                         <td class="whitespace-nowrap px-3 py-4">
-                            <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
-                                {% if task.status.value == 'open' %}bg-gray-100 text-gray-700
+                            <span class="task-status-badge inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
+                                {% if task.status.value == 'todo' %}bg-gray-100 text-gray-700
                                 {% elseif task.status.value == 'in_progress' %}bg-blue-100 text-blue-700
                                 {% elseif task.status.value == 'completed' %}bg-green-100 text-green-700
-                                {% elseif task.status.value == 'on_hold' %}bg-yellow-100 text-yellow-700
-                                {% else %}bg-gray-100 text-gray-700{% endif %}">
+                                {% elseif task.status.value == 'in_review' %}bg-yellow-100 text-yellow-700
+                                {% else %}bg-gray-100 text-gray-700{% endif %}"
+                                data-status="{{ task.status.value }}">
                                 {{ task.status.label }}
                             </span>
                         </td>
                         <td class="whitespace-nowrap px-3 py-4">
-                            <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
+                            <span class="task-priority-badge inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
                                 {% if task.priority.value == 'high' %}bg-red-100 text-red-700
                                 {% elseif task.priority.value == 'medium' %}bg-yellow-100 text-yellow-700
                                 {% elseif task.priority.value == 'low' %}bg-blue-100 text-blue-700
-                                {% else %}bg-gray-100 text-gray-700{% endif %}">
+                                {% else %}bg-gray-100 text-gray-700{% endif %}"
+                                data-priority="{{ task.priority.value }}">
                                 {{ task.priority.label }}
                             </span>
                         </td>
                         <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            {{ task.milestone.name }}
+                            <span class="task-milestone">{{ task.milestone.name }}</span>
                         </td>
                         <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            {% if task.dueDate %}
-                                <span class="{% if task.dueDate < date() and task.status.value != 'completed' %}text-red-600 font-medium{% endif %}">
+                            <span class="task-due-date {% if task.dueDate and task.dueDate < date() and task.status.value != 'completed' %}text-red-600 font-medium{% endif %}">
+                                {% if task.dueDate %}
                                     {{ task.dueDate|date('M d, Y') }}
-                                </span>
-                            {% else %}
-                                <span class="text-gray-400">-</span>
-                            {% endif %}
+                                {% else %}
+                                    <span class="text-gray-400">-</span>
+                                {% endif %}
+                            </span>
                         </td>
                         <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            {% if task.assignees|length > 0 %}
-                                <div class="flex -space-x-1">
-                                    {% for assignee in task.assignees|slice(0, 3) %}
-                                        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 ring-2 ring-white" title="{{ assignee.user.fullName }}">
-                                            <span class="text-xs font-medium text-gray-600">
-                                                {{ assignee.user.firstName|slice(0, 1)|upper }}
+                            <div class="task-assignees">
+                                {% if task.assignees|length > 0 %}
+                                    <div class="flex -space-x-1">
+                                        {% for assignee in task.assignees|slice(0, 3) %}
+                                            <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 ring-2 ring-white" title="{{ assignee.user.fullName }}">
+                                                <span class="text-xs font-medium text-gray-600">
+                                                    {{ assignee.user.firstName|slice(0, 1)|upper }}
+                                                </span>
                                             </span>
-                                        </span>
-                                    {% endfor %}
-                                    {% if task.assignees|length > 3 %}
-                                        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 ring-2 ring-white">
-                                            <span class="text-xs font-medium text-gray-600">+{{ task.assignees|length - 3 }}</span>
-                                        </span>
-                                    {% endif %}
-                                </div>
-                            {% else %}
-                                <span class="text-gray-400">-</span>
-                            {% endif %}
+                                        {% endfor %}
+                                        {% if task.assignees|length > 3 %}
+                                            <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 ring-2 ring-white">
+                                                <span class="text-xs font-medium text-gray-600">+{{ task.assignees|length - 3 }}</span>
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                {% else %}
+                                    <span class="text-gray-400">-</span>
+                                {% endif %}
+                            </div>
                         </td>
                         <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                            <a href="{{ path('app_task_edit', {id: task.id}) }}" class="text-primary-600 hover:text-primary-900">Edit</a>
+                            <a href="{{ path('app_task_edit', {id: task.id}) }}" class="text-primary-600 hover:text-primary-900" onclick="event.stopPropagation();">Edit</a>
                         </td>
                     </tr>
                 {% endfor %}
@@ -96,3 +107,141 @@
         </div>
     {% endif %}
 </div>
+
+<script>
+(function() {
+    // Status and priority mappings
+    const statusColors = {
+        'todo': 'bg-gray-100 text-gray-700',
+        'in_progress': 'bg-blue-100 text-blue-700',
+        'in_review': 'bg-yellow-100 text-yellow-700',
+        'completed': 'bg-green-100 text-green-700'
+    };
+    const statusLabels = {
+        'todo': 'To Do',
+        'in_progress': 'In Progress',
+        'in_review': 'In Review',
+        'completed': 'Completed'
+    };
+    const priorityColors = {
+        'none': 'bg-gray-100 text-gray-700',
+        'low': 'bg-blue-100 text-blue-700',
+        'medium': 'bg-yellow-100 text-yellow-700',
+        'high': 'bg-red-100 text-red-700'
+    };
+    const priorityLabels = {
+        'none': 'None',
+        'low': 'Low',
+        'medium': 'Medium',
+        'high': 'High'
+    };
+
+    // Listen for task updates from the panel
+    document.addEventListener('task-updated', function(e) {
+        const { taskId, field, value, label } = e.detail;
+        const row = document.querySelector(`.task-list-row[data-task-id="${taskId}"]`);
+        if (!row) return;
+
+        switch (field) {
+            case 'status':
+                const statusBadge = row.querySelector('.task-status-badge');
+                if (statusBadge) {
+                    statusBadge.textContent = label || statusLabels[value] || value;
+                    statusBadge.className = 'task-status-badge inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ' + (statusColors[value] || statusColors['todo']);
+                    statusBadge.dataset.status = value;
+                }
+                break;
+
+            case 'priority':
+                const priorityBadge = row.querySelector('.task-priority-badge');
+                if (priorityBadge) {
+                    priorityBadge.textContent = label || priorityLabels[value] || value;
+                    priorityBadge.className = 'task-priority-badge inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ' + (priorityColors[value] || priorityColors['none']);
+                    priorityBadge.dataset.priority = value;
+                }
+                break;
+
+            case 'title':
+                const titleEl = row.querySelector('.task-title');
+                if (titleEl) {
+                    titleEl.textContent = value;
+                }
+                break;
+
+            case 'description':
+                const descEl = row.querySelector('.task-description');
+                if (descEl) {
+                    if (value) {
+                        descEl.textContent = value.length > 50 ? value.slice(0, 50) + '...' : value;
+                        descEl.classList.remove('hidden');
+                    } else {
+                        descEl.textContent = '';
+                        descEl.classList.add('hidden');
+                    }
+                }
+                break;
+
+            case 'milestone':
+                const milestoneEl = row.querySelector('.task-milestone');
+                if (milestoneEl) {
+                    milestoneEl.textContent = label || value;
+                }
+                break;
+
+            case 'dueDate':
+                const dueDateEl = row.querySelector('.task-due-date');
+                if (dueDateEl) {
+                    if (value) {
+                        const date = new Date(value);
+                        const formatted = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                        dueDateEl.innerHTML = formatted;
+                        // Check if overdue
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const statusBadge = row.querySelector('.task-status-badge');
+                        const isCompleted = statusBadge && statusBadge.dataset.status === 'completed';
+                        if (date < today && !isCompleted) {
+                            dueDateEl.classList.add('text-red-600', 'font-medium');
+                        } else {
+                            dueDateEl.classList.remove('text-red-600', 'font-medium');
+                        }
+                    } else {
+                        dueDateEl.innerHTML = '<span class="text-gray-400">-</span>';
+                        dueDateEl.classList.remove('text-red-600', 'font-medium');
+                    }
+                }
+                break;
+        }
+    });
+
+    // Listen for assignee changes
+    document.addEventListener('task-assignees-updated', function(e) {
+        const { taskId, assignees } = e.detail;
+        const row = document.querySelector(`.task-list-row[data-task-id="${taskId}"]`);
+        if (!row) return;
+
+        const assigneesContainer = row.querySelector('.task-assignees');
+        if (!assigneesContainer) return;
+
+        if (assignees && assignees.length > 0) {
+            let html = '<div class="flex -space-x-1">';
+            assignees.slice(0, 3).forEach(function(a) {
+                const initial = (a.user?.firstName || a.firstName || '?').charAt(0).toUpperCase();
+                const name = a.user?.fullName || a.fullName || 'Unknown';
+                html += `<span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 ring-2 ring-white" title="${name}">
+                    <span class="text-xs font-medium text-gray-600">${initial}</span>
+                </span>`;
+            });
+            if (assignees.length > 3) {
+                html += `<span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 ring-2 ring-white">
+                    <span class="text-xs font-medium text-gray-600">+${assignees.length - 3}</span>
+                </span>`;
+            }
+            html += '</div>';
+            assigneesContainer.innerHTML = html;
+        } else {
+            assigneesContainer.innerHTML = '<span class="text-gray-400">-</span>';
+        }
+    });
+})();
+</script>
