@@ -5,10 +5,10 @@ namespace App\Controller;
 use App\Entity\Project;
 use App\Entity\ProjectMember;
 use App\Entity\User;
-use App\Enum\ProjectRole;
 use App\Form\ProjectFormType;
 use App\Repository\ActivityRepository;
 use App\Repository\ProjectRepository;
+use App\Repository\RoleRepository;
 use App\Repository\TaskRepository;
 use App\Service\ActivityService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -26,6 +26,7 @@ class ProjectController extends AbstractController
         private readonly ProjectRepository $projectRepository,
         private readonly TaskRepository $taskRepository,
         private readonly ActivityRepository $activityRepository,
+        private readonly RoleRepository $roleRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly ActivityService $activityService,
     ) {
@@ -58,10 +59,15 @@ class ProjectController extends AbstractController
         if ($form->isSubmitted() && $form->isValid()) {
             $project->setOwner($user);
 
-            // Add owner as admin member
+            // Add owner as manager member
+            $managerRole = $this->roleRepository->findBySlug('project-manager');
+            if (!$managerRole) {
+                throw new \RuntimeException('Project Manager role not found. Please run fixtures.');
+            }
+
             $member = new ProjectMember();
             $member->setUser($user);
-            $member->setRole(ProjectRole::ADMIN);
+            $member->setRole($managerRole);
             $project->addMember($member);
 
             $this->entityManager->persist($project);
@@ -93,11 +99,13 @@ class ProjectController extends AbstractController
         $user = $this->getUser();
         $recentProjects = $this->projectRepository->findByUser($user);
         $tasks = $this->taskRepository->findByProject($project);
+        $projectRoles = $this->roleRepository->findProjectRoles();
 
         return $this->render('project/show.html.twig', [
             'page_title' => $project->getName(),
             'project' => $project,
             'tasks' => $tasks,
+            'projectRoles' => $projectRoles,
             'recent_projects' => array_slice($recentProjects, 0, 5),
         ]);
     }

@@ -4,8 +4,8 @@ namespace App\Repository;
 
 use App\Entity\Project;
 use App\Entity\ProjectMember;
+use App\Entity\Role;
 use App\Entity\User;
-use App\Enum\ProjectRole;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -24,7 +24,7 @@ class ProjectMemberRepository extends ServiceEntityRepository
         return $this->findOneBy(['project' => $project, 'user' => $user]);
     }
 
-    public function getUserRoleInProject(Project $project, User $user): ?ProjectRole
+    public function getUserRoleInProject(Project $project, User $user): ?Role
     {
         $member = $this->findByProjectAndUser($project, $user);
         return $member?->getRole();

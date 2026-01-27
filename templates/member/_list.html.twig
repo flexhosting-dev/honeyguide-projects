@@ -10,13 +10,13 @@
                        class="mt-1 block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm sm:leading-6"
                        placeholder="Enter email address">
             </div>
-            <div class="w-40">
+            <div class="w-48">
                 <label for="role" class="block text-sm font-medium text-gray-700">Role</label>
                 <select name="role" id="role"
                         class="mt-1 block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm sm:leading-6">
-                    <option value="member">Member</option>
-                    <option value="admin">Admin</option>
-                    <option value="viewer">Viewer</option>
+                    {% for role in projectRoles %}
+                    <option value="{{ role.slug }}" {% if role.slug == 'project-member' %}selected{% endif %}>{{ role.name }}</option>
+                    {% endfor %}
                 </select>
             </div>
             <button type="submit"
@@ -69,9 +69,9 @@
                                 <form action="{{ path('app_member_update_role', {id: project.id, memberId: member.id}) }}" method="post" class="flex items-center">
                                     <select name="role" onchange="this.form.submit()"
                                             class="rounded-md border-0 py-1 pl-3 pr-8 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-primary-600 sm:text-sm">
-                                        <option value="admin" {{ member.role.value == 'admin' ? 'selected' : '' }}>Admin</option>
-                                        <option value="member" {{ member.role.value == 'member' ? 'selected' : '' }}>Member</option>
-                                        <option value="viewer" {{ member.role.value == 'viewer' ? 'selected' : '' }}>Viewer</option>
+                                        {% for role in projectRoles %}
+                                        <option value="{{ role.slug }}" {% if member.role.slug == role.slug %}selected{% endif %}>{{ role.name }}</option>
+                                        {% endfor %}
                                     </select>
                                 </form>
                                 <form action="{{ path('app_member_remove', {id: project.id, memberId: member.id}) }}" method="post"

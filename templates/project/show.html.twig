@@ -182,7 +182,7 @@
 
         {# Members Panel (Third) #}
         <div id="panel-2" class="tab-panel hidden pt-4">
-            {% include 'member/_list.html.twig' with {project: project, members: project.members} %}
+            {% include 'member/_list.html.twig' with {project: project, members: project.members, projectRoles: projectRoles} %}
         </div>
 
         {# Feed Panel (Fourth) - Lazy loaded #}
