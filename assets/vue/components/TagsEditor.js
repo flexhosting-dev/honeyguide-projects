@@ -15,6 +15,10 @@ export default {
         basePath: {
             type: String,
             default: ''
+        },
+        canEdit: {
+            type: Boolean,
+            default: true
         }
     },
 
@@ -220,6 +224,7 @@ export default {
             presetColors,
             standardColors,
             neutralColors,
+            canEdit: props.canEdit,
             isTagAdded,
             addTag,
             createTag,
@@ -238,11 +243,13 @@ export default {
                 <span
                     v-for="tag in tags"
                     :key="tag.id"
-                    class="tag-chip group relative inline-flex items-center text-xs font-medium text-white pl-2 pr-5 py-0.5"
+                    class="tag-chip relative inline-flex items-center text-xs font-medium text-white pl-2 py-0.5"
+                    :class="canEdit ? 'group pr-5' : 'pr-2'"
                     :style="{ backgroundColor: tag.color, '--tag-color': tag.color }"
                 >
                     {{ tag.name }}
                     <button
+                        v-if="canEdit"
                         type="button"
                         @click="removeTag(tag.id)"
                         class="absolute right-0.5 top-1/2 -translate-y-1/2 h-4 w-4 items-center justify-center rounded-full hover:bg-black/20 hidden group-hover:inline-flex"
@@ -255,8 +262,8 @@ export default {
                 </span>
             </div>
 
-            <!-- Add Tag Input -->
-            <div class="add-tag-container relative mt-2">
+            <!-- Add Tag Input (only if canEdit) -->
+            <div v-if="canEdit" class="add-tag-container relative mt-2">
                 <input
                     type="text"
                     v-model="searchQuery"

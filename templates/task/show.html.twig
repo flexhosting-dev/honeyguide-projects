@@ -3,8 +3,9 @@
 {% block title %}{{ task.title }} - WorkFlow{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto">
-    <div class="mb-8">
+<div class="max-w-4xl mx-auto" data-task-id="{{ task.id }}" data-project-id="{{ project.id }}" data-can-edit="{{ canEdit ? 'true' : 'false' }}">
+    {# Back Navigation #}
+    <div class="mb-6">
         <a href="{{ path('app_project_show', {id: project.id}) }}" class="inline-flex items-center text-sm text-gray-500 hover:text-gray-700">
             <svg class="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
@@ -14,11 +15,58 @@
     </div>
 
     <div class="bg-white shadow rounded-lg">
-        <div class="px-4 py-5 sm:p-6">
-            {# Header #}
+        {# Header Section #}
+        <div class="px-6 py-5 border-b border-gray-200">
             <div class="flex items-start justify-between">
-                <div class="flex-1">
-                    <div class="flex items-center flex-wrap gap-2">
+                <div class="flex-1 min-w-0">
+                    {# Title - Editable only if canEdit #}
+                    {% if canEdit %}
+                    <h1 class="text-2xl font-bold text-gray-900 editable-title outline-none rounded px-1 -mx-1 hover:bg-gray-50 focus:bg-white focus:ring-2 focus:ring-primary-500"
+                        contenteditable="true"
+                        data-field="title"
+                        data-original="{{ task.title }}"
+                        data-endpoint="{{ path('app_task_update_title', {id: task.id}) }}">{{ task.title }}</h1>
+                    {% else %}
+                    <h1 class="text-2xl font-bold text-gray-900 px-1 -mx-1">{{ task.title }}</h1>
+                    {% endif %}
+                    <p class="mt-1 text-sm text-gray-500">
+                        {{ project.name }} / {{ task.milestone.name }}
+                    </p>
+                    <div class="flex items-center flex-wrap gap-2 mt-3">
+                        {# Status Badge - Editable only if canEdit #}
+                        {% if canEdit %}
+                        <div class="relative inline-block">
+                            <button type="button"
+                                    class="status-badge-btn inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-gray-300
+                                        {% if task.status.value == 'completed' %}bg-green-100 text-green-700
+                                        {% elseif task.status.value == 'in_progress' %}bg-blue-100 text-blue-700
+                                        {% elseif task.status.value == 'in_review' %}bg-yellow-100 text-yellow-700
+                                        {% else %}bg-gray-100 text-gray-700{% endif %}"
+                                    data-current="{{ task.status.value }}"
+                                    onclick="toggleStatusDropdown(this)">
+                                <span class="status-label">{{ task.status.label }}</span>
+                                <svg class="ml-1 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                                </svg>
+                            </button>
+                            <div class="status-dropdown hidden absolute left-0 mt-1 w-40 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-10">
+                                <div class="py-1">
+                                    <button type="button" onclick="updateTaskStatus('{{ task.id }}', 'todo', this)" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
+                                        <span class="w-2 h-2 rounded-full bg-gray-400 mr-2"></span> To Do
+                                    </button>
+                                    <button type="button" onclick="updateTaskStatus('{{ task.id }}', 'in_progress', this)" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
+                                        <span class="w-2 h-2 rounded-full bg-blue-400 mr-2"></span> In Progress
+                                    </button>
+                                    <button type="button" onclick="updateTaskStatus('{{ task.id }}', 'in_review', this)" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
+                                        <span class="w-2 h-2 rounded-full bg-yellow-400 mr-2"></span> In Review
+                                    </button>
+                                    <button type="button" onclick="updateTaskStatus('{{ task.id }}', 'completed', this)" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
+                                        <span class="w-2 h-2 rounded-full bg-green-400 mr-2"></span> Completed
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
                         <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
                             {% if task.status.value == 'completed' %}bg-green-100 text-green-700
                             {% elseif task.status.value == 'in_progress' %}bg-blue-100 text-blue-700
@@ -26,103 +74,239 @@
                             {% else %}bg-gray-100 text-gray-700{% endif %}">
                             {{ task.status.label }}
                         </span>
+                        {% endif %}
+
+                        {# Priority Badge - Editable only if canEdit #}
+                        {% if canEdit %}
+                        <div class="relative inline-block">
+                            <button type="button"
+                                    class="priority-badge-btn inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-gray-300
+                                        {% if task.priority.value == 'high' %}bg-red-100 text-red-700
+                                        {% elseif task.priority.value == 'medium' %}bg-yellow-100 text-yellow-700
+                                        {% elseif task.priority.value == 'low' %}bg-blue-100 text-blue-700
+                                        {% else %}bg-gray-100 text-gray-700{% endif %}"
+                                    data-current="{{ task.priority.value }}"
+                                    onclick="togglePriorityDropdown(this)">
+                                <span class="priority-label">{{ task.priority.label }}</span>
+                                <svg class="ml-1 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                                </svg>
+                            </button>
+                            <div class="priority-dropdown hidden absolute left-0 mt-1 w-40 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-10">
+                                <div class="py-1">
+                                    <button type="button" onclick="updateTaskPriority('{{ task.id }}', 'none', this)" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
+                                        <span class="w-2 h-2 rounded-full bg-gray-400 mr-2"></span> None
+                                    </button>
+                                    <button type="button" onclick="updateTaskPriority('{{ task.id }}', 'low', this)" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
+                                        <span class="w-2 h-2 rounded-full bg-blue-400 mr-2"></span> Low
+                                    </button>
+                                    <button type="button" onclick="updateTaskPriority('{{ task.id }}', 'medium', this)" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
+                                        <span class="w-2 h-2 rounded-full bg-yellow-400 mr-2"></span> Medium
+                                    </button>
+                                    <button type="button" onclick="updateTaskPriority('{{ task.id }}', 'high', this)" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
+                                        <span class="w-2 h-2 rounded-full bg-red-400 mr-2"></span> High
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
                         <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
                             {% if task.priority.value == 'high' %}bg-red-100 text-red-700
                             {% elseif task.priority.value == 'medium' %}bg-yellow-100 text-yellow-700
                             {% elseif task.priority.value == 'low' %}bg-blue-100 text-blue-700
                             {% else %}bg-gray-100 text-gray-700{% endif %}">
-                            {{ task.priority.label }} Priority
+                            {{ task.priority.label }}
                         </span>
-                        {# Inline Tags Display #}
-                        {% for tag in task.tags %}
-                            <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium text-white"
-                                  style="background-color: {{ tag.color }};">
-                                {{ tag.name }}
-                            </span>
-                        {% endfor %}
+                        {% endif %}
                     </div>
-                    <h1 class="mt-2 text-2xl font-bold text-gray-900">{{ task.title }}</h1>
-                    <p class="mt-1 text-sm text-gray-500">
-                        {{ project.name }} / {{ task.milestone.name }}
-                    </p>
-                </div>
-                <div class="flex items-center space-x-2">
-                    <a href="{{ path('app_task_edit', {id: task.id}) }}"
-                       class="inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
-                        Edit
-                    </a>
                 </div>
             </div>
+        </div>
 
-            {# Description #}
-            {% if task.description %}
-                <div class="mt-6">
-                    <h3 class="text-sm font-medium text-gray-900">Description</h3>
-                    <p class="mt-2 text-sm text-gray-600 whitespace-pre-wrap">{{ task.description }}</p>
+        {# Content Section #}
+        <div class="px-6 py-5">
+            {# Description - Editable only if canEdit #}
+            <div class="mb-6">
+                <h3 class="text-sm font-medium text-gray-900 mb-2">Description</h3>
+                {% if canEdit %}
+                <div class="description-container">
+                    <div class="description-display text-sm text-gray-600 whitespace-pre-wrap rounded p-2 -m-2 hover:bg-gray-50 cursor-pointer min-h-[60px] {{ task.description ? '' : 'text-gray-400 italic' }}"
+                         onclick="showDescriptionEditor(this)"
+                         data-placeholder="Click to add description...">{{ task.description ?: 'Click to add description...' }}</div>
+                    <div class="description-editor hidden">
+                        <textarea class="w-full text-sm text-gray-600 border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[100px]"
+                                  data-endpoint="{{ path('app_task_update_description', {id: task.id}) }}"
+                                  data-original="{{ task.description }}">{{ task.description }}</textarea>
+                        <div class="flex justify-end gap-2 mt-2">
+                            <button type="button" onclick="cancelDescriptionEdit(this)" class="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
+                            <button type="button" onclick="saveDescription(this)" class="px-3 py-1.5 text-sm bg-primary-600 text-white rounded-md hover:bg-primary-500">Save</button>
+                        </div>
+                    </div>
                 </div>
-            {% endif %}
-
-            {# Details #}
-            <div class="mt-6 border-t border-gray-200 pt-6">
-                <dl class="grid grid-cols-1 gap-4 sm:grid-cols-4">
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">Start Date</dt>
-                        <dd class="mt-1 text-sm text-gray-900">
-                            {{ task.startDate ? task.startDate|date('M d, Y') : 'Not set' }}
-                        </dd>
-                    </div>
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">Due Date</dt>
-                        <dd class="mt-1 text-sm {{ task.isOverdue ? 'text-red-600 font-medium' : 'text-gray-900' }}">
-                            {% if task.dueDate %}
-                                {{ task.dueDate|date('M d, Y') }}
-                                {% if task.isOverdue %}(Overdue){% endif %}
-                            {% else %}
-                                Not set
-                            {% endif %}
-                        </dd>
-                    </div>
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">Created</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ task.createdAt|date('M d, Y H:i') }}</dd>
-                    </div>
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">Updated</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{{ task.updatedAt|date('M d, Y H:i') }}</dd>
-                    </div>
-                </dl>
+                {% else %}
+                <p class="text-sm text-gray-600 whitespace-pre-wrap {{ task.description ? '' : 'text-gray-400 italic' }}">{{ task.description ?: 'No description' }}</p>
+                {% endif %}
             </div>
 
-            {# Assignees #}
-            <div class="mt-6 border-t border-gray-200 pt-6">
-                <h3 class="text-sm font-medium text-gray-900">Assigned to</h3>
-                {% if task.assignees|length > 0 %}
-                    <div class="mt-3 flex flex-wrap gap-2">
+            {# Assignees - Editable only if canEdit #}
+            <div class="mb-6">
+                <h3 class="text-sm font-medium text-gray-900 mb-2">Assigned to</h3>
+                {% if canEdit %}
+                <div class="assignees-container" data-task-id="{{ task.id }}" data-project-id="{{ project.id }}">
+                    <div class="assignees-list flex flex-wrap gap-2">
                         {% for assignee in task.assignees %}
-                            <span class="inline-flex items-center rounded-full bg-gray-100 py-1 pl-2 pr-3 text-sm font-medium text-gray-800">
+                            <span class="assignee-chip inline-flex items-center rounded-full bg-gray-100 py-1 pl-2 pr-1 text-sm font-medium text-gray-800" data-user-id="{{ assignee.user.id }}">
                                 <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary-100 mr-2">
                                     <span class="text-xs font-medium text-primary-700">
                                         {{ assignee.user.firstName|slice(0, 1)|upper }}{{ assignee.user.lastName|slice(0, 1)|upper }}
                                     </span>
                                 </span>
                                 {{ assignee.user.fullName }}
+                                <button type="button"
+                                        onclick="removeAssignee('{{ task.id }}', '{{ assignee.user.id }}', this)"
+                                        class="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-600">
+                                    <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
                             </span>
                         {% endfor %}
+                        <button type="button"
+                                onclick="showAddAssigneeDropdown(this)"
+                                class="add-assignee-btn inline-flex items-center rounded-full border-2 border-dashed border-gray-300 px-3 py-1 text-sm text-gray-500 hover:border-gray-400 hover:text-gray-600">
+                            <svg class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                            </svg>
+                            Add
+                        </button>
                     </div>
+                    {# Add Assignee Dropdown (loaded dynamically) #}
+                    <div class="add-assignee-dropdown hidden absolute mt-1 w-56 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-10">
+                        <div class="py-1 max-h-48 overflow-y-auto">
+                            <div class="px-4 py-2 text-sm text-gray-500">Loading...</div>
+                        </div>
+                    </div>
+                </div>
+                {% if task.assignees|length == 0 %}
+                    <p class="no-assignees-msg text-sm text-gray-400 italic mt-2">No assignees</p>
+                {% endif %}
                 {% else %}
-                    <p class="mt-2 text-sm text-gray-500">No assignees yet.</p>
+                {# Read-only assignees display #}
+                {% if task.assignees|length > 0 %}
+                <div class="flex flex-wrap gap-2">
+                    {% for assignee in task.assignees %}
+                        <span class="inline-flex items-center rounded-full bg-gray-100 py-1 pl-2 pr-3 text-sm font-medium text-gray-800">
+                            <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary-100 mr-2">
+                                <span class="text-xs font-medium text-primary-700">
+                                    {{ assignee.user.firstName|slice(0, 1)|upper }}{{ assignee.user.lastName|slice(0, 1)|upper }}
+                                </span>
+                            </span>
+                            {{ assignee.user.fullName }}
+                        </span>
+                    {% endfor %}
+                </div>
+                {% else %}
+                    <p class="text-sm text-gray-400 italic">No assignees</p>
+                {% endif %}
                 {% endif %}
             </div>
 
-            {# Tags Section (Vue Component) #}
-            <div class="mt-6 border-t border-gray-200 pt-6">
-                <h3 class="text-sm font-medium text-gray-900 mb-3">Tags</h3>
-                {% include 'task/_tags_vue.html.twig' with {task: task} %}
+            {# Tags (Vue Component) - pass canEdit #}
+            <div class="mb-6">
+                <h3 class="text-sm font-medium text-gray-900 mb-2">Tags</h3>
+                {% include 'task/_tags_vue.html.twig' with {task: task, canEdit: canEdit} %}
+            </div>
+
+            {# Details Grid #}
+            <div class="mb-6 grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {# Start Date - Editable only if canEdit #}
+                <div>
+                    <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Start Date</dt>
+                    <dd class="mt-1">
+                        {% if canEdit %}
+                        <div class="relative">
+                            <input type="date"
+                                   class="start-date-input text-sm border-0 p-0 bg-transparent cursor-pointer hover:text-primary-600 focus:ring-0 text-gray-900"
+                                   value="{{ task.startDate ? task.startDate|date('Y-m-d') : '' }}"
+                                   data-original="{{ task.startDate ? task.startDate|date('Y-m-d') : '' }}"
+                                   data-endpoint="{{ path('app_task_update_start_date', {id: task.id}) }}"
+                                   onchange="updateStartDate(this)">
+                            {% if not task.startDate %}
+                                <span class="start-date-placeholder text-sm text-gray-400 italic pointer-events-none absolute left-0 top-0">No start date</span>
+                            {% endif %}
+                        </div>
+                        {% else %}
+                        <span class="text-sm text-gray-900">{{ task.startDate ? task.startDate|date('M d, Y') : 'Not set' }}</span>
+                        {% endif %}
+                    </dd>
+                </div>
+                {# Due Date - Editable only if canEdit #}
+                <div>
+                    <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Due Date</dt>
+                    <dd class="mt-1">
+                        {% if canEdit %}
+                        <div class="relative">
+                            <input type="date"
+                                   class="due-date-input text-sm border-0 p-0 bg-transparent cursor-pointer hover:text-primary-600 focus:ring-0 {{ task.isOverdue ? 'text-red-600 font-medium' : 'text-gray-900' }}"
+                                   value="{{ task.dueDate ? task.dueDate|date('Y-m-d') : '' }}"
+                                   data-original="{{ task.dueDate ? task.dueDate|date('Y-m-d') : '' }}"
+                                   data-endpoint="{{ path('app_task_update_due_date', {id: task.id}) }}"
+                                   onchange="updateDueDate(this)">
+                            {% if not task.dueDate %}
+                                <span class="due-date-placeholder text-sm text-gray-400 italic pointer-events-none absolute left-0 top-0">No due date</span>
+                            {% endif %}
+                        </div>
+                        {% else %}
+                        <span class="text-sm {{ task.isOverdue ? 'text-red-600 font-medium' : 'text-gray-900' }}">
+                            {% if task.dueDate %}
+                                {{ task.dueDate|date('M d, Y') }}{% if task.isOverdue %} (Overdue){% endif %}
+                            {% else %}
+                                Not set
+                            {% endif %}
+                        </span>
+                        {% endif %}
+                    </dd>
+                </div>
+                {# Milestone - Editable only if canEdit #}
+                <div>
+                    <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Milestone</dt>
+                    <dd class="mt-1">
+                        {% if canEdit %}
+                        <div class="relative inline-block">
+                            <button type="button"
+                                    class="milestone-btn text-sm text-gray-900 hover:text-primary-600 flex items-center"
+                                    onclick="toggleMilestoneDropdown(this)">
+                                <span class="milestone-label">{{ task.milestone.name }}</span>
+                                <svg class="ml-1 h-3 w-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                                </svg>
+                            </button>
+                            <div class="milestone-dropdown hidden absolute left-0 mt-1 w-48 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-10">
+                                <div class="py-1">
+                                    {% for milestone in project.milestones %}
+                                        <button type="button"
+                                                onclick="updateTaskMilestone('{{ task.id }}', '{{ milestone.id }}', '{{ milestone.name }}', this)"
+                                                class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 {{ milestone.id == task.milestone.id ? 'bg-gray-50 font-medium' : '' }}">
+                                            {{ milestone.name }}
+                                        </button>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <span class="text-sm text-gray-900">{{ task.milestone.name }}</span>
+                        {% endif %}
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Created</dt>
+                    <dd class="mt-1 text-sm text-gray-900">{{ task.createdAt|date('M d, Y') }}</dd>
+                </div>
             </div>
         </div>
 
         {# Tabs for Checklist, Comments and Activity #}
-        <div class="border-t border-gray-200 px-4 py-5 sm:p-6">
+        <div class="border-t border-gray-200 px-6 py-5">
             <div class="task-detail-tabs">
                 {# Tab Navigation #}
                 <div class="flex border-b border-gray-200 mb-6">
@@ -150,12 +334,12 @@
 
                 {# Checklist Tab Content (Vue Component) #}
                 <div class="detail-tab-content" id="detail-tab-checklist">
-                    {% include 'task/_checklist_vue.html.twig' with {task: task} %}
+                    {% include 'task/_checklist_vue.html.twig' with {task: task, canEdit: canEdit} %}
                 </div>
 
                 {# Comments Tab Content (Vue Component) #}
                 <div class="detail-tab-content hidden" id="detail-tab-comments">
-                    {% include 'task/_comments_vue.html.twig' with {task: task} %}
+                    {% include 'task/_comments_vue.html.twig' with {task: task, canEdit: canEdit} %}
                 </div>
 
                 {# Activity Tab Content (Vue Component) #}

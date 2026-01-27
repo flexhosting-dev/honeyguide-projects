@@ -639,11 +639,13 @@ export default {
                             <div class="kanban-dropzone space-y-3 min-h-[100px]">
                                 <!-- Task Cards with drop indicators -->
                                 <template v-for="(task, index) in tasksByColumn[column.value]" :key="task.id">
-                                    <!-- Drop indicator before this task -->
+                                    <!-- Drop placeholder before this task -->
                                     <div
                                         v-if="dragOverColumn === column.value && draggedTask && dropIndex === index"
-                                        class="drop-indicator h-1 bg-primary-400 rounded-full mx-2 transition-all"
-                                    ></div>
+                                        class="drop-placeholder"
+                                    >
+                                        <span>Drop here</span>
+                                    </div>
                                     <div
                                         :data-task-id="task.id"
                                         draggable="true"
@@ -651,7 +653,7 @@ export default {
                                         @dragstart="handleDragStart($event, task)"
                                         @dragend="handleDragEnd"
                                         class="task-card bg-white rounded-lg shadow-sm border border-gray-200 p-4 cursor-move hover:shadow-md transition-all duration-200"
-                                        :class="{ 'opacity-40 scale-95': draggedTask?.id === task.id }"
+                                        :class="{ 'opacity-70 scale-95': draggedTask?.id === task.id }"
                                     >
                                     <div class="flex items-start justify-between">
                                         <h4 class="text-sm font-medium text-gray-900 flex-1">
@@ -706,7 +708,7 @@ export default {
 
                                 <!-- Drop placeholder at end of column -->
                                 <div
-                                    v-if="dragOverColumn === column.value && draggedTask"
+                                    v-if="dragOverColumn === column.value && draggedTask && dropIndex >= (tasksByColumn[column.value]?.length || 0)"
                                     class="drop-placeholder"
                                 >
                                     <span>Drop here</span>

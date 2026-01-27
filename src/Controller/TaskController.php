@@ -187,12 +187,14 @@ class TaskController extends AbstractController
         /** @var User $user */
         $user = $this->getUser();
         $recentProjects = $this->projectRepository->findByUser($user);
+        $canEdit = $this->isGranted('PROJECT_EDIT', $project);
 
         return $this->render('task/show.html.twig', [
             'page_title' => $task->getTitle(),
             'task' => $task,
             'project' => $project,
             'recent_projects' => array_slice($recentProjects, 0, 5),
+            'canEdit' => $canEdit,
         ]);
     }
 
@@ -400,10 +402,12 @@ class TaskController extends AbstractController
     {
         $project = $task->getProject();
         $this->denyAccessUnlessGranted('PROJECT_VIEW', $project);
+        $canEdit = $this->isGranted('PROJECT_EDIT', $project);
 
         return $this->render('task/_panel.html.twig', [
             'task' => $task,
             'project' => $project,
+            'canEdit' => $canEdit,
         ]);
     }
 

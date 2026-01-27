@@ -23,6 +23,10 @@ export default {
         basePath: {
             type: String,
             default: ''
+        },
+        canEdit: {
+            type: Boolean,
+            default: true
         }
     },
 
@@ -149,6 +153,7 @@ export default {
             isLoading,
             canDelete,
             canAddComment,
+            canEdit: props.canEdit,
             addComment,
             deleteComment,
             onTextareaInput,
@@ -158,8 +163,8 @@ export default {
 
     template: `
         <div class="comments-editor">
-            <!-- Add Comment Form -->
-            <div class="add-comment-form mb-4">
+            <!-- Add Comment Form (only if canEdit) -->
+            <div v-if="canEdit" class="add-comment-form mb-4">
                 <div class="flex gap-3">
                     <div class="flex-shrink-0">
                         <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary-100">
@@ -210,7 +215,7 @@ export default {
                             <span class="ml-2 text-xs text-gray-500">{{ comment.createdAt }}</span>
                         </div>
                         <button
-                            v-if="canDelete(comment)"
+                            v-if="canEdit && canDelete(comment)"
                             @click="deleteComment(comment)"
                             class="text-gray-400 hover:text-red-600 p-1"
                             title="Delete comment"

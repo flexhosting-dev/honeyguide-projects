@@ -1,9 +1,10 @@
 {# Comments Component - Vue Version #}
-{# Required variables: task #}
+{# Required variables: task, canEdit (optional, defaults to true) #}
 {#
    This uses Vue for reactivity instead of vanilla JS.
    The Vue component will auto-mount on elements with data-vue-component="CommentsEditor"
 #}
+{% set canEdit = canEdit|default(true) %}
 <div
     data-vue-component="CommentsEditor"
     data-vue-task-id="{{ task.id }}"
@@ -18,6 +19,7 @@
         createdAt: c.createdAt|date('M d, H:i')
     })|json_encode|e('html_attr') }}'
     data-vue-base-path="{{ app.request.basePath }}"
+    data-vue-can-edit="{{ canEdit ? 'true' : 'false' }}"
 >
     {# Fallback content shown before Vue mounts #}
     <noscript>

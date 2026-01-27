@@ -15,6 +15,10 @@ export default {
         basePath: {
             type: String,
             default: ''
+        },
+        canEdit: {
+            type: Boolean,
+            default: true
         }
     },
 
@@ -208,6 +212,7 @@ export default {
             totalCount,
             completedCount,
             progressPercent,
+            canEdit: props.canEdit,
             addItem,
             toggleItem,
             startEditing,
@@ -235,8 +240,8 @@ export default {
                 </div>
             </div>
 
-            <!-- Add Item Form -->
-            <div class="add-checklist-form mb-4">
+            <!-- Add Item Form (only if canEdit) -->
+            <div v-if="canEdit" class="add-checklist-form mb-4">
                 <div class="flex gap-2">
                     <input
                         ref="newItemInput"
@@ -267,8 +272,8 @@ export default {
                     :key="item.id"
                     class="checklist-item group flex items-center gap-2 p-2 rounded-md hover:bg-gray-50"
                 >
-                    <!-- Drag Handle -->
-                    <div class="cursor-grab text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <!-- Drag Handle (only if canEdit) -->
+                    <div v-if="canEdit" class="cursor-grab text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
                         </svg>
@@ -280,11 +285,11 @@ export default {
                         :checked="item.isCompleted"
                         @change="toggleItem(item)"
                         class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                        :disabled="isLoading"
+                        :disabled="isLoading || !canEdit"
                     >
 
                     <!-- Title (View/Edit Mode) -->
-                    <template v-if="editingItemId === item.id">
+                    <template v-if="canEdit && editingItemId === item.id">
                         <input
                             :id="'edit-input-' + item.id"
                             type="text"
@@ -296,16 +301,17 @@ export default {
                     </template>
                     <template v-else>
                         <span
-                            @click="startEditing(item)"
-                            class="flex-1 text-sm cursor-pointer"
-                            :class="item.isCompleted ? 'line-through text-gray-400' : 'text-gray-900'"
+                            @click="canEdit && startEditing(item)"
+                            class="flex-1 text-sm"
+                            :class="[item.isCompleted ? 'line-through text-gray-400' : 'text-gray-900', canEdit ? 'cursor-pointer' : '']"
                         >
                             {{ item.title }}
                         </span>
                     </template>
 
-                    <!-- Delete Button -->
+                    <!-- Delete Button (only if canEdit) -->
                     <button
+                        v-if="canEdit"
                         type="button"
                         @click="deleteItem(item)"
                         class="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-600"
