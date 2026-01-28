@@ -47,6 +47,9 @@ class Project
     #[ORM\Column]
     private \DateTimeImmutable $updatedAt;
 
+    #[ORM\Column(options: ['default' => true])]
+    private bool $isPublic = true;
+
     /** @var Collection<int, ProjectMember> */
     #[ORM\OneToMany(targetEntity: ProjectMember::class, mappedBy: 'project', orphanRemoval: true, cascade: ['persist'])]
     private Collection $members;
@@ -137,6 +140,17 @@ class Project
     public function setEndDate(?\DateTimeImmutable $endDate): static
     {
         $this->endDate = $endDate;
+        return $this;
+    }
+
+    public function isPublic(): bool
+    {
+        return $this->isPublic;
+    }
+
+    public function setIsPublic(bool $isPublic): static
+    {
+        $this->isPublic = $isPublic;
         return $this;
     }
 

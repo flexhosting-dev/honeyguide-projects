@@ -24,7 +24,9 @@ class ProjectRepository extends ServiceEntityRepository
             ->leftJoin('p.members', 'm')
             ->where('p.owner = :user')
             ->orWhere('m.user = :user')
+            ->orWhere('p.isPublic = true')
             ->setParameter('user', $user)
+            ->distinct()
             ->orderBy('p.createdAt', 'DESC');
     }
 

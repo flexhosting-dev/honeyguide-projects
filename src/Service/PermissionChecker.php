@@ -50,12 +50,17 @@ class PermissionChecker
             return false;
         }
 
-        // 5. Project owner has full access
+        // 5. PUBLIC PROJECT: Grant view-only permissions to any authenticated user
+        if ($project->isPublic() && $this->isViewOnlyPermission($permission)) {
+            return true;
+        }
+
+        // 6. Project owner has full access
         if ($project->getOwner()->getId()->equals($user->getId())) {
             return true;
         }
 
-        // 6. Check project membership and role permissions
+        // 7. Check project membership and role permissions
         $membership = $this->getMembership($user, $project);
         if (!$membership) {
             return false;
@@ -115,6 +120,7 @@ class PermissionChecker
 
     /**
      * Check if user is a member of the project (any role).
+     * For public projects, any authenticated user has view access.
      */
     public function isMember(User $user, Project $project): bool
     {
@@ -123,6 +129,11 @@ class PermissionChecker
         }
 
         if ($project->getOwner()->getId()->equals($user->getId())) {
+            return true;
+        }
+
+        // Public projects: any authenticated user has view access
+        if ($project->isPublic()) {
             return true;
         }
 
@@ -135,6 +146,21 @@ class PermissionChecker
     private function isPortalPermission(string $permission): bool
     {
         return in_array($permission, Permission::getPortalPermissions(), true);
+    }
+
+    /**
+     * Check if a permission is view-only (read access).
+     */
+    private function isViewOnlyPermission(string $permission): bool
+    {
+        return in_array($permission, [
+            Permission::PROJECT_VIEW,
+            Permission::MILESTONE_VIEW,
+            Permission::TASK_VIEW,
+            Permission::CHECKLIST_VIEW,
+            Permission::COMMENT_VIEW,
+            Permission::TAG_VIEW,
+        ], true);
     }
 
     /**

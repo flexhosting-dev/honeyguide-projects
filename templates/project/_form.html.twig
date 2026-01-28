@@ -43,6 +43,20 @@
     </div>
 </div>
 
+{# Visibility Settings #}
+<div class="border-t border-gray-200 pt-4">
+    <div class="flex items-start">
+        <div class="flex h-6 items-center">
+            {{ form_widget(form.isPublic) }}
+        </div>
+        <div class="ml-3">
+            {{ form_label(form.isPublic, null, {'label_attr': {'class': 'text-sm font-medium text-gray-900'}}) }}
+            <p class="text-sm text-gray-500">When enabled, all portal users can view this project with read-only access.</p>
+        </div>
+    </div>
+    {{ form_errors(form.isPublic) }}
+</div>
+
 <div class="flex justify-end gap-3 pt-4">
     <a href="{{ app.request.headers.get('referer') ?: path('app_project_index') }}"
        class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">

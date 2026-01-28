@@ -7,6 +7,7 @@ use App\Enum\ProjectStatus;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\DateType;
+use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
@@ -66,6 +67,12 @@ class ProjectFormType extends AbstractType
                 'attr' => [
                     'class' => 'block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm sm:leading-6',
                 ],
+            ])
+            ->add('isPublic', CheckboxType::class, [
+                'label' => 'Public Project',
+                'required' => false,
+                'attr' => ['class' => 'h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500'],
+                'help' => 'When enabled, all portal users can view this project (read-only access).',
             ]);
     }
 
