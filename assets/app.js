@@ -8,9 +8,8 @@ import TagsEditor from 'vue/components/TagsEditor';
 import ChecklistEditor from 'vue/components/ChecklistEditor';
 import ActivityLog from 'vue/components/ActivityLog';
 import CommentsEditor from 'vue/components/CommentsEditor';
-import TaskCard from 'vue/components/TaskCard';
-import KanbanBoard from 'vue/components/KanbanBoard';
 import TaskCreateForm from 'vue/components/TaskCreateForm';
+import KanbanBoard from 'vue/components/KanbanBoard';
 
 // Register Vue components
 const vueComponents = {
@@ -18,9 +17,8 @@ const vueComponents = {
     ChecklistEditor,
     ActivityLog,
     CommentsEditor,
-    TaskCard,
-    KanbanBoard,
-    TaskCreateForm
+    TaskCreateForm,
+    KanbanBoard
 };
 
 // Mount Vue components on page load and after Turbo navigations

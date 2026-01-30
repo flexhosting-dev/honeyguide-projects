@@ -85,21 +85,11 @@ export default {
             event.dataTransfer.effectAllowed = 'move';
             event.dataTransfer.setData('text/plain', props.task.id);
             emit('dragstart', { event, task: props.task });
-
-            // Call global kanban drag start if available
-            if (typeof window.kanbanDragStart === 'function') {
-                window.kanbanDragStart(event, props.task.id);
-            }
         };
 
         const handleDragEnd = (event) => {
             isDragging.value = false;
             emit('dragend', { event, task: props.task });
-
-            // Call global kanban drag end if available
-            if (typeof window.kanbanDragEnd === 'function') {
-                window.kanbanDragEnd(event);
-            }
         };
 
         // Get assignee initials

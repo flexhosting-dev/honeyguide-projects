@@ -1,13 +1,12 @@
-import { ref, computed, onMounted, onUnmounted, nextTick, defineAsyncComponent } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
+import TaskCard from './TaskCard.js';
 
 export default {
     name: 'KanbanBoard',
 
+    components: { TaskCard },
+
     props: {
-        projectId: {
-            type: String,
-            required: true
-        },
         initialTasks: {
             type: Array,
             default: () => []
@@ -16,7 +15,27 @@ export default {
             type: Array,
             default: () => []
         },
+        modeStorageKey: {
+            type: String,
+            default: 'kanban_mode'
+        },
         basePath: {
+            type: String,
+            default: ''
+        },
+        statusUrlTemplate: {
+            type: String,
+            default: ''
+        },
+        priorityUrlTemplate: {
+            type: String,
+            default: ''
+        },
+        milestoneUrlTemplate: {
+            type: String,
+            default: ''
+        },
+        reorderUrl: {
             type: String,
             default: ''
         }
@@ -25,7 +44,7 @@ export default {
     setup(props) {
         const tasks = ref(Array.isArray(props.initialTasks) ? [...props.initialTasks] : []);
         const currentMode = ref('status');
-        const collapsedColumns = ref({});
+        const collapsedKeys = ref(new Set());
         const draggedTask = ref(null);
         const dragOverColumn = ref(null);
         const dropIndex = ref(null);
@@ -35,63 +54,55 @@ export default {
 
         // Column configurations
         const statusColumns = [
-            { value: 'todo', label: 'To Do', bgColor: 'bg-gray-100', badgeColor: 'bg-gray-500' },
-            { value: 'in_progress', label: 'In Progress', bgColor: 'bg-blue-50', badgeColor: 'bg-blue-500' },
-            { value: 'in_review', label: 'In Review', bgColor: 'bg-yellow-50', badgeColor: 'bg-yellow-500' },
-            { value: 'completed', label: 'Completed', bgColor: 'bg-green-50', badgeColor: 'bg-green-500' }
+            { value: 'todo', label: 'To Do', badgeClass: 'kb-badge-gray', bgClass: 'kb-bg-gray' },
+            { value: 'in_progress', label: 'In Progress', badgeClass: 'kb-badge-blue', bgClass: 'kb-bg-blue' },
+            { value: 'in_review', label: 'In Review', badgeClass: 'kb-badge-yellow', bgClass: 'kb-bg-yellow' },
+            { value: 'completed', label: 'Completed', badgeClass: 'kb-badge-green', bgClass: 'kb-bg-green' }
         ];
 
         const priorityColumns = [
-            { value: 'none', label: 'None', bgColor: 'bg-slate-100', badgeColor: 'bg-slate-500' },
-            { value: 'low', label: 'Low', bgColor: 'bg-blue-50', badgeColor: 'bg-blue-500' },
-            { value: 'medium', label: 'Medium', bgColor: 'bg-yellow-50', badgeColor: 'bg-yellow-500' },
-            { value: 'high', label: 'High', bgColor: 'bg-red-50', badgeColor: 'bg-red-500' }
+            { value: 'none', label: 'None', badgeClass: 'kb-badge-gray', bgClass: 'kb-bg-gray' },
+            { value: 'low', label: 'Low', badgeClass: 'kb-badge-blue', bgClass: 'kb-bg-blue' },
+            { value: 'medium', label: 'Medium', badgeClass: 'kb-badge-yellow', bgClass: 'kb-bg-yellow' },
+            { value: 'high', label: 'High', badgeClass: 'kb-badge-red', bgClass: 'kb-bg-red' }
         ];
 
-        const milestoneColors = ['indigo', 'purple', 'pink', 'teal', 'cyan', 'amber'];
+        const milestoneColorCycle = ['indigo', 'purple', 'pink', 'teal', 'orange', 'cyan'];
 
-        // Computed columns based on mode
         const columns = computed(() => {
-            if (currentMode.value === 'status') {
-                return statusColumns;
-            } else if (currentMode.value === 'priority') {
-                return priorityColumns;
-            } else if (currentMode.value === 'milestone') {
-                return props.milestones.map((m, index) => ({
-                    value: m.id,
-                    label: m.name,
-                    dueDate: m.dueDate,
-                    bgColor: `bg-${milestoneColors[index % milestoneColors.length]}-50`,
-                    badgeColor: `bg-${milestoneColors[index % milestoneColors.length]}-500`,
-                    textColor: `text-${milestoneColors[index % milestoneColors.length]}-700`
-                }));
+            if (currentMode.value === 'status') return statusColumns;
+            if (currentMode.value === 'priority') return priorityColumns;
+            if (currentMode.value === 'milestone') {
+                return props.milestones.map((m, i) => {
+                    const color = milestoneColorCycle[i % milestoneColorCycle.length];
+                    return {
+                        value: m.id,
+                        label: m.name,
+                        dueDate: m.dueDate,
+                        badgeClass: `kb-badge-${color}`,
+                        bgClass: `kb-bg-${color} kb-milestone-col`
+                    };
+                });
             }
             return statusColumns;
         });
 
-        // Group tasks by current mode
         const tasksByColumn = computed(() => {
             const grouped = {};
-            columns.value.forEach(col => {
-                grouped[col.value] = [];
-            });
+            columns.value.forEach(col => { grouped[col.value] = []; });
 
             tasks.value.forEach(task => {
-                let columnValue;
+                let colVal;
                 if (currentMode.value === 'status') {
-                    columnValue = task.status?.value || task.status || 'todo';
+                    colVal = task.status?.value || task.status || 'todo';
                 } else if (currentMode.value === 'priority') {
-                    columnValue = task.priority?.value || task.priority || 'none';
+                    colVal = task.priority?.value || task.priority || 'none';
                 } else if (currentMode.value === 'milestone') {
-                    columnValue = task.milestoneId || task.milestone?.id;
+                    colVal = task.milestoneId || task.milestone?.id;
                 }
-
-                if (grouped[columnValue]) {
-                    grouped[columnValue].push(task);
-                }
+                if (grouped[colVal]) grouped[colVal].push(task);
             });
 
-            // Sort by position
             Object.keys(grouped).forEach(key => {
                 grouped[key].sort((a, b) => (a.position || 0) - (b.position || 0));
             });
@@ -99,69 +110,48 @@ export default {
             return grouped;
         });
 
-        // Check if milestone mode is available
         const hasMilestones = computed(() => props.milestones.length > 0);
 
-        // Storage keys
-        const modeStorageKey = computed(() => `project_${props.projectId}_kanban_mode`);
-        const collapseStorageKey = 'kanban_collapsed_columns';
+        // Collapse state
+        const COLLAPSE_KEY = 'kanban_collapsed_columns';
 
-        // Load saved state
-        const loadSavedState = () => {
-            // Load mode from URL or localStorage
-            const urlParams = new URLSearchParams(window.location.search);
-            const urlMode = urlParams.get('kanban');
-            const savedMode = localStorage.getItem(modeStorageKey.value);
-
-            if (urlMode && ['status', 'priority', 'milestone'].includes(urlMode)) {
-                currentMode.value = urlMode;
-            } else if (savedMode && ['status', 'priority', 'milestone'].includes(savedMode)) {
-                currentMode.value = savedMode;
-            }
-
-            // Load collapsed state
-            try {
-                const saved = localStorage.getItem(collapseStorageKey);
-                if (saved) {
-                    collapsedColumns.value = JSON.parse(saved);
-                }
-            } catch (e) {
-                // Ignore
-            }
+        const isCollapsed = (colValue) => {
+            return collapsedKeys.value.has(`${currentMode.value}:${colValue}`);
         };
 
-        // Save mode
+        const toggleCollapse = (colValue) => {
+            const key = `${currentMode.value}:${colValue}`;
+            const next = new Set(collapsedKeys.value);
+            if (next.has(key)) { next.delete(key); } else { next.add(key); }
+            collapsedKeys.value = next;
+            try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...next])); } catch (e) {}
+        };
+
+        const loadCollapseState = () => {
+            try {
+                const saved = localStorage.getItem(COLLAPSE_KEY);
+                if (saved) collapsedKeys.value = new Set(JSON.parse(saved));
+            } catch (e) {}
+        };
+
+        // Mode
         const setMode = (mode) => {
             currentMode.value = mode;
-            localStorage.setItem(modeStorageKey.value, mode);
-
-            // Update URL
-            const url = new URL(window.location);
-            url.searchParams.set('kanban', mode);
-            window.history.pushState({ kanbanMode: mode }, '', url);
+            try { localStorage.setItem(props.modeStorageKey, mode); } catch (e) {}
         };
 
-        // Toggle column collapse
-        const toggleCollapse = (columnValue) => {
-            const key = `${currentMode.value}_${columnValue}`;
-            if (collapsedColumns.value[key]) {
-                delete collapsedColumns.value[key];
-            } else {
-                collapsedColumns.value[key] = true;
-            }
-            localStorage.setItem(collapseStorageKey, JSON.stringify(collapsedColumns.value));
+        const loadMode = () => {
+            try {
+                const saved = localStorage.getItem(props.modeStorageKey);
+                if (saved && ['status', 'priority', 'milestone'].includes(saved)) {
+                    currentMode.value = saved;
+                }
+            } catch (e) {}
         };
 
-        const isCollapsed = (columnValue) => {
-            const key = `${currentMode.value}_${columnValue}`;
-            return !!collapsedColumns.value[key];
-        };
-
-        // Drag and drop handlers
-        const handleDragStart = (event, task) => {
+        // Drag & Drop
+        const handleDragStart = ({ event, task }) => {
             draggedTask.value = task;
-            event.dataTransfer.effectAllowed = 'move';
-            event.dataTransfer.setData('text/plain', task.id);
         };
 
         const handleDragEnd = () => {
@@ -170,197 +160,74 @@ export default {
             dropIndex.value = null;
         };
 
-        const handleDragOver = (event, columnValue) => {
+        const handleColumnDragOver = (event, colValue) => {
             event.preventDefault();
             event.dataTransfer.dropEffect = 'move';
-            dragOverColumn.value = columnValue;
+            dragOverColumn.value = colValue;
 
-            // Calculate drop index based on mouse position
             const dropzone = event.currentTarget.querySelector('.kanban-dropzone');
             if (!dropzone) return;
 
             const taskCards = dropzone.querySelectorAll('.task-card');
             const mouseY = event.clientY;
-
-            let newDropIndex = taskCards.length; // Default to end
-
+            let newIndex = taskCards.length;
             for (let i = 0; i < taskCards.length; i++) {
-                const card = taskCards[i];
-                const rect = card.getBoundingClientRect();
-                const cardMiddle = rect.top + rect.height / 2;
-
-                if (mouseY < cardMiddle) {
-                    newDropIndex = i;
-                    break;
-                }
+                const rect = taskCards[i].getBoundingClientRect();
+                if (mouseY < rect.top + rect.height / 2) { newIndex = i; break; }
             }
-
-            dropIndex.value = newDropIndex;
+            dropIndex.value = newIndex;
         };
 
-        const handleDragLeave = (event, columnValue) => {
-            // Only clear if actually leaving the column
-            const relatedTarget = event.relatedTarget;
-            const column = event.currentTarget;
-            if (!column.contains(relatedTarget)) {
+        const handleColumnDragLeave = (event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) {
                 dragOverColumn.value = null;
                 dropIndex.value = null;
             }
         };
 
-        const handleDrop = async (event, newValue) => {
-            event.preventDefault();
-
-            if (!draggedTask.value || isUpdating.value) return;
-
-            const task = draggedTask.value;
-            const oldValue = getCurrentValue(task);
-            const targetIndex = dropIndex.value;
-
-            // Clear drag state
-            dragOverColumn.value = null;
-            dropIndex.value = null;
-
-            // If same column, reorder within column
-            if (oldValue === newValue) {
-                reorderTaskInColumn(task, newValue, targetIndex);
-                await persistColumnOrder(newValue);
-                draggedTask.value = null;
-                return;
-            }
-
-            // Update task locally first (optimistic)
-            updateTaskValue(task, newValue);
-
-            // Reorder to target position in new column
-            reorderTaskInColumn(task, newValue, targetIndex);
-
-            isUpdating.value = true;
-
-            try {
-                const endpoint = getUpdateEndpoint(task.id);
-                const fieldName = getFieldName();
-
-                const response = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    body: JSON.stringify({ [fieldName]: newValue })
-                });
-
-                if (!response.ok) {
-                    throw new Error('Update failed');
-                }
-
-                // Persist the new order in target column
-                await persistColumnOrder(newValue);
-
-                // Show success notification
-                const columnLabel = columns.value.find(c => c.value === newValue)?.label || newValue;
-                if (typeof Toastr !== 'undefined') {
-                    Toastr.success('Task Updated', `"${task.title}" moved to ${columnLabel}`);
-                }
-
-            } catch (error) {
-                console.error('Error updating task:', error);
-                // Revert on error
-                updateTaskValue(task, oldValue);
-                if (typeof Toastr !== 'undefined') {
-                    Toastr.error('Update Failed', 'Could not update task. Please try again.');
-                }
-            } finally {
-                isUpdating.value = false;
-                draggedTask.value = null;
-            }
-        };
-
-        const reorderTaskInColumn = (task, columnValue, targetIndex) => {
-            // Get all tasks currently in this column
-            const allColumnTasks = tasksByColumn.value[columnValue] || [];
-
-            // Find current position of the dragged task in this column
-            const currentIndex = allColumnTasks.findIndex(t => t.id === task.id);
-
-            // Get column tasks excluding the dragged task
-            const columnTasks = allColumnTasks.filter(t => t.id !== task.id);
-
-            // Adjust target index if dragging within same column and moving down
-            let insertAt = targetIndex !== null ? targetIndex : columnTasks.length;
-            if (currentIndex !== -1 && insertAt > currentIndex) {
-                // When moving down in the same column, the visual index includes the dragged card
-                // so we need to subtract 1 for the actual insertion position
-                insertAt = Math.max(0, insertAt - 1);
-            }
-            insertAt = Math.min(insertAt, columnTasks.length);
-
-            // Insert task at new position
-            columnTasks.splice(insertAt, 0, task);
-
-            // Update position values in the tasks array
-            columnTasks.forEach((t, index) => {
-                const taskIndex = tasks.value.findIndex(tt => tt.id === t.id);
-                if (taskIndex !== -1) {
-                    tasks.value[taskIndex].position = index;
-                }
-            });
-        };
-
-        // Helper functions
         const getCurrentValue = (task) => {
-            if (currentMode.value === 'status') {
-                return task.status?.value || task.status || 'todo';
-            } else if (currentMode.value === 'priority') {
-                return task.priority?.value || task.priority || 'none';
-            } else if (currentMode.value === 'milestone') {
-                return task.milestoneId || task.milestone?.id;
-            }
+            if (currentMode.value === 'status') return task.status?.value || task.status || 'todo';
+            if (currentMode.value === 'priority') return task.priority?.value || task.priority || 'none';
+            if (currentMode.value === 'milestone') return task.milestoneId || task.milestone?.id;
             return null;
         };
 
         const updateTaskValue = (task, newValue) => {
-            const taskIndex = tasks.value.findIndex(t => t.id === task.id);
-            if (taskIndex === -1) return;
-
-            // Find the column config to get the label for the new value
-            const column = columns.value.find(c => c.value === newValue);
-            const newLabel = column?.label || newValue;
+            const idx = tasks.value.findIndex(t => t.id === task.id);
+            if (idx === -1) return;
+            const col = columns.value.find(c => c.value === newValue);
+            const label = col?.label || newValue;
 
             if (currentMode.value === 'status') {
-                if (typeof tasks.value[taskIndex].status === 'object') {
-                    tasks.value[taskIndex].status.value = newValue;
-                    tasks.value[taskIndex].status.label = newLabel;
-                } else {
-                    tasks.value[taskIndex].status = { value: newValue, label: newLabel };
-                }
+                tasks.value[idx].status = { value: newValue, label };
             } else if (currentMode.value === 'priority') {
-                if (typeof tasks.value[taskIndex].priority === 'object') {
-                    tasks.value[taskIndex].priority.value = newValue;
-                    tasks.value[taskIndex].priority.label = newLabel;
-                } else {
-                    tasks.value[taskIndex].priority = { value: newValue, label: newLabel };
-                }
+                tasks.value[idx].priority = { value: newValue, label };
             } else if (currentMode.value === 'milestone') {
-                tasks.value[taskIndex].milestoneId = newValue;
-                if (tasks.value[taskIndex].milestone) {
-                    tasks.value[taskIndex].milestone.id = newValue;
-                    tasks.value[taskIndex].milestone.name = newLabel;
-                } else {
-                    tasks.value[taskIndex].milestone = { id: newValue, name: newLabel };
-                }
+                tasks.value[idx].milestoneId = newValue;
+                tasks.value[idx].milestone = { id: newValue, name: label };
             }
         };
 
-        const getUpdateEndpoint = (taskId) => {
-            if (currentMode.value === 'status') {
-                return `${basePath}/tasks/${taskId}/status`;
-            } else if (currentMode.value === 'priority') {
-                return `${basePath}/tasks/${taskId}/priority`;
-            } else if (currentMode.value === 'milestone') {
-                return `${basePath}/tasks/${taskId}/milestone`;
-            }
-            return '';
+        const reorderInColumn = (task, colValue, targetIdx) => {
+            const all = tasksByColumn.value[colValue] || [];
+            const currentIdx = all.findIndex(t => t.id === task.id);
+            const without = all.filter(t => t.id !== task.id);
+            let insertAt = targetIdx != null ? targetIdx : without.length;
+            if (currentIdx !== -1 && insertAt > currentIdx) insertAt = Math.max(0, insertAt - 1);
+            insertAt = Math.min(insertAt, without.length);
+            without.splice(insertAt, 0, task);
+            without.forEach((t, i) => {
+                const ti = tasks.value.findIndex(tt => tt.id === t.id);
+                if (ti !== -1) tasks.value[ti].position = i;
+            });
+        };
+
+        const getUpdateUrl = (taskId) => {
+            let tmpl = '';
+            if (currentMode.value === 'status') tmpl = props.statusUrlTemplate;
+            else if (currentMode.value === 'priority') tmpl = props.priorityUrlTemplate;
+            else if (currentMode.value === 'milestone') tmpl = props.milestoneUrlTemplate;
+            return tmpl.replace('__TASK_ID__', taskId);
         };
 
         const getFieldName = () => {
@@ -370,362 +237,209 @@ export default {
             return '';
         };
 
-        const persistColumnOrder = async (columnValue) => {
-            const columnTasks = tasksByColumn.value[columnValue] || [];
-            const taskIds = columnTasks.map(t => t.id);
-
-            if (taskIds.length === 0) return;
-
+        const persistColumnOrder = async (colValue) => {
+            const colTasks = tasksByColumn.value[colValue] || [];
+            const taskIds = colTasks.map(t => t.id);
+            if (!taskIds.length || !props.reorderUrl) return;
             try {
-                const response = await fetch(`${basePath}/tasks/reorder`, {
+                await fetch(props.reorderUrl, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
+                    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                     body: JSON.stringify({ taskIds })
                 });
+            } catch (e) {
+                console.error('Error saving order:', e);
+            }
+        };
 
-                if (response.ok && typeof Toastr !== 'undefined') {
-                    Toastr.success('Task Reordered', 'Position updated');
-                }
-            } catch (error) {
-                console.error('Error saving order:', error);
+        const handleColumnDrop = async (event, newValue) => {
+            event.preventDefault();
+            if (!draggedTask.value || isUpdating.value) return;
+
+            const task = draggedTask.value;
+            const oldValue = getCurrentValue(task);
+            const targetIdx = dropIndex.value;
+
+            dragOverColumn.value = null;
+            dropIndex.value = null;
+
+            if (oldValue === newValue) {
+                reorderInColumn(task, newValue, targetIdx);
+                await persistColumnOrder(newValue);
+                draggedTask.value = null;
+                return;
+            }
+
+            // Optimistic update
+            updateTaskValue(task, newValue);
+            reorderInColumn(task, newValue, targetIdx);
+            isUpdating.value = true;
+
+            try {
+                const url = getUpdateUrl(task.id);
+                const resp = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    body: JSON.stringify({ [getFieldName()]: newValue })
+                });
+                if (!resp.ok) throw new Error('Failed');
+                await persistColumnOrder(newValue);
+                const colLabel = columns.value.find(c => c.value === newValue)?.label || newValue;
+                if (typeof Toastr !== 'undefined') Toastr.success('Task Updated', `"${task.title}" moved to ${colLabel}`);
+            } catch (err) {
+                console.error('Error updating task:', err);
+                updateTaskValue(task, oldValue);
+                if (typeof Toastr !== 'undefined') Toastr.error('Update Failed', 'Could not update task.');
+            } finally {
+                isUpdating.value = false;
+                draggedTask.value = null;
             }
         };
 
         const handleTaskClick = (task) => {
-            if (typeof window.openTaskPanel === 'function') {
-                window.openTaskPanel(task.id);
-            }
+            if (typeof window.openTaskPanel === 'function') window.openTaskPanel(task.id);
         };
 
-        // Task card helper functions
-        const getPriorityClasses = (task) => {
-            const priority = task.priority?.value || task.priority || 'none';
-            const classes = {
-                'high': 'bg-red-100 text-red-700',
-                'medium': 'bg-yellow-100 text-yellow-700',
-                'low': 'bg-blue-100 text-blue-700',
-                'none': 'bg-gray-100 text-gray-700'
-            };
-            return classes[priority] || classes['none'];
-        };
-
-        const getPriorityLabel = (task) => {
-            return task.priority?.label || 'None';
-        };
-
-        const isTaskOverdue = (task) => {
-            if (!task.dueDate) return false;
-            const dueDate = new Date(task.dueDate);
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            return dueDate < today && task.status?.value !== 'completed';
-        };
-
-        const formatDueDate = (task) => {
-            if (!task.dueDate) return null;
-            const date = new Date(task.dueDate);
-            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        };
-
-        const getAssigneeInitials = (assignee) => {
-            const firstName = assignee.user?.firstName || assignee.firstName || '';
-            const lastName = assignee.user?.lastName || assignee.lastName || '';
-            return (firstName.charAt(0) + lastName.charAt(0)).toUpperCase();
-        };
-
-        // Handle browser back/forward
-        const handlePopState = (e) => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const urlMode = urlParams.get('kanban');
-            if (urlMode && urlMode !== currentMode.value) {
-                currentMode.value = urlMode;
-            }
-        };
-
-        // Handle task updates from external sources (e.g., task panel)
+        // Live updates
         const handleTaskUpdate = (e) => {
-            const { taskId, field, value, label } = e.detail;
-            const taskIndex = tasks.value.findIndex(t => t.id === taskId || t.id === parseInt(taskId));
-            if (taskIndex === -1) return;
-
-            const task = tasks.value[taskIndex];
+            const { taskId, field, value, label, milestoneId } = e.detail || {};
+            const idx = tasks.value.findIndex(t => t.id == taskId);
+            if (idx === -1) return;
+            const task = tasks.value[idx];
 
             if (field === 'status') {
-                if (typeof task.status === 'object') {
-                    task.status.value = value;
-                    task.status.label = label;
-                } else {
-                    tasks.value[taskIndex].status = { value, label };
-                }
+                task.status = { value, label: label || value };
             } else if (field === 'priority') {
-                if (typeof task.priority === 'object') {
-                    task.priority.value = value;
-                    task.priority.label = label;
-                } else {
-                    tasks.value[taskIndex].priority = { value, label };
-                }
+                task.priority = { value, label: label || value };
             } else if (field === 'milestone') {
-                tasks.value[taskIndex].milestoneId = value;
-                if (task.milestone) {
-                    task.milestone.id = value;
-                    task.milestone.name = label;
-                } else {
-                    tasks.value[taskIndex].milestone = { id: value, name: label };
-                }
+                task.milestoneId = milestoneId || value;
+                task.milestone = { id: milestoneId || value, name: label || value };
             } else if (field === 'title') {
-                tasks.value[taskIndex].title = value;
+                task.title = value;
             } else if (field === 'dueDate') {
-                tasks.value[taskIndex].dueDate = value;
+                task.dueDate = value;
             }
         };
 
-        // Handle task created from create panel
-        const handleTaskCreated = (e) => {
-            const { task } = e.detail;
-            if (!task) return;
-
-            // Only add if task belongs to this project (check milestone)
-            const taskMilestoneId = task.milestoneId || task.milestone?.id;
-            const projectMilestoneIds = props.milestones.map(m => m.id);
-
-            if (projectMilestoneIds.includes(taskMilestoneId)) {
-                tasks.value.push(task);
-            }
+        const handleAssigneesUpdate = (e) => {
+            const { taskId, assignees } = e.detail || {};
+            const idx = tasks.value.findIndex(t => t.id == taskId);
+            if (idx === -1) return;
+            tasks.value[idx].assignees = assignees || [];
         };
 
         onMounted(() => {
-            loadSavedState();
-            window.addEventListener('popstate', handlePopState);
+            loadMode();
+            loadCollapseState();
             document.addEventListener('task-updated', handleTaskUpdate);
-            document.addEventListener('task-created', handleTaskCreated);
+            document.addEventListener('task-assignees-updated', handleAssigneesUpdate);
         });
 
         onUnmounted(() => {
-            window.removeEventListener('popstate', handlePopState);
             document.removeEventListener('task-updated', handleTaskUpdate);
-            document.removeEventListener('task-created', handleTaskCreated);
+            document.removeEventListener('task-assignees-updated', handleAssigneesUpdate);
         });
 
         return {
-            tasks,
-            currentMode,
-            columns,
-            tasksByColumn,
-            hasMilestones,
-            collapsedColumns,
-            draggedTask,
-            dragOverColumn,
-            dropIndex,
-            isUpdating,
-            setMode,
-            toggleCollapse,
-            isCollapsed,
-            handleDragStart,
-            handleDragEnd,
-            handleDragOver,
-            handleDragLeave,
-            handleDrop,
-            handleTaskClick,
-            getPriorityClasses,
-            getPriorityLabel,
-            isTaskOverdue,
-            formatDueDate,
-            getAssigneeInitials
+            tasks, currentMode, columns, tasksByColumn, hasMilestones,
+            draggedTask, dragOverColumn, dropIndex, isUpdating,
+            isCollapsed, toggleCollapse, setMode,
+            handleDragStart, handleDragEnd, handleColumnDragOver,
+            handleColumnDragLeave, handleColumnDrop, handleTaskClick,
+            basePath
         };
     },
 
     template: `
-        <div class="kanban-board-vue space-y-4">
-            <!-- Header with mode selector -->
-            <div class="flex items-center justify-between">
-                <h3 class="text-base font-semibold leading-6 text-gray-900">Tasks</h3>
-
-                <div class="inline-flex rounded-lg bg-gray-100 p-1" role="tablist">
-                    <button
-                        type="button"
-                        @click="setMode('status')"
-                        class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors"
-                        :class="currentMode === 'status'
-                            ? 'bg-white text-gray-900 shadow-sm'
-                            : 'text-gray-500 hover:text-gray-700'"
-                    >
+        <div class="kanban-board-vue">
+            <!-- Mode Switcher -->
+            <div class="kanban-mode-switcher mb-3">
+                <div class="inline-flex rounded-lg bg-gray-100 p-1">
+                    <button type="button" @click="setMode('status')"
+                        class="kanban-mode-btn inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md"
+                        :class="currentMode === 'status' ? 'bg-white text-primary-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'">
                         Status
                     </button>
-                    <button
-                        type="button"
-                        @click="setMode('priority')"
-                        class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors"
-                        :class="currentMode === 'priority'
-                            ? 'bg-white text-gray-900 shadow-sm'
-                            : 'text-gray-500 hover:text-gray-700'"
-                    >
+                    <button type="button" @click="setMode('priority')"
+                        class="kanban-mode-btn inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md"
+                        :class="currentMode === 'priority' ? 'bg-white text-primary-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'">
                         Priority
                     </button>
-                    <button
-                        v-if="hasMilestones"
-                        type="button"
-                        @click="setMode('milestone')"
-                        class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors"
-                        :class="currentMode === 'milestone'
-                            ? 'bg-white text-gray-900 shadow-sm'
-                            : 'text-gray-500 hover:text-gray-700'"
-                    >
+                    <button v-if="hasMilestones" type="button" @click="setMode('milestone')"
+                        class="kanban-mode-btn inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md"
+                        :class="currentMode === 'milestone' ? 'bg-white text-primary-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'">
                         Milestone
                     </button>
                 </div>
             </div>
 
-            <!-- Kanban columns -->
-            <div
-                class="kanban-columns flex gap-4 overflow-x-auto pb-2"
-                :class="{ 'kanban-milestone-mode': currentMode === 'milestone' }"
-            >
+            <!-- Kanban Grid -->
+            <div class="kanban-grid">
                 <div
-                    v-for="column in columns"
-                    :key="column.value"
-                    class="kanban-column rounded-lg flex flex-col transition-all duration-300"
-                    :class="[
-                        column.bgColor,
-                        isCollapsed(column.value) ? 'kanban-column-collapsed' : 'kanban-column-expanded',
-                        dragOverColumn === column.value ? 'ring-1 ring-gray-300 bg-opacity-80' : ''
-                    ]"
-                    :data-value="column.value"
-                    @dragover="handleDragOver($event, column.value)"
-                    @dragleave="handleDragLeave($event, column.value)"
-                    @drop="handleDrop($event, column.value)"
+                    v-for="col in columns"
+                    :key="col.value"
+                    class="kanban-col rounded-lg"
+                    :class="[col.bgClass, { collapsed: isCollapsed(col.value) }]"
+                    :data-column-key="col.value"
+                    @dragover="handleColumnDragOver($event, col.value)"
+                    @dragleave="handleColumnDragLeave($event)"
+                    @drop="handleColumnDrop($event, col.value)"
                 >
-                    <!-- Column header (shared between expanded/collapsed) -->
-                    <div class="kanban-header p-4 transition-all duration-300" :class="{ 'pb-0': !isCollapsed(column.value) }">
-                        <div class="flex items-center justify-between transition-all duration-300" :class="{ 'mb-4': !isCollapsed(column.value) }">
-                            <div class="flex items-center gap-2 overflow-hidden">
-                                <span
-                                    class="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium text-white whitespace-nowrap"
-                                    :class="column.badgeColor"
-                                >
-                                    {{ column.label }} ({{ tasksByColumn[column.value]?.length || 0 }})
-                                </span>
-                            </div>
-                            <button
-                                type="button"
-                                @click="toggleCollapse(column.value)"
-                                class="p-1 rounded hover:bg-gray-200 text-gray-500 hover:text-gray-700 flex-shrink-0"
-                                :title="isCollapsed(column.value) ? 'Expand' : 'Collapse'"
-                            >
-                                <svg
-                                    class="w-4 h-4 transition-transform duration-300"
-                                    :class="{ 'rotate-[-90deg]': isCollapsed(column.value) }"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-                                </svg>
-                            </button>
-                        </div>
-                        <p v-show="column.dueDate && !isCollapsed(column.value)" class="text-xs text-gray-500 -mt-2 mb-2 transition-opacity duration-300" :class="{ 'opacity-0': isCollapsed(column.value) }">
-                            Due {{ new Date(column.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }}
-                        </p>
+                    <!-- Toggle button -->
+                    <button type="button" class="kanban-toggle-btn" title="Toggle column"
+                        @click.stop="toggleCollapse(col.value)">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                        </svg>
+                    </button>
+
+                    <!-- Badge -->
+                    <div class="kanban-badge-wrap">
+                        <span class="kanban-badge" :class="col.badgeClass">
+                            {{ col.label }} ({{ tasksByColumn[col.value]?.length || 0 }})
+                        </span>
                     </div>
 
-                    <!-- Content area with animation -->
-                    <div
-                        class="kanban-content-wrapper transition-all duration-300 ease-in-out overflow-hidden"
-                        :class="isCollapsed(column.value) ? 'max-h-0 opacity-0' : 'max-h-[2000px] opacity-100'"
-                    >
-                        <div class="kanban-content p-4 pt-0 overflow-y-auto">
-                            <div class="kanban-dropzone space-y-3 min-h-[100px]">
-                                <!-- Task Cards with drop indicators -->
-                                <template v-for="(task, index) in tasksByColumn[column.value]" :key="task.id">
-                                    <!-- Drop placeholder before this task -->
-                                    <div
-                                        v-if="dragOverColumn === column.value && draggedTask && dropIndex === index"
-                                        class="drop-placeholder"
-                                    >
-                                        <span>Drop here</span>
-                                    </div>
-                                    <div
-                                        :data-task-id="task.id"
-                                        draggable="true"
-                                        @click="handleTaskClick(task)"
-                                        @dragstart="handleDragStart($event, task)"
-                                        @dragend="handleDragEnd"
-                                        class="task-card bg-white rounded-lg shadow-sm border border-gray-200 p-4 cursor-move hover:shadow-md transition-all duration-200"
-                                        :class="{ 'opacity-70 scale-95': draggedTask?.id === task.id }"
-                                    >
-                                    <div class="flex items-start justify-between">
-                                        <h4 class="text-sm font-medium text-gray-900 flex-1">
-                                            <a href="#" class="hover:text-primary-600" @click.prevent="handleTaskClick(task)">
-                                                {{ task.title }}
-                                            </a>
-                                        </h4>
-                                        <span
-                                            class="ml-2 flex-shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-                                            :class="getPriorityClasses(task)"
-                                        >
-                                            {{ getPriorityLabel(task) }}
-                                        </span>
-                                    </div>
-                                    <p v-if="task.projectName" class="mt-1 text-xs text-gray-500">{{ task.projectName }}</p>
-                                    <div class="mt-3 flex items-center justify-between">
-                                        <div class="flex items-center space-x-3">
-                                            <span v-if="formatDueDate(task)" class="flex items-center text-xs" :class="isTaskOverdue(task) ? 'text-red-600 font-medium' : 'text-gray-500'">
-                                                <svg class="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
-                                                </svg>
-                                                {{ formatDueDate(task) }}
-                                            </span>
-                                            <span v-if="task.commentCount > 0" class="flex items-center text-xs text-gray-500">
-                                                <svg class="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 0 1-.923 1.785A5.969 5.969 0 0 0 6 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337Z" />
-                                                </svg>
-                                                {{ task.commentCount }}
-                                            </span>
-                                            <span v-if="task.checklistCount > 0" class="flex items-center text-xs text-gray-500">
-                                                <svg class="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                </svg>
-                                                {{ task.completedChecklistCount || 0 }}/{{ task.checklistCount }}
-                                            </span>
-                                        </div>
-                                        <div v-if="task.assignees?.length > 0" class="flex -space-x-1">
-                                            <span
-                                                v-for="assignee in task.assignees.slice(0, 3)"
-                                                :key="assignee.id"
-                                                class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary-100 ring-2 ring-white"
-                                            >
-                                                <span class="text-xs font-medium text-primary-700">{{ getAssigneeInitials(assignee) }}</span>
-                                            </span>
-                                            <span v-if="task.assignees.length > 3" class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 ring-2 ring-white text-xs font-medium text-gray-500">
-                                                +{{ task.assignees.length - 3 }}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    </div>
-                                </template>
-
-                                <!-- Drop placeholder at end of column -->
-                                <div
-                                    v-if="dragOverColumn === column.value && draggedTask && dropIndex >= (tasksByColumn[column.value]?.length || 0)"
-                                    class="drop-placeholder"
-                                >
-                                    <span>Drop here</span>
-                                </div>
-                            </div>
+                    <!-- Body -->
+                    <div class="kanban-body">
+                        <div class="kanban-dropzone">
+                            <template v-for="(task, index) in tasksByColumn[col.value]" :key="task.id">
+                                <div v-if="dragOverColumn === col.value && draggedTask && dropIndex === index"
+                                    class="drop-placeholder"><span>Drop here</span></div>
+                                <TaskCard
+                                    :task="task"
+                                    :draggable="true"
+                                    :base-path="basePath"
+                                    @click="handleTaskClick(task)"
+                                    @dragstart="handleDragStart"
+                                    @dragend="handleDragEnd"
+                                />
+                            </template>
+                            <div v-if="dragOverColumn === col.value && draggedTask && dropIndex >= (tasksByColumn[col.value]?.length || 0)"
+                                class="drop-placeholder"><span>Drop here</span></div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Empty state when no tasks -->
+            <!-- Updating overlay -->
+            <div v-if="isUpdating" class="fixed inset-0 z-50 pointer-events-none flex items-start justify-center pt-4">
+                <div class="bg-white shadow-lg rounded-lg px-4 py-2 flex items-center gap-2 pointer-events-auto">
+                    <svg class="animate-spin h-4 w-4 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span class="text-sm text-gray-600">Updating…</span>
+                </div>
+            </div>
+
+            <!-- Empty state -->
             <div v-if="tasks.length === 0" class="text-center py-12">
                 <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
                 <h3 class="mt-2 text-sm font-medium text-gray-900">No tasks yet</h3>
-                <p class="mt-1 text-sm text-gray-500">Create milestones first, then add tasks to them.</p>
+                <p class="mt-1 text-sm text-gray-500">Tasks will appear here once created.</p>
             </div>
         </div>
     `

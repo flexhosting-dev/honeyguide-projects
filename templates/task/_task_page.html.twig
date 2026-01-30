@@ -108,12 +108,9 @@
         {# Kanban View #}
         <div id="task-view-panel-1" class="task-view-panel hidden">
             {% include 'task/_kanban_shared.html.twig' with {
-                tasksByStatus: tasksByStatus,
-                tasksByPriority: tasksByPriority|default({}),
-                tasksByMilestone: tasksByMilestone|default({}),
+                tasks: tasks,
                 milestones: milestones|default([]),
-                kanbanModeKey: kanbanModeKey|default('kanban_mode'),
-                project: project|default(null)
+                kanbanModeKey: kanbanModeKey|default('kanban_mode')
             } %}
         </div>
     {% else %}
