@@ -16,7 +16,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\String\Slugger\SluggerInterface;
 
-#[Route('/profile')]
+#[Route('/settings/profile')]
 class ProfileController extends AbstractController
 {
     private const ALLOWED_FIELDS = ['firstName', 'lastName', 'email', 'jobTitle', 'department'];
