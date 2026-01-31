@@ -1,0 +1,199 @@
+{# Gantt Chart - uses dhtmlx gantt (GPL) loaded via CDN #}
+<link rel="stylesheet" href="https://cdn.dhtmlx.com/gantt/edge/dhtmlxgantt.css">
+<script src="https://cdn.dhtmlx.com/gantt/edge/dhtmlxgantt.js"></script>
+
+<div class="bg-white/80 backdrop-blur-sm shadow-soft rounded-xl overflow-hidden">
+    {# Zoom toolbar #}
+    <div class="px-4 py-3 border-b border-gray-200 flex items-center gap-2">
+        <span class="text-sm font-medium text-gray-500 mr-2">Zoom:</span>
+        <button type="button" onclick="setGanttZoom('day')" id="gantt-zoom-day"
+                class="gantt-zoom-btn px-3 py-1 text-xs font-medium rounded-md border border-gray-300 text-gray-600 hover:bg-gray-50">Day</button>
+        <button type="button" onclick="setGanttZoom('week')" id="gantt-zoom-week"
+                class="gantt-zoom-btn px-3 py-1 text-xs font-medium rounded-md border border-primary-500 text-primary-600 bg-primary-50">Week</button>
+        <button type="button" onclick="setGanttZoom('month')" id="gantt-zoom-month"
+                class="gantt-zoom-btn px-3 py-1 text-xs font-medium rounded-md border border-gray-300 text-gray-600 hover:bg-gray-50">Month</button>
+    </div>
+    <div id="gantt-chart" style="min-height: 500px; width: 100%;"></div>
+</div>
+
+<script>
+(function() {
+    const statusColors = {
+        'todo': '#9ca3af',
+        'in_progress': '#3b82f6',
+        'in_review': '#eab308',
+        'completed': '#22c55e'
+    };
+
+    // Build task data from Twig
+    const ganttData = { data: [], links: [] };
+
+    {% for milestone in project.milestones %}
+        ganttData.data.push({
+            id: 'm_{{ milestone.id }}',
+            text: {{ milestone.name|json_encode|raw }},
+            type: 'project',
+            open: true,
+            render: 'split'
+        });
+
+        {% for task in milestone.tasks %}
+            {% if task.startDate or task.dueDate %}
+                {% set startDate = task.startDate ? task.startDate|date('Y-m-d') : task.dueDate|date_modify('-1 day')|date('Y-m-d') %}
+                {% set endDate = task.dueDate ? task.dueDate|date('Y-m-d') : task.startDate|date_modify('+1 day')|date('Y-m-d') %}
+            {% else %}
+                {% set startDate = task.createdAt|date('Y-m-d') %}
+                {% set endDate = task.createdAt|date_modify('+1 day')|date('Y-m-d') %}
+            {% endif %}
+            ganttData.data.push({
+                id: '{{ task.id }}',
+                text: {{ task.title|json_encode|raw }},
+                start_date: '{{ startDate }}',
+                end_date: '{{ endDate }}',
+                parent: 'm_{{ milestone.id }}',
+                color: statusColors['{{ task.status.value }}'] || '#9ca3af',
+                readonly: false,
+                unscheduled: {{ (not task.startDate and not task.dueDate) ? 'true' : 'false' }}
+            });
+        {% endfor %}
+    {% endfor %}
+
+    {# Tasks without milestone #}
+    {% set noMilestoneTasks = tasks|filter(t => t.milestone is null) %}
+    {% if noMilestoneTasks|length > 0 %}
+        ganttData.data.push({
+            id: 'm_none',
+            text: 'No Milestone',
+            type: 'project',
+            open: true,
+            render: 'split'
+        });
+
+        {% for task in noMilestoneTasks %}
+            {% if task.startDate or task.dueDate %}
+                {% set startDate = task.startDate ? task.startDate|date('Y-m-d') : task.dueDate|date_modify('-1 day')|date('Y-m-d') %}
+                {% set endDate = task.dueDate ? task.dueDate|date('Y-m-d') : task.startDate|date_modify('+1 day')|date('Y-m-d') %}
+            {% else %}
+                {% set startDate = task.createdAt|date('Y-m-d') %}
+                {% set endDate = task.createdAt|date_modify('+1 day')|date('Y-m-d') %}
+            {% endif %}
+            ganttData.data.push({
+                id: '{{ task.id }}',
+                text: {{ task.title|json_encode|raw }},
+                start_date: '{{ startDate }}',
+                end_date: '{{ endDate }}',
+                parent: 'm_none',
+                color: statusColors['{{ task.status.value }}'] || '#9ca3af',
+                readonly: false,
+                unscheduled: {{ (not task.startDate and not task.dueDate) ? 'true' : 'false' }}
+            });
+        {% endfor %}
+    {% endif %}
+
+    // Gantt config
+    gantt.config.date_format = "%Y-%m-%d";
+    gantt.config.drag_resize = true;
+    gantt.config.drag_move = true;
+    gantt.config.drag_progress = false;
+    gantt.config.drag_links = false;
+    gantt.config.show_links = false;
+    gantt.config.open_tree_initially = true;
+    gantt.config.fit_tasks = true;
+    gantt.config.show_unscheduled = true;
+    var isMobile = window.innerWidth < 768;
+    gantt.config.columns = isMobile
+        ? [{name: "text", label: "Task", tree: true, width: 160}]
+        : [
+            {name: "text", label: "Task", tree: true, width: 280},
+            {name: "start_date", label: "Start", align: "center", width: 90},
+            {name: "end_date", label: "End", align: "center", width: 90},
+        ];
+
+    // Prevent dragging milestone/project rows
+    gantt.attachEvent("onBeforeTaskDrag", function(id, mode, e) {
+        var task = gantt.getTask(id);
+        return task.type !== 'project';
+    });
+
+    // Save dates on drag end
+    gantt.attachEvent("onAfterTaskDrag", function(id, mode, e) {
+        var task = gantt.getTask(id);
+        if (task.type === 'project') return;
+
+        var startStr = gantt.date.date_to_str("%Y-%m-%d")(task.start_date);
+        var endStr = gantt.date.date_to_str("%Y-%m-%d")(task.end_date);
+
+        // Update start date
+        fetch(`${BASE_PATH}/tasks/${id}/start-date`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+            body: JSON.stringify({startDate: startStr})
+        });
+
+        // Update due date
+        fetch(`${BASE_PATH}/tasks/${id}/due-date`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+            body: JSON.stringify({dueDate: endStr})
+        });
+    });
+
+    // Open task panel on click
+    gantt.attachEvent("onTaskClick", function(id, e) {
+        var task = gantt.getTask(id);
+        if (task.type === 'project') return true;
+        document.dispatchEvent(new CustomEvent('task-panel:open', {detail: {taskId: id}}));
+        return true;
+    });
+
+    // Zoom levels
+    window.setGanttZoom = function(level) {
+        document.querySelectorAll('.gantt-zoom-btn').forEach(btn => {
+            btn.classList.remove('border-primary-500', 'text-primary-600', 'bg-primary-50');
+            btn.classList.add('border-gray-300', 'text-gray-600');
+        });
+        document.getElementById('gantt-zoom-' + level).classList.remove('border-gray-300', 'text-gray-600');
+        document.getElementById('gantt-zoom-' + level).classList.add('border-primary-500', 'text-primary-600', 'bg-primary-50');
+
+        switch(level) {
+            case 'day':
+                gantt.config.scale_unit = "day";
+                gantt.config.date_scale = "%d %M";
+                gantt.config.subscales = [];
+                gantt.config.step = 1;
+                break;
+            case 'week':
+                gantt.config.scale_unit = "week";
+                gantt.config.date_scale = "Week %W";
+                gantt.config.subscales = [{unit: "day", step: 1, date: "%d"}];
+                gantt.config.step = 1;
+                break;
+            case 'month':
+                gantt.config.scale_unit = "month";
+                gantt.config.date_scale = "%F %Y";
+                gantt.config.subscales = [{unit: "week", step: 1, date: "W%W"}];
+                gantt.config.step = 1;
+                break;
+        }
+        gantt.render();
+    };
+
+    // Initialize
+    window.initGantt = function() {
+        if (window._ganttInitialized) {
+            gantt.render();
+            return;
+        }
+        window._ganttInitialized = true;
+
+        // Default zoom: week
+        gantt.config.scale_unit = "week";
+        gantt.config.date_scale = "Week %W";
+        gantt.config.subscales = [{unit: "day", step: 1, date: "%d"}];
+        gantt.config.step = 1;
+
+        gantt.init("gantt-chart");
+        gantt.parse(ganttData);
+    };
+})();
+</script>

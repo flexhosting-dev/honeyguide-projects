@@ -77,6 +77,15 @@
                         </svg>
                         Kanban
                     </button>
+                    {% if not hideGanttView|default(false) %}
+                    <button type="button" onclick="showTaskView(2)" id="task-view-btn-2"
+                            class="task-view-btn inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md text-gray-600 hover:text-gray-900">
+                        <svg class="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h5.25m5.25-.75L17.25 9m0 0L21 12.75M17.25 9v12" />
+                        </svg>
+                        Gantt
+                    </button>
+                    {% endif %}
                 </div>
 
                 {# Kanban Mode Switcher - desktop: inline tabs, mobile: dropdown #}
@@ -146,6 +155,16 @@
                 kanbanModeKey: kanbanModeKey|default('kanban_mode')
             } %}
         </div>
+
+        {% if not hideGanttView|default(false) %}
+        {# Gantt View #}
+        <div id="task-view-panel-2" class="task-view-panel hidden">
+            {% include 'task/_gantt_inline.html.twig' with {
+                tasks: tasks,
+                milestones: milestones|default([])
+            } %}
+        </div>
+        {% endif %}
     {% else %}
         {% include 'components/_empty_state.html.twig' with {
             icon: 'task',
@@ -192,6 +211,11 @@
             } else {
                 modeSwitcher.classList.add('hidden');
             }
+        }
+
+        // Init gantt when Gantt view is shown
+        if (index === 2 && typeof initTaskPageGantt === 'function') {
+            initTaskPageGantt();
         }
 
         // Save to localStorage

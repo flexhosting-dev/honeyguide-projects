@@ -57,8 +57,17 @@
                     </svg>
                     Tasks
                 </button>
-                {# Members Tab - hidden on mobile, shown in "More" menu #}
+                {# Gantt Tab - hidden on mobile, shown in "More" menu #}
                 <button type="button" onclick="showTab(3)" id="tab-3"
+                        title="Gantt"
+                        class="tab-btn hidden md:inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 border border-transparent">
+                    <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h5.25m5.25-.75L17.25 9m0 0L21 12.75M17.25 9v12" />
+                    </svg>
+                    Gantt
+                </button>
+                {# Members Tab - hidden on mobile, shown in "More" menu #}
+                <button type="button" onclick="showTab(4)" id="tab-4"
                         title="Members"
                         class="tab-btn hidden md:inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 border border-transparent">
                     <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -67,7 +76,7 @@
                     Members
                 </button>
                 {# Feed Tab - hidden on mobile, shown in "More" menu #}
-                <button type="button" onclick="showTab(4)" id="tab-4"
+                <button type="button" onclick="showTab(5)" id="tab-5"
                         title="Activity Feed"
                         class="tab-btn hidden md:inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 border border-transparent">
                     <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -88,12 +97,19 @@
                         <button type="button" onclick="showTabFromMore(3)"
                                 class="more-menu-item w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" data-tab="3">
                             <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h5.25m5.25-.75L17.25 9m0 0L21 12.75M17.25 9v12" />
+                            </svg>
+                            Gantt
+                        </button>
+                        <button type="button" onclick="showTabFromMore(4)"
+                                class="more-menu-item w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" data-tab="4">
+                            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
                             </svg>
                             Members
                         </button>
-                        <button type="button" onclick="showTabFromMore(4)"
-                                class="more-menu-item w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" data-tab="4">
+                        <button type="button" onclick="showTabFromMore(5)"
+                                class="more-menu-item w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" data-tab="5">
                             <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5m.75-9 3-3 2.148 2.148A12.061 12.061 0 0 1 16.5 7.605" />
                             </svg>
@@ -172,17 +188,23 @@
                 storageKey: 'project_' ~ project.id ~ '_view',
                 showHeader: false,
                 showAddButton: true,
-                project: project
+                project: project,
+                hideGanttView: true
             } %}
         </div>
 
-        {# Members Panel (Fourth) #}
+        {# Gantt Panel (Fourth) #}
         <div id="panel-3" class="tab-panel hidden pt-4">
+            {% include 'project/_gantt.html.twig' %}
+        </div>
+
+        {# Members Panel (Fifth) #}
+        <div id="panel-4" class="tab-panel hidden pt-4">
             {% include 'member/_list.html.twig' with {project: project, members: project.members, projectRoles: projectRoles} %}
         </div>
 
-        {# Feed Panel (Fifth) - Lazy loaded #}
-        <div id="panel-4" class="tab-panel hidden pt-4">
+        {# Feed Panel (Sixth) - Lazy loaded #}
+        <div id="panel-5" class="tab-panel hidden pt-4">
             <div class="bg-white/80 backdrop-blur-sm shadow-soft rounded-xl">
                 <div class="px-4 py-5 sm:p-6">
                     {# Loading state #}
@@ -270,7 +292,7 @@ function showTab(index, save = true) {
     // Update "More" button styling (highlight if a hidden tab is active)
     const moreBtn = document.querySelector('.more-tab-btn');
     if (moreBtn) {
-        const isMoreTabActive = index >= 3; // Members (3) and Feed (4) are in "More" menu
+        const isMoreTabActive = index >= 3; // Gantt (3), Members (4) and Feed (5) are in "More" menu
         if (isMoreTabActive) {
             moreBtn.classList.remove('text-gray-600', 'hover:bg-gray-50', 'border-transparent');
             moreBtn.classList.add('border-primary-500', 'text-primary-600', 'bg-primary-50', 'border');
@@ -306,8 +328,13 @@ function showTab(index, save = true) {
         localStorage.setItem(STORAGE_KEY_TAB, index);
     }
 
+    // Init gantt when Gantt tab is opened
+    if (index === 3 && typeof initGantt === 'function') {
+        initGantt();
+    }
+
     // Lazy load feed when Feed tab is opened
-    if (index === 4 && !feedState.loaded && !feedState.loading) {
+    if (index === 5 && !feedState.loaded && !feedState.loading) {
         loadFeed();
     }
 }
@@ -423,7 +450,7 @@ async function loadFeed(append = false) {
 
 // Infinite scroll for feed
 function setupFeedScroll() {
-    const panel = document.getElementById('panel-4');
+    const panel = document.getElementById('panel-5');
     const contentEl = document.getElementById('feed-content');
 
     const observer = new IntersectionObserver((entries) => {
