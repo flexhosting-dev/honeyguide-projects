@@ -168,21 +168,28 @@
         max-width: 52px;
         padding: 0.75rem 0.25rem;
         cursor: pointer;
+        overflow: visible;
     }
     /* Rotate chevron only — button stays at top-right */
     .kanban-col.collapsed .kanban-toggle-btn {
         transform: rotate(180deg);
+        position: static;
+        margin: 0 auto;
+        display: block;
     }
     /* Rotate badge vertically */
     .kanban-col.collapsed .kanban-badge-wrap {
         writing-mode: vertical-rl;
         text-orientation: mixed;
         transform: rotate(180deg);
-        margin: 2rem auto 0;
+        margin: 1rem auto 0;
         flex: 1;
         display: flex;
         align-items: center;
         justify-content: flex-end;
+    }
+    .kanban-col.collapsed .kanban-badge {
+        white-space: nowrap;
     }
     /* Hide body */
     .kanban-col.collapsed .kanban-body {

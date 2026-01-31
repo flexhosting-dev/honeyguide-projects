@@ -18,8 +18,26 @@
 {% set completedTasks = tasks|filter(t => t.status.value == 'completed')|length %}
 {% set completionPct = totalTasks > 0 ? ((completedTasks / totalTasks) * 100)|round : 0 %}
 
+{% set totalMilestones = milestones|length %}
+{% set completedMilestones = milestones|filter(m => m.status.value == 'completed')|length %}
+{% set milestonePct = totalMilestones > 0 ? ((completedMilestones / totalMilestones) * 100)|round : 0 %}
+
 {# Row 1: Stat Cards #}
-<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    {# Milestones #}
+    <div class="bg-white/80 backdrop-blur-sm shadow-soft rounded-xl p-5">
+        <div class="flex items-center justify-between mb-2">
+            <h3 class="text-sm font-medium text-gray-500">Milestones</h3>
+            <svg class="w-5 h-5 text-purple-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v1.5M3 21v-6m0 0 2.77-.693a9 9 0 0 1 6.208.682l.108.054a9 9 0 0 0 6.086.71l3.114-.732a48.524 48.524 0 0 1-.005-10.499l-3.11.732a9 9 0 0 1-6.085-.711l-.108-.054a9 9 0 0 0-6.208-.682L3 4.5M3 15V4.5" />
+            </svg>
+        </div>
+        <p class="text-2xl font-bold text-gray-900">{{ completedMilestones }}<span class="text-sm font-normal text-gray-400">/{{ totalMilestones }}</span></p>
+        <div class="mt-2 w-full bg-gray-200 rounded-full h-2">
+            <div class="bg-purple-500 h-2 rounded-full transition-all" style="width: {{ milestonePct }}%"></div>
+        </div>
+    </div>
+
     {# Tasks Done #}
     <div class="bg-white/80 backdrop-blur-sm shadow-soft rounded-xl p-5">
         <div class="flex items-center justify-between mb-2">
