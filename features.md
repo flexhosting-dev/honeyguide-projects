@@ -159,175 +159,7 @@ eventSource.onmessage = (event) => {
 
 ---
 
-## 3. Project Dashboard / Homepage
-
-**Priority:** Medium
-**Complexity:** Medium
-**Impact:** Provides at-a-glance project overview and quick access to key metrics
-
-### Overview
-Add a dedicated "Overview" or "Dashboard" tab as the first tab in project view (before Milestones). This serves as the project's homepage, showing key metrics, recent activity, and quick actions.
-
-### Tab Order
-```
-[Overview] [Milestones] [Tasks] [Members] [Activity] [Settings]
-     ^
-   NEW
-```
-
-### Dashboard Layout
-
-```
-+-----------------------------------------------------------------------------+
-|  PROJECT DASHBOARD                                                          |
-+-----------------------------------------------------------------------------+
-|                                                                             |
-|  +----------------+  +----------------+  +----------------+                 |
-|  |   12 / 45      |  |   3            |  |   Jan 31       |                 |
-|  |   Tasks Done   |  |   Overdue      |  |   Next Deadline|                 |
-|  |   ========---  |  |   Warning      |  |   Feature X    |                 |
-|  +----------------+  +----------------+  +----------------+                 |
-|                                                                             |
-|  +-------------------------------------+  +-----------------------------+   |
-|  |  TASK STATUS BREAKDOWN              |  |  MILESTONE PROGRESS         |   |
-|  |  +--------------------------------+ |  |                             |   |
-|  |  | To Do        ========-- 15     | |  |  Phase 1    ============ V |   |
-|  |  | In Progress  ====------ 8      | |  |  Phase 2    ========----   |   |
-|  |  | In Review    ==-------- 4      | |  |  Phase 3    ==----------   |   |
-|  |  | Completed    ========-- 12     | |  |  Phase 4    ------------   |   |
-|  |  +--------------------------------+ |  |                             |   |
-|  +-------------------------------------+  +-----------------------------+   |
-|                                                                             |
-|  +-------------------------------------+  +-----------------------------+   |
-|  |  MY TASKS IN THIS PROJECT           |  |  TEAM MEMBERS               |   |
-|  |                                     |  |                             |   |
-|  |  [ ] Implement login API    Due: 2d |  |  John D. (Owner)            |   |
-|  |  [ ] Fix navbar bug         Due: 3d |  |  Jane S. (5 tasks)          |   |
-|  |  [ ] Review PR #42          Overdue |  |  Bob M. (3 tasks)           |   |
-|  |                                     |  |  Alice K. (2 tasks)         |   |
-|  |  [View All My Tasks ->]             |  |  [+ Invite Member]          |   |
-|  +-------------------------------------+  +-----------------------------+   |
-|                                                                             |
-|  +----------------------------------------------------------------------+   |
-|  |  RECENT ACTIVITY                                                      |   |
-|  |                                                                       |   |
-|  |  * John completed "Setup database schema"              2 hours ago   |   |
-|  |  * Jane commented on "API design"                      3 hours ago   |   |
-|  |  * Bob moved "Frontend layout" to In Progress          5 hours ago   |   |
-|  |  * Alice created new task "Unit tests"                 Yesterday     |   |
-|  |                                                                       |   |
-|  |  [View Full Activity ->]                                              |   |
-|  +----------------------------------------------------------------------+   |
-|                                                                             |
-+-----------------------------------------------------------------------------+
-```
-
-### Dashboard Widgets
-
-1. **Summary Stats Cards**
-   - Tasks completed / total (with progress bar)
-   - Overdue tasks count (warning indicator)
-   - Next deadline (task name + date)
-   - Optional: Tasks due this week
-
-2. **Task Status Breakdown**
-   - Horizontal bar chart or stacked bar
-   - Shows count per status
-   - Clickable to filter task list
-
-3. **Milestone Progress**
-   - List of milestones with progress bars
-   - Completion percentage
-   - Checkmark for completed milestones
-   - Click to navigate to milestone
-
-4. **My Tasks (Current User)**
-   - Tasks assigned to logged-in user in this project
-   - Shows 3-5 most urgent (by due date)
-   - Quick status toggle
-   - Link to full "My Tasks" filtered by project
-
-5. **Team Members**
-   - Avatar list of project members
-   - Task count per member
-   - Quick invite button (for owners/admins)
-   - Click to see member's tasks
-
-6. **Recent Activity Feed**
-   - Last 5-10 activities in project
-   - Compact format
-   - Link to full activity tab
-
-### Optional Widgets (Future)
-
-- **Burndown Chart** - Sprint/milestone progress over time
-- **Workload Distribution** - Tasks per team member (bar chart)
-- **Upcoming Deadlines** - Calendar view of next 7 days
-- **Blockers/At Risk** - Tasks marked as blocked or at risk
-- **Quick Actions** - Create task, create milestone, invite member
-
-### Technical Implementation
-
-**Controller:**
-```php
-// src/Controller/ProjectController.php
-#[Route('/projects/{id}', name: 'app_project_show')]
-public function show(Project $project): Response
-{
-    return $this->render('project/show.html.twig', [
-        'project' => $project,
-        'active_tab' => 'overview',  // Default to overview
-        'dashboard_data' => $this->getDashboardData($project),
-    ]);
-}
-
-private function getDashboardData(Project $project): array
-{
-    return [
-        'task_stats' => $this->taskRepository->getStatusCounts($project),
-        'overdue_count' => $this->taskRepository->countOverdue($project),
-        'next_deadline' => $this->taskRepository->getNextDeadline($project),
-        'milestone_progress' => $this->milestoneRepository->getProgress($project),
-        'my_tasks' => $this->taskRepository->findByUserAndProject($this->getUser(), $project, limit: 5),
-        'recent_activity' => $this->activityRepository->findByProject($project, limit: 10),
-    ];
-}
-```
-
-**Repository Methods:**
-```php
-// src/Repository/TaskRepository.php
-public function getStatusCounts(Project $project): array;
-public function countOverdue(Project $project): int;
-public function getNextDeadline(Project $project): ?Task;
-public function findByUserAndProject(User $user, Project $project, int $limit): array;
-```
-
-### Files Affected
-
-**Backend:**
-- Modified: `src/Controller/ProjectController.php` - Dashboard data
-- Modified: `src/Repository/TaskRepository.php` - Stats queries
-- Modified: `src/Repository/MilestoneRepository.php` - Progress queries
-- Optional: `src/Service/ProjectDashboardService.php` - Aggregate logic
-
-**Frontend:**
-- New: `templates/project/_overview.html.twig` - Dashboard template
-- Modified: `templates/project/show.html.twig` - Add Overview tab
-- New: `templates/components/_stat_card.html.twig` - Reusable stat card
-- New: `templates/components/_progress_bar.html.twig` - Progress bar component
-- Optional: `assets/js/charts.js` - Chart initialization
-
-### Caching Considerations
-
-Dashboard queries could be expensive. Consider:
-- Cache stats for 5 minutes (invalidate on task changes)
-- Lazy-load activity feed via AJAX
-- Use database views for complex aggregations
-
----
-
-## 4. Subtasks (Nested Tasks)
+## 3. Subtasks (Nested Tasks)
 
 **Priority:** High
 **Complexity:** Medium
@@ -503,7 +335,7 @@ public function getCompletedSubtaskCount(): int { }
 
 ---
 
-## 5. Gantt Chart View
+## 4. Gantt Chart View
 
 **Priority:** Medium
 **Complexity:** High
@@ -668,7 +500,7 @@ Gantt charts are challenging on mobile. Options:
 
 ---
 
-## 6. Task Filters (Side Panel)
+## 5. Task Filters (Side Panel)
 
 **Priority:** High
 **Complexity:** Low-Medium
@@ -851,7 +683,7 @@ public function findByFilters(Project $project, TaskFilterDTO $filters): array
 
 ---
 
-## 7. Advanced Task Table View
+## 6. Advanced Task Table View
 
 **Priority:** High
 **Complexity:** Medium-High
@@ -1046,7 +878,7 @@ Add a full-featured datatable view for tasks with spreadsheet-like capabilities:
 
 ---
 
-## 8. Rich Text Editor & File Attachments
+## 7. Rich Text Editor & File Attachments
 
 **Priority:** High
 **Complexity:** Medium
@@ -1217,7 +1049,7 @@ class Attachment
 
 ---
 
-## 9. Enhanced Comments (Attachments & @Mentions)
+## 8. Enhanced Comments (Attachments & @Mentions)
 
 **Priority:** Medium
 **Complexity:** Medium
@@ -1337,7 +1169,7 @@ public function getMentionedUsers(): array;
 
 ---
 
-## 10. User Notifications System
+## 9. User Notifications System
 
 **Priority:** High
 **Complexity:** Medium
@@ -1463,194 +1295,7 @@ Comprehensive notification system with in-app notifications, optional email noti
 
 ---
 
-## 11. All Tasks Page
-
-**Priority:** Medium
-**Complexity:** Medium
-**Impact:** Cross-project task visibility for multi-project users and admins
-
-### Description
-A unified task view for portal admins and users with multi-project access to see all tasks across projects in one page.
-
-### Scope
-- **Portal Admins**: View all tasks across all projects
-- **Multi-Project Users**: View tasks from all projects they have access to
-- **Single Project Users**: Redirect to My Tasks or show only their project's tasks
-
-### Features
-- All view modes supported: List, Kanban, Table (future), Gantt (future)
-- Task click opens side panel (same as project tasks)
-- Full filtering capabilities including project filter
-- Inherits all functionality from project task views
-
-### Architecture (Shared Templates)
-To ensure consistency and maintainability, refactor to use shared template partials:
-
-```
-templates/task/
-+-- _views/
-|   +-- _list_view.html.twig      # List view (shared)
-|   +-- _kanban_view.html.twig    # Kanban view (shared)
-|   +-- _table_view.html.twig     # Future table view
-|   +-- _gantt_view.html.twig     # Future gantt view
-+-- _components/
-|   +-- _card.html.twig           # Task card (shared)
-|   +-- _panel.html.twig          # Side panel (shared)
-|   +-- _filters.html.twig        # Filter bar (shared)
-|   +-- _view_switcher.html.twig  # View mode tabs (shared)
-+-- _task_page.html.twig          # Main layout wrapper (shared)
-+-- index.html.twig               # My Tasks (uses _task_page)
-+-- all.html.twig                 # All Tasks (uses _task_page)
-+-- project.html.twig             # Project Tasks (uses _task_page)
-```
-
-### Shared Template Variables
-The main wrapper template (`_task_page.html.twig`) accepts:
-- `tasks` - the task collection
-- `context` - 'all', 'my', or 'project'
-- `project` - optional, for project-specific view
-- `filters` - available filter options
-- `currentView` - list/kanban/table/gantt
-
-### Kanban Considerations
-For multi-project Kanban view:
-- Option 1: Group by status across all projects (flat view)
-- Option 2: Group by project, then by status (nested view)
-- Option 3: User toggle between grouping modes
-
-### Filter Differences by Context
-| Filter      | All Tasks | My Tasks | Project Tasks |
-|-------------|-----------|----------|---------------|
-| Project     | Yes       | Yes      | No (implicit) |
-| Status      | Yes       | Yes      | Yes           |
-| Priority    | Yes       | Yes      | Yes           |
-| Assignee    | Yes       | Yes      | Yes           |
-| Milestone   | Yes       | Yes      | Yes           |
-| Tags        | Yes       | Yes      | Yes           |
-
-### Benefits
-- Single source of truth for task views
-- Changes to views/features propagate to all contexts automatically
-- Consistent UX across all task pages
-- Only repository query differs between contexts
-
----
-
-## 12. Tagging System
-
-**Priority:** Medium
-**Complexity:** Low-Medium
-**Impact:** Better organization and filtering of tasks
-
-### Description
-Add tagging functionality to organize and filter items across the application.
-
-### Scope
-- **Task Tags**: Color-coded tags that can be applied to tasks for categorization
-- **Project Tags**: Tags for organizing projects by type, client, or category (future)
-- **Milestone Tags**: Tags for milestone classification (future)
-
-### Features
-- Create, edit, delete tags with custom colors
-- Filter views by tags
-- Tag autocomplete when adding to items
-- Bulk tag operations
-
-### User Experience
-- Tags can be added when viewing a task (in task panel) or when creating/editing a task
-- As user types a tag name, existing tags are searched and shown as autocomplete suggestions
-- If the tag doesn't exist and user has permission (can edit task), the tag is created on-the-fly
-- No need to navigate to a dedicated tag management screen - tags are created inline
-- Users can click existing tags to remove them from a task
-- Tags display with their assigned color as a visual indicator
-
----
-
-## 13. Activity Logs
-
-**Priority:** Medium
-**Complexity:** Medium
-**Impact:** Audit trail and change tracking for compliance and debugging
-
-### Description
-Comprehensive activity logging system to track all changes to tasks, milestones, and projects.
-
-### Scope
-- **Task Activity**: Log all task field changes with before/after values
-- **Milestone Activity**: Log milestone updates and task movements
-- **Project Activity**: Log project-level changes
-
-### Task Activity Events to Track
-- Task created
-- Title changed (from "X" to "Y")
-- Description changed
-- Status changed (from "To Do" to "In Progress")
-- Priority changed (from "None" to "High")
-- Start date changed
-- Due date changed
-- Assignee added
-- Assignee removed
-- Milestone changed
-- Comment added
-- (Future fields as they are added)
-
-### UI Implementation
-- Add tabs to task detail panel: "Comments" | "Activity"
-- Activity tab loads asynchronously when clicked (lazy loading)
-- Timeline view showing chronological activity
-- Filter activity by type (field changes, assignments, comments)
-
-### Data Model
-```
-TaskActivity:
-  - id
-  - task_id
-  - user_id (who made the change)
-  - action (created, updated, assigned, unassigned, commented)
-  - field (nullable - which field changed)
-  - old_value (nullable)
-  - new_value (nullable)
-  - created_at
-```
-
----
-
-## 14. Task Checklists
-
-**Priority:** High
-**Complexity:** Low
-**Impact:** Better task breakdown and progress tracking
-
-### Description
-Simple checklist items within tasks for breaking down work into smaller steps.
-
-### Features
-- Add checklist items (title only, no nesting)
-- Mark items complete/incomplete
-- Reorder items via drag-drop
-- Progress indicator (3/5 complete)
-- Quick add with Enter key
-
-### UI Implementation
-- In the task detail panel, add tabs: "Checklist" | "Comments"
-- Checklist tab loads asynchronously when clicked (lazy loading)
-- Only fetch checklist data after the task panel is already open
-- Show progress summary in tab header (e.g., "Checklist (3/5)")
-
-### Data Model
-```
-TaskChecklist:
-  - id
-  - task_id
-  - title
-  - is_completed
-  - position
-  - created_at
-```
-
----
-
-## 15. Additional Future Considerations
+## 10. Additional Future Considerations
 
 ### Offline Support (Service Workers)
 - Cache tasks locally for offline viewing
