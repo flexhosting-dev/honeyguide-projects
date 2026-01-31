@@ -78,9 +78,9 @@
                         </div>
                         <ul role="list" class="-mx-2 mt-2 space-y-1" id="favourite-projects-list-mobile">
                             {% for project in favourite_projects|default([]) %}
-                            <li class="favourite-project-item group/item" data-project-id="{{ project.id }}" data-project-name="{{ project.name }}">
-                                <div class="flex items-center gap-x-1">
-                                    <a href="{{ path('app_project_show', {id: project.id}) }}" class="text-white/80 hover:bg-white/10 hover:text-white flex-1 flex gap-x-3 rounded-lg p-2.5 text-sm font-semibold leading-6 transition-all">
+                            <li class="favourite-project-item group/item overflow-hidden{{ loop.index > 3 ? ' fav-overflow hidden' : '' }}" data-project-id="{{ project.id }}" data-project-name="{{ project.name }}">
+                                <div class="flex items-center gap-x-1 min-w-0">
+                                    <a href="{{ path('app_project_show', {id: project.id}) }}" class="text-white/80 hover:bg-white/10 hover:text-white flex-1 min-w-0 flex gap-x-3 rounded-lg p-2.5 text-sm font-semibold leading-6 transition-all">
                                         <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-yellow-500/20 text-[0.625rem] font-medium text-yellow-300 group-hover/item:bg-yellow-500/30">
                                             {{ project.name|slice(0, 1)|upper }}
                                         </span>
@@ -98,15 +98,20 @@
                             </li>
                             {% endfor %}
                         </ul>
+                        {% if favourite_projects|default([])|length > 3 %}
+                        <button type="button" onclick="toggleFavOverflow(this)" class="fav-show-more -mx-2 mt-1 w-full text-left px-2.5 py-1.5 text-xs font-medium text-white/50 hover:text-white/80 transition-colors" data-list-id="favourite-projects-list-mobile">
+                            <span class="fav-more-text">{{ favourite_projects|length - 3 }} more</span>
+                        </button>
+                        {% endif %}
                     </li>
                     {% if recent_projects is defined and recent_projects|length > 0 %}
                     <li>
                         <div class="text-xs font-semibold leading-6 text-white/50 uppercase tracking-wider">Recent Projects</div>
                         <ul role="list" class="-mx-2 mt-2 space-y-1" id="recent-projects-list-mobile">
                             {% for project in recent_projects %}
-                            <li class="recent-project-item group/item" data-project-id="{{ project.id }}">
-                                <div class="flex items-center gap-x-1">
-                                    <a href="{{ path('app_project_show', {id: project.id}) }}" class="text-white/80 hover:bg-white/10 hover:text-white flex-1 flex gap-x-3 rounded-lg p-2.5 text-sm font-semibold leading-6 transition-all">
+                            <li class="recent-project-item group/item overflow-hidden" data-project-id="{{ project.id }}">
+                                <div class="flex items-center gap-x-1 min-w-0">
+                                    <a href="{{ path('app_project_show', {id: project.id}) }}" class="text-white/80 hover:bg-white/10 hover:text-white flex-1 min-w-0 flex gap-x-3 rounded-lg p-2.5 text-sm font-semibold leading-6 transition-all">
                                         <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-white/20 text-[0.625rem] font-medium text-white group-hover/item:bg-white/30">
                                             {{ project.name|slice(0, 1)|upper }}
                                         </span>
@@ -225,9 +230,9 @@
                         </div>
                         <ul role="list" class="-mx-2 mt-2 space-y-1" id="favourite-projects-list-mobile-classic">
                             {% for project in favourite_projects|default([]) %}
-                            <li class="favourite-project-item group/item" data-project-id="{{ project.id }}" data-project-name="{{ project.name }}">
-                                <div class="flex items-center gap-x-1">
-                                    <a href="{{ path('app_project_show', {id: project.id}) }}" class="text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 flex-1 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6">
+                            <li class="favourite-project-item group/item overflow-hidden{{ loop.index > 3 ? ' fav-overflow hidden' : '' }}" data-project-id="{{ project.id }}" data-project-name="{{ project.name }}">
+                                <div class="flex items-center gap-x-1 min-w-0">
+                                    <a href="{{ path('app_project_show', {id: project.id}) }}" class="text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 flex-1 min-w-0 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6">
                                         <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-yellow-300 bg-yellow-50 text-[0.625rem] font-medium text-yellow-600 group-hover/item:border-yellow-400 group-hover/item:bg-yellow-100">
                                             {{ project.name|slice(0, 1)|upper }}
                                         </span>
@@ -245,15 +250,20 @@
                             </li>
                             {% endfor %}
                         </ul>
+                        {% if favourite_projects|default([])|length > 3 %}
+                        <button type="button" onclick="toggleFavOverflow(this)" class="fav-show-more -mx-2 mt-1 w-full text-left px-2.5 py-1.5 text-xs font-medium text-gray-400 hover:text-gray-600 transition-colors" data-list-id="favourite-projects-list-mobile-classic">
+                            <span class="fav-more-text">{{ favourite_projects|length - 3 }} more</span>
+                        </button>
+                        {% endif %}
                     </li>
                     {% if recent_projects is defined and recent_projects|length > 0 %}
                     <li>
                         <div class="text-xs font-semibold leading-6 text-gray-400">Recent Projects</div>
                         <ul role="list" class="-mx-2 mt-2 space-y-1" id="recent-projects-list-mobile-classic">
                             {% for project in recent_projects %}
-                            <li class="recent-project-item group/item" data-project-id="{{ project.id }}">
-                                <div class="flex items-center gap-x-1">
-                                    <a href="{{ path('app_project_show', {id: project.id}) }}" class="text-gray-700 hover:bg-gray-50 hover:text-primary-600 flex-1 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6">
+                            <li class="recent-project-item group/item overflow-hidden" data-project-id="{{ project.id }}">
+                                <div class="flex items-center gap-x-1 min-w-0">
+                                    <a href="{{ path('app_project_show', {id: project.id}) }}" class="text-gray-700 hover:bg-gray-50 hover:text-primary-600 flex-1 min-w-0 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6">
                                         <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-[0.625rem] font-medium text-gray-400 group-hover/item:border-primary-600 group-hover/item:text-primary-600">
                                             {{ project.name|slice(0, 1)|upper }}
                                         </span>
@@ -1847,8 +1857,8 @@
             const data = await response.json();
 
             if (data.success) {
-                // Update ALL favourite buttons on the page for this project
-                document.querySelectorAll('.favourite-btn').forEach(favBtn => {
+                // Update favourite buttons on the page for this project
+                document.querySelectorAll(`.favourite-btn[data-project-id="${projectId}"]`).forEach(favBtn => {
                     const btnSvg = favBtn.querySelector('svg');
                     favBtn.dataset.isFavourite = data.isFavourite ? 'true' : 'false';
 
@@ -1939,15 +1949,76 @@
     }
 
     // ===== ADD FAVOURITE TO SIDEBAR =====
+    function toggleFavOverflow(btn) {
+        const listId = btn.dataset.listId;
+        const list = document.getElementById(listId);
+        if (!list) return;
+        const expanded = btn.dataset.expanded === 'true';
+        list.querySelectorAll('.fav-overflow').forEach(el => {
+            el.classList.toggle('hidden', expanded);
+        });
+        btn.dataset.expanded = expanded ? 'false' : 'true';
+        if (expanded) {
+            const count = list.querySelectorAll('.fav-overflow').length;
+            btn.querySelector('.fav-more-text').textContent = count + ' more';
+        } else {
+            btn.querySelector('.fav-more-text').textContent = 'Show less';
+        }
+    }
+
+    function updateFavShowMore(listId) {
+        const list = document.getElementById(listId);
+        if (!list) return;
+        const section = list.closest('li[id^="favourite-projects-section"]');
+        if (!section) return;
+        const items = list.querySelectorAll('.favourite-project-item');
+        let showMoreBtn = section.querySelector('.fav-show-more');
+
+        // Reset: mark items beyond 5 as overflow
+        items.forEach((item, i) => {
+            if (i >= 3) {
+                item.classList.add('fav-overflow');
+                if (!showMoreBtn || showMoreBtn.dataset.expanded !== 'true') {
+                    item.classList.add('hidden');
+                }
+            } else {
+                item.classList.remove('fav-overflow', 'hidden');
+            }
+        });
+
+        const overflowCount = Math.max(0, items.length - 3);
+        if (overflowCount > 0) {
+            if (!showMoreBtn) {
+                const isGradient = listId.indexOf('classic') === -1;
+                const colorClass = isGradient ? 'text-white/50 hover:text-white/80' : 'text-gray-400 hover:text-gray-600';
+                showMoreBtn = document.createElement('button');
+                showMoreBtn.type = 'button';
+                showMoreBtn.className = `fav-show-more -mx-2 mt-1 w-full text-left px-2.5 py-1.5 text-xs font-medium ${colorClass} transition-colors`;
+                showMoreBtn.dataset.listId = listId;
+                showMoreBtn.onclick = function() { toggleFavOverflow(this); };
+                showMoreBtn.innerHTML = '<span class="fav-more-text"></span>';
+                list.after(showMoreBtn);
+            }
+            const textEl = showMoreBtn.querySelector('.fav-more-text');
+            if (showMoreBtn.dataset.expanded === 'true') {
+                textEl.textContent = 'Show less';
+            } else {
+                textEl.textContent = overflowCount + ' more';
+            }
+        } else if (showMoreBtn) {
+            showMoreBtn.remove();
+        }
+    }
+
     function addFavouriteToSidebar(projectId, projectName) {
         const initial = projectName.charAt(0).toUpperCase();
 
         // Template for gradient theme
         const gradientHtml = `
-            <li class="favourite-project-item group/item" data-project-id="${projectId}" data-project-name="${projectName}">
-                <div class="flex items-center gap-x-1">
+            <li class="favourite-project-item group/item overflow-hidden" data-project-id="${projectId}" data-project-name="${projectName}">
+                <div class="flex items-center gap-x-1 min-w-0">
                     <a href="${BASE_PATH}/projects/${projectId}"
-                       class="text-white/80 hover:bg-white/10 hover:text-white flex-1 flex gap-x-3 rounded-lg p-2.5 text-sm font-semibold leading-6 transition-all">
+                       class="text-white/80 hover:bg-white/10 hover:text-white flex-1 min-w-0 flex gap-x-3 rounded-lg p-2.5 text-sm font-semibold leading-6 transition-all">
                         <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-yellow-500/20 text-[0.625rem] font-medium text-yellow-300 group-hover/item:bg-yellow-500/30">
                             ${initial}
                         </span>
@@ -1966,10 +2037,10 @@
 
         // Template for classic theme
         const classicHtml = `
-            <li class="favourite-project-item group/item" data-project-id="${projectId}" data-project-name="${projectName}">
-                <div class="flex items-center gap-x-1">
+            <li class="favourite-project-item group/item overflow-hidden" data-project-id="${projectId}" data-project-name="${projectName}">
+                <div class="flex items-center gap-x-1 min-w-0">
                     <a href="${BASE_PATH}/projects/${projectId}"
-                       class="text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 flex-1 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6">
+                       class="text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 flex-1 min-w-0 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6">
                         <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-yellow-300 bg-yellow-50 text-[0.625rem] font-medium text-yellow-600 group-hover/item:border-yellow-400 group-hover/item:bg-yellow-100">
                             ${initial}
                         </span>
@@ -2007,6 +2078,9 @@
             const section = document.getElementById(sectionId);
             if (section) section.classList.remove('hidden');
         });
+
+        // Update show more buttons
+        ['favourite-projects-list', 'favourite-projects-list-mobile', 'favourite-projects-list-classic', 'favourite-projects-list-mobile-classic'].forEach(updateFavShowMore);
     }
 
     // ===== REMOVE FAVOURITE FROM SIDEBAR =====
@@ -2022,12 +2096,13 @@
                 el.style.overflow = 'hidden';
                 setTimeout(() => {
                     const list = el.parentElement;
+                    const listId = list ? list.id : null;
                     el.remove();
-                    // Hide section if no more favourites
                     if (list && list.children.length === 0) {
                         const section = list.closest('[id^="favourite-projects-section"]');
                         if (section) section.classList.add('hidden');
                     }
+                    if (listId) updateFavShowMore(listId);
                 }, 200);
             }, 200);
         });

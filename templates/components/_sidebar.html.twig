@@ -69,10 +69,10 @@
                     </div>
                     <ul role="list" class="-mx-2 mt-2 space-y-1" id="favourite-projects-list">
                         {% for project in favourite_projects|default([]) %}
-                        <li class="favourite-project-item group/item" data-project-id="{{ project.id }}" data-project-name="{{ project.name }}">
-                            <div class="flex items-center gap-x-1">
+                        <li class="favourite-project-item group/item overflow-hidden{{ loop.index > 3 ? ' fav-overflow hidden' : '' }}" data-project-id="{{ project.id }}" data-project-name="{{ project.name }}">
+                            <div class="flex items-center gap-x-1 min-w-0">
                                 <a href="{{ path('app_project_show', {id: project.id}) }}"
-                                   class="text-white/80 hover:bg-white/10 hover:text-white flex-1 flex gap-x-3 rounded-lg p-2.5 text-sm font-semibold leading-6 transition-all">
+                                   class="text-white/80 hover:bg-white/10 hover:text-white flex-1 min-w-0 flex gap-x-3 rounded-lg p-2.5 text-sm font-semibold leading-6 transition-all">
                                     <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-yellow-500/20 text-[0.625rem] font-medium text-yellow-300 group-hover/item:bg-yellow-500/30">
                                         {{ project.name|slice(0, 1)|upper }}
                                     </span>
@@ -90,6 +90,11 @@
                         </li>
                         {% endfor %}
                     </ul>
+                    {% if favourite_projects|default([])|length > 3 %}
+                    <button type="button" onclick="toggleFavOverflow(this)" class="fav-show-more -mx-2 mt-1 w-full text-left px-2.5 py-1.5 text-xs font-medium text-white/50 hover:text-white/80 transition-colors" data-list-id="favourite-projects-list">
+                        <span class="fav-more-text">{{ favourite_projects|length - 3 }} more</span>
+                    </button>
+                    {% endif %}
                 </li>
 
                 {% if recent_projects is defined and recent_projects|length > 0 %}
@@ -97,10 +102,10 @@
                     <div class="text-xs font-semibold leading-6 text-white/50 uppercase tracking-wider">Recent Projects</div>
                     <ul role="list" class="-mx-2 mt-2 space-y-1" id="recent-projects-list">
                         {% for project in recent_projects %}
-                        <li class="recent-project-item group/item" data-project-id="{{ project.id }}">
-                            <div class="flex items-center gap-x-1">
+                        <li class="recent-project-item group/item overflow-hidden" data-project-id="{{ project.id }}">
+                            <div class="flex items-center gap-x-1 min-w-0">
                                 <a href="{{ path('app_project_show', {id: project.id}) }}"
-                                   class="text-white/80 hover:bg-white/10 hover:text-white flex-1 flex gap-x-3 rounded-lg p-2.5 text-sm font-semibold leading-6 transition-all">
+                                   class="text-white/80 hover:bg-white/10 hover:text-white flex-1 min-w-0 flex gap-x-3 rounded-lg p-2.5 text-sm font-semibold leading-6 transition-all">
                                     <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-white/20 text-[0.625rem] font-medium text-white group-hover/item:bg-white/30">
                                         {{ project.name|slice(0, 1)|upper }}
                                     </span>
@@ -219,10 +224,10 @@
                     </div>
                     <ul role="list" class="-mx-2 mt-2 space-y-1" id="favourite-projects-list-classic">
                         {% for project in favourite_projects|default([]) %}
-                        <li class="favourite-project-item group/item" data-project-id="{{ project.id }}" data-project-name="{{ project.name }}">
-                            <div class="flex items-center gap-x-1">
+                        <li class="favourite-project-item group/item overflow-hidden{{ loop.index > 3 ? ' fav-overflow hidden' : '' }}" data-project-id="{{ project.id }}" data-project-name="{{ project.name }}">
+                            <div class="flex items-center gap-x-1 min-w-0">
                                 <a href="{{ path('app_project_show', {id: project.id}) }}"
-                                   class="text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 flex-1 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6">
+                                   class="text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 flex-1 min-w-0 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6">
                                     <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-yellow-300 bg-yellow-50 text-[0.625rem] font-medium text-yellow-600 group-hover/item:border-yellow-400 group-hover/item:bg-yellow-100">
                                         {{ project.name|slice(0, 1)|upper }}
                                     </span>
@@ -240,6 +245,11 @@
                         </li>
                         {% endfor %}
                     </ul>
+                    {% if favourite_projects|default([])|length > 3 %}
+                    <button type="button" onclick="toggleFavOverflow(this)" class="fav-show-more -mx-2 mt-1 w-full text-left px-2.5 py-1.5 text-xs font-medium text-gray-400 hover:text-gray-600 transition-colors" data-list-id="favourite-projects-list-classic">
+                        <span class="fav-more-text">{{ favourite_projects|length - 3 }} more</span>
+                    </button>
+                    {% endif %}
                 </li>
 
                 {% if recent_projects is defined and recent_projects|length > 0 %}
@@ -247,10 +257,10 @@
                     <div class="text-xs font-semibold leading-6 text-gray-400">Recent Projects</div>
                     <ul role="list" class="-mx-2 mt-2 space-y-1" id="recent-projects-list-classic">
                         {% for project in recent_projects %}
-                        <li class="recent-project-item group/item" data-project-id="{{ project.id }}">
-                            <div class="flex items-center gap-x-1">
+                        <li class="recent-project-item group/item overflow-hidden" data-project-id="{{ project.id }}">
+                            <div class="flex items-center gap-x-1 min-w-0">
                                 <a href="{{ path('app_project_show', {id: project.id}) }}"
-                                   class="text-gray-700 hover:bg-gray-50 hover:text-primary-600 flex-1 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6">
+                                   class="text-gray-700 hover:bg-gray-50 hover:text-primary-600 flex-1 min-w-0 flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6">
                                     <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-[0.625rem] font-medium text-gray-400 group-hover/item:border-primary-600 group-hover/item:text-primary-600">
                                         {{ project.name|slice(0, 1)|upper }}
                                     </span>
