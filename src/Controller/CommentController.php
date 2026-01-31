@@ -50,10 +50,13 @@ class CommentController extends AbstractController
                 return $this->json(['error' => 'Comment content is required'], Response::HTTP_BAD_REQUEST);
             }
 
+            $mentionedUserIds = $data['mentionedUserIds'] ?? null;
+
             $comment = new Comment();
             $comment->setTask($task);
             $comment->setAuthor($user);
             $comment->setContent($content);
+            $comment->setMentionedUserIds($mentionedUserIds);
 
             $this->entityManager->persist($comment);
 

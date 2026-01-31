@@ -1,3 +1,27 @@
+{# Project Description - Rich Text #}
+<div class="mb-6 bg-white/80 backdrop-blur-sm shadow-soft rounded-xl p-5">
+    <h3 class="text-sm font-semibold text-gray-900 mb-3">Description</h3>
+    <div
+        data-vue-component="RichTextEditor"
+        data-vue-entity-type="project"
+        data-vue-entity-id="{{ project.id }}"
+        data-vue-save-endpoint="{{ path('app_project_update_description', {id: project.id}) }}"
+        data-vue-initial-content="{{ project.description|default('')|e('html_attr') }}"
+        data-vue-base-path="{{ app.request.basePath }}"
+        data-vue-can-edit="true"
+        data-vue-show-attachments="false"
+        data-vue-initial-attachments="[]"
+    >
+        <div class="text-sm text-gray-600">
+            {% if project.description %}
+                <div class="prose">{{ project.description|raw }}</div>
+            {% else %}
+                <span class="text-gray-400 italic">Click to add description...</span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
 <div class="mb-6 flex items-center gap-4 text-sm text-gray-500">
     <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
         {% if project.status.value == 'active' %}bg-green-100 text-green-700

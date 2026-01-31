@@ -52,4 +52,7 @@ return [
     'vue/components/TaskCreateForm' => [
         'path' => './assets/vue/components/TaskCreateForm.js',
     ],
+    'vue/components/RichTextEditor' => [
+        'path' => './assets/vue/components/RichTextEditor.js',
+    ],
 ];

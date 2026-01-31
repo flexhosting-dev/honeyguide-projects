@@ -15,7 +15,9 @@ use App\Repository\MilestoneRepository;
 use App\Repository\ProjectRepository;
 use App\Repository\TaskRepository;
 use App\Repository\UserRepository;
+use App\Repository\AttachmentRepository;
 use App\Service\ActivityService;
+use App\Service\HtmlSanitizer;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -33,6 +35,8 @@ class TaskController extends AbstractController
         private readonly ActivityRepository $activityRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly ActivityService $activityService,
+        private readonly HtmlSanitizer $htmlSanitizer,
+        private readonly AttachmentRepository $attachmentRepository,
     ) {
     }
 
@@ -319,7 +323,7 @@ class TaskController extends AbstractController
     }
 
     #[Route('/tasks/{id}', name: 'app_task_show', methods: ['GET'])]
-    public function show(Task $task): Response
+    public function show(Request $request, Task $task): Response
     {
         $project = $task->getProject();
         $this->denyAccessUnlessGranted('PROJECT_VIEW', $project);
@@ -329,12 +333,18 @@ class TaskController extends AbstractController
         $recentProjects = $this->projectRepository->findByUser($user);
         $canEdit = $this->isGranted('PROJECT_EDIT', $project);
 
+        $taskAttachments = $this->serializeAttachments(
+            $this->attachmentRepository->findByAttachable('task', $task->getId()),
+            $request->getBasePath()
+        );
+
         return $this->render('task/show.html.twig', [
             'page_title' => $task->getTitle(),
             'task' => $task,
             'project' => $project,
             'recent_projects' => $this->projectRepository->findRecentForUser($user),
             'canEdit' => $canEdit,
+            'taskAttachments' => $taskAttachments,
         ]);
     }
 
@@ -539,16 +549,23 @@ class TaskController extends AbstractController
     }
 
     #[Route('/tasks/{id}/panel', name: 'app_task_panel', methods: ['GET'])]
-    public function panel(Task $task): Response
+    public function panel(Request $request, Task $task): Response
     {
         $project = $task->getProject();
         $this->denyAccessUnlessGranted('PROJECT_VIEW', $project);
         $canEdit = $this->isGranted('PROJECT_EDIT', $project);
 
+        $basePath = $request->getBasePath();
+        $taskAttachments = $this->serializeAttachments(
+            $this->attachmentRepository->findByAttachable('task', $task->getId()),
+            $basePath
+        );
+
         return $this->render('task/_panel.html.twig', [
             'task' => $task,
             'project' => $project,
             'canEdit' => $canEdit,
+            'taskAttachments' => $taskAttachments,
         ]);
     }
 
@@ -707,13 +724,8 @@ class TaskController extends AbstractController
         $data = json_decode($request->getContent(), true);
         $newDescription = $data['description'] ?? null;
 
-        // Allow empty description (null or empty string)
-        if ($newDescription !== null) {
-            $newDescription = trim($newDescription);
-            if ($newDescription === '') {
-                $newDescription = null;
-            }
-        }
+        // Sanitize HTML to prevent XSS
+        $newDescription = $this->htmlSanitizer->sanitize($newDescription);
 
         $task->setDescription($newDescription);
 
@@ -1070,5 +1082,22 @@ class TaskController extends AbstractController
             'success' => true,
             'members' => $members,
         ]);
+    }
+
+    private function serializeAttachments(array $attachments, string $basePath): array
+    {
+        return array_map(function (\App\Entity\Attachment $a) use ($basePath) {
+            return [
+                'id' => $a->getId()->toString(),
+                'originalName' => $a->getOriginalName(),
+                'mimeType' => $a->getMimeType(),
+                'fileSize' => $a->getFileSize(),
+                'humanFileSize' => $a->getHumanFileSize(),
+                'isImage' => $a->isImage(),
+                'downloadUrl' => $basePath . '/attachments/' . $a->getId()->toString() . '/download',
+                'previewUrl' => $a->isImage() ? $basePath . '/attachments/' . $a->getId()->toString() . '/preview' : null,
+                'createdAt' => $a->getCreatedAt()->format('M d, H:i'),
+            ];
+        }, $attachments);
     }
 }

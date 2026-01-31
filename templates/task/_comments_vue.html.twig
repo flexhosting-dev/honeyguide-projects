@@ -23,6 +23,7 @@
     })|json_encode|e('html_attr') }}'
     data-vue-base-path="{{ basePath }}"
     data-vue-can-edit="{{ canEdit ? 'true' : 'false' }}"
+    data-vue-project-id="{{ task.project.id }}"
 >
     {# Fallback content shown before Vue mounts #}
     <noscript>

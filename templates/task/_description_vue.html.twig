@@ -1,0 +1,21 @@
+{# Rich Text Description Editor - Vue Version #}
+{# Required variables: task, canEdit (optional, defaults to true) #}
+{% set canEdit = canEdit|default(true) %}
+{% set basePath = app.request.basePath %}
+<div
+    data-vue-component="RichTextEditor"
+    data-vue-task-id="{{ task.id }}"
+    data-vue-initial-content="{{ task.description|e('html_attr') }}"
+    data-vue-base-path="{{ basePath }}"
+    data-vue-can-edit="{{ canEdit ? 'true' : 'false' }}"
+    data-vue-initial-attachments='{{ taskAttachments|default([])|json_encode|e('html_attr') }}'
+>
+    {# Fallback shown before Vue mounts #}
+    <div class="text-sm text-gray-600">
+        {% if task.description %}
+            <div class="prose">{{ task.description|raw }}</div>
+        {% else %}
+            <span class="text-gray-400 italic">Click to add description...</span>
+        {% endif %}
+    </div>
+</div>

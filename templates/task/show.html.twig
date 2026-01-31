@@ -125,27 +125,10 @@
 
         {# Content Section #}
         <div class="px-6 py-5">
-            {# Description - Editable only if canEdit #}
+            {# Description - Rich Text Editor (Vue Component) #}
             <div class="mb-6">
-                <h3 class="text-sm font-medium text-gray-900 mb-2">Description</h3>
-                {% if canEdit %}
-                <div class="description-container">
-                    <div class="description-display text-sm text-gray-600 whitespace-pre-wrap rounded p-2 -m-2 hover:bg-gray-50 cursor-pointer min-h-[60px] {{ task.description ? '' : 'text-gray-400 italic' }}"
-                         onclick="showDescriptionEditor(this)"
-                         data-placeholder="Click to add description...">{{ task.description ?: 'Click to add description...' }}</div>
-                    <div class="description-editor hidden">
-                        <textarea class="w-full text-sm text-gray-600 border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[100px]"
-                                  data-endpoint="{{ path('app_task_update_description', {id: task.id}) }}"
-                                  data-original="{{ task.description }}">{{ task.description }}</textarea>
-                        <div class="flex justify-end gap-2 mt-2">
-                            <button type="button" onclick="cancelDescriptionEdit(this)" class="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
-                            <button type="button" onclick="saveDescription(this)" class="px-3 py-1.5 text-sm bg-primary-600 text-white rounded-md hover:bg-primary-500">Save</button>
-                        </div>
-                    </div>
-                </div>
-                {% else %}
-                <p class="text-sm text-gray-600 whitespace-pre-wrap {{ task.description ? '' : 'text-gray-400 italic' }}">{{ task.description ?: 'No description' }}</p>
-                {% endif %}
+                <h3 class="text-sm font-medium text-gray-900 mb-2">Description & Attachments</h3>
+                {% include 'task/_description_vue.html.twig' with {task: task, canEdit: canEdit} %}
             </div>
 
             {# Assignees - Editable only if canEdit #}

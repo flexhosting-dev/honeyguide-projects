@@ -10,6 +10,7 @@ import ActivityLog from 'vue/components/ActivityLog';
 import CommentsEditor from 'vue/components/CommentsEditor';
 import TaskCreateForm from 'vue/components/TaskCreateForm';
 import KanbanBoard from 'vue/components/KanbanBoard';
+import RichTextEditor from 'vue/components/RichTextEditor';
 
 // Register Vue components
 const vueComponents = {
@@ -18,7 +19,8 @@ const vueComponents = {
     ActivityLog,
     CommentsEditor,
     TaskCreateForm,
-    KanbanBoard
+    KanbanBoard,
+    RichTextEditor
 };
 
 // Mount Vue components on page load and after Turbo navigations

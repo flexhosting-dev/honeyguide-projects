@@ -33,9 +33,28 @@
             </div>
         </div>
 
-        {% if milestone.description %}
-            <p class="mt-3 text-sm text-gray-500">{{ milestone.description }}</p>
-        {% endif %}
+        {# Milestone Description - Rich Text Editor #}
+        <div class="mt-3">
+            <div
+                data-vue-component="RichTextEditor"
+                data-vue-entity-type="milestone"
+                data-vue-entity-id="{{ milestone.id }}"
+                data-vue-save-endpoint="{{ path('app_milestone_update_description', {projectId: project.id, id: milestone.id}) }}"
+                data-vue-initial-content="{{ milestone.description|default('')|e('html_attr') }}"
+                data-vue-base-path="{{ app.request.basePath }}"
+                data-vue-can-edit="true"
+                data-vue-show-attachments="false"
+                data-vue-initial-attachments="[]"
+            >
+                <div class="text-sm text-gray-500">
+                    {% if milestone.description %}
+                        <div class="prose">{{ milestone.description|raw }}</div>
+                    {% else %}
+                        <span class="text-gray-400 italic">Click to add description...</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
 
         {# Annual Targets — collapsible #}
         {% if milestone.targets|length > 0 %}

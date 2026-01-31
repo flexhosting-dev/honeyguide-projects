@@ -1,4 +1,4 @@
-import { ref, computed, nextTick, watch } from 'vue';
+import { ref, computed, nextTick, watch, onMounted } from 'vue';
 
 export default {
     name: 'CommentsEditor',
@@ -31,6 +31,10 @@ export default {
         canEdit: {
             type: Boolean,
             default: true
+        },
+        projectId: {
+            type: String,
+            default: ''
         }
     },
 
@@ -38,28 +42,34 @@ export default {
         const comments = ref([...props.initialComments]);
         const newComment = ref('');
         const isLoading = ref(false);
+        const pendingFiles = ref([]);
+        const isUploading = ref(false);
+
+        // Mention state
+        const showMentionDropdown = ref(false);
+        const mentionQuery = ref('');
+        const mentionStartIndex = ref(-1);
+        const mentionMembers = ref([]);
+        const mentionFilteredMembers = ref([]);
+        const mentionSelectedIndex = ref(0);
+        const membersLoaded = ref(false);
 
         const basePath = props.basePath || window.BASE_PATH || '';
 
-        // Sort comments newest first for display
         const sortedComments = computed(() => {
             return [...comments.value].reverse();
         });
 
-        // Check if user can delete a comment
         const canDelete = (comment) => {
             return comment.authorId === props.currentUserId;
         };
 
-        // Check if add button should be enabled
         const canAddComment = computed(() => {
-            return newComment.value.trim().length > 0 && !isLoading.value;
+            return (newComment.value.trim().length > 0 || pendingFiles.value.length > 0) && !isLoading.value;
         });
 
-        // Computed for comment count
         const commentCount = computed(() => comments.value.length);
 
-        // Update tab count in the DOM
         const updateTabCount = () => {
             const countEl = document.querySelector('.comments-count');
             if (countEl) {
@@ -67,27 +77,207 @@ export default {
             }
         };
 
-        // Watch for changes and update tab count
         watch(commentCount, updateTabCount);
+
+        // Load project members for @mentions
+        const loadMembers = async () => {
+            if (membersLoaded.value || !props.projectId) return;
+            try {
+                const response = await fetch(`${basePath}/projects/${props.projectId}/members`, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    mentionMembers.value = data.members || [];
+                    membersLoaded.value = true;
+                }
+            } catch (error) {
+                console.error('Error loading members:', error);
+            }
+        };
+
+        // Handle textarea input for @mentions
+        const onTextareaInput = (event) => {
+            const textarea = event.target;
+            const value = textarea.value;
+            const cursorPos = textarea.selectionStart;
+
+            // Find @ before cursor
+            const textBeforeCursor = value.substring(0, cursorPos);
+            const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+
+            if (lastAtIndex >= 0) {
+                const charBeforeAt = lastAtIndex > 0 ? textBeforeCursor[lastAtIndex - 1] : ' ';
+                const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
+
+                // Only trigger if @ is at start or after a space, and no space in query
+                if ((charBeforeAt === ' ' || charBeforeAt === '\n' || lastAtIndex === 0) && !textAfterAt.includes(' ')) {
+                    mentionStartIndex.value = lastAtIndex;
+                    mentionQuery.value = textAfterAt.toLowerCase();
+                    showMentionDropdown.value = true;
+                    mentionSelectedIndex.value = 0;
+
+                    // Filter members
+                    mentionFilteredMembers.value = mentionMembers.value.filter(m =>
+                        m.fullName.toLowerCase().includes(mentionQuery.value)
+                    ).slice(0, 5);
+
+                    if (mentionFilteredMembers.value.length === 0) {
+                        showMentionDropdown.value = false;
+                    }
+                    return;
+                }
+            }
+
+            showMentionDropdown.value = false;
+        };
+
+        const selectMention = (member) => {
+            const textarea = document.querySelector('.comment-textarea');
+            if (!textarea) return;
+
+            const value = newComment.value;
+            const before = value.substring(0, mentionStartIndex.value);
+            const after = value.substring(textarea.selectionStart);
+
+            newComment.value = before + '@' + member.fullName + ' ' + after;
+            showMentionDropdown.value = false;
+
+            nextTick(() => {
+                const newPos = mentionStartIndex.value + member.fullName.length + 2;
+                textarea.selectionStart = textarea.selectionEnd = newPos;
+                textarea.focus();
+            });
+        };
+
+        // Handle keyboard shortcuts
+        const onKeydown = (event) => {
+            if (showMentionDropdown.value) {
+                if (event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    mentionSelectedIndex.value = Math.min(mentionSelectedIndex.value + 1, mentionFilteredMembers.value.length - 1);
+                    return;
+                }
+                if (event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    mentionSelectedIndex.value = Math.max(mentionSelectedIndex.value - 1, 0);
+                    return;
+                }
+                if (event.key === 'Enter' || event.key === 'Tab') {
+                    if (mentionFilteredMembers.value.length > 0) {
+                        event.preventDefault();
+                        selectMention(mentionFilteredMembers.value[mentionSelectedIndex.value]);
+                        return;
+                    }
+                }
+                if (event.key === 'Escape') {
+                    showMentionDropdown.value = false;
+                    return;
+                }
+            }
+
+            // Cmd/Ctrl + Enter to submit
+            if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+                event.preventDefault();
+                addComment();
+            }
+        };
+
+        // Extract mentioned user IDs from comment text
+        const extractMentionedUserIds = (text) => {
+            const ids = [];
+            for (const member of mentionMembers.value) {
+                if (text.includes('@' + member.fullName)) {
+                    ids.push(member.id);
+                }
+            }
+            return ids.length > 0 ? ids : null;
+        };
+
+        // Render comment content with styled mentions
+        const renderContent = (text) => {
+            if (!text) return '';
+            let html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+            // Replace @Name with styled spans
+            for (const member of mentionMembers.value) {
+                const mention = '@' + member.fullName;
+                const escaped = mention.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                html = html.replace(new RegExp(escaped, 'g'),
+                    `<span class="text-primary-600 font-medium">${mention}</span>`
+                );
+            }
+
+            return html;
+        };
+
+        // File attachment handling
+        const onFileSelect = (event) => {
+            const files = Array.from(event.target.files);
+            pendingFiles.value.push(...files);
+            event.target.value = '';
+        };
+
+        const removePendingFile = (index) => {
+            pendingFiles.value.splice(index, 1);
+        };
+
+        const uploadCommentAttachments = async (commentId) => {
+            if (pendingFiles.value.length === 0) return [];
+
+            const formData = new FormData();
+            for (const file of pendingFiles.value) {
+                formData.append('files[]', file);
+            }
+
+            try {
+                const response = await fetch(`${basePath}/comments/${commentId}/attachments`, {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    body: formData,
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    return data.attachments || [];
+                }
+            } catch (error) {
+                console.error('Error uploading attachments:', error);
+            }
+
+            return [];
+        };
 
         // Add new comment
         const addComment = async () => {
             const content = newComment.value.trim();
-            if (!content || isLoading.value) return;
+            if ((!content && pendingFiles.value.length === 0) || isLoading.value) return;
 
             isLoading.value = true;
             try {
+                const mentionedUserIds = extractMentionedUserIds(content);
+
                 const response = await fetch(`${basePath}/tasks/${props.taskId}/comments`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-Requested-With': 'XMLHttpRequest'
                     },
-                    body: JSON.stringify({ content })
+                    body: JSON.stringify({
+                        content,
+                        mentionedUserIds
+                    })
                 });
 
                 if (response.ok) {
                     const data = await response.json();
+
+                    // Upload attachments if any
+                    let attachments = [];
+                    if (pendingFiles.value.length > 0) {
+                        attachments = await uploadCommentAttachments(data.comment.id);
+                    }
+
                     comments.value.push({
                         id: data.comment.id,
                         content: data.comment.content,
@@ -95,11 +285,12 @@ export default {
                         authorInitials: data.comment.authorInitials,
                         authorAvatar: data.comment.authorAvatar || props.currentUserAvatar,
                         authorId: props.currentUserId,
-                        createdAt: data.comment.createdAt
+                        createdAt: data.comment.createdAt,
+                        attachments: attachments,
                     });
                     newComment.value = '';
+                    pendingFiles.value = [];
 
-                    // Scroll to new comment
                     nextTick(() => {
                         const list = document.querySelector('.comments-list');
                         if (list) {
@@ -137,18 +328,34 @@ export default {
             }
         };
 
-        // Handle textarea input for enabling/disabling button
-        const onTextareaInput = () => {
-            // Reactivity handles this automatically
+        // Load comment attachments
+        const loadCommentAttachments = async () => {
+            if (!props.taskId) return;
+            try {
+                const response = await fetch(`${basePath}/tasks/${props.taskId}/comment-attachments`, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    const grouped = data.commentAttachments || {};
+                    for (const comment of comments.value) {
+                        if (grouped[comment.id]) {
+                            comment.attachments = grouped[comment.id];
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading comment attachments:', error);
+            }
         };
 
-        // Handle keyboard shortcuts
-        const onKeydown = (event) => {
-            // Cmd/Ctrl + Enter to submit
-            if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-                event.preventDefault();
-                addComment();
-            }
+        onMounted(() => {
+            loadCommentAttachments();
+        });
+
+        // Load members on focus
+        const onFocus = () => {
+            loadMembers();
         };
 
         return {
@@ -164,7 +371,16 @@ export default {
             addComment,
             deleteComment,
             onTextareaInput,
-            onKeydown
+            onKeydown,
+            onFocus,
+            showMentionDropdown,
+            mentionFilteredMembers,
+            mentionSelectedIndex,
+            selectMention,
+            renderContent,
+            pendingFiles,
+            onFileSelect,
+            removePendingFile,
         };
     },
 
@@ -181,17 +397,53 @@ export default {
                             </span>
                         </span>
                     </div>
-                    <div class="flex-1">
+                    <div class="flex-1 relative">
                         <textarea
                             v-model="newComment"
+                            @input="onTextareaInput"
                             @keydown="onKeydown"
-                            class="w-full text-sm border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
+                            @focus="onFocus"
+                            class="comment-textarea w-full text-sm border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
                             rows="2"
-                            placeholder="Add a comment..."
+                            placeholder="Add a comment... (use @ to mention)"
                             :disabled="isLoading"
                         ></textarea>
+
+                        <!-- @Mention Dropdown -->
+                        <div v-if="showMentionDropdown && mentionFilteredMembers.length > 0"
+                             class="absolute left-0 bottom-full mb-1 w-56 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-20 py-1 max-h-48 overflow-y-auto">
+                            <button v-for="(member, index) in mentionFilteredMembers" :key="member.id"
+                                    type="button"
+                                    @mousedown.prevent="selectMention(member)"
+                                    class="w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-gray-100"
+                                    :class="{ 'bg-primary-50': index === mentionSelectedIndex }">
+                                <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 flex-shrink-0">
+                                    <span class="text-xs font-medium text-white">{{ member.initials || member.fullName.charAt(0).toUpperCase() }}</span>
+                                </span>
+                                <span class="truncate">{{ member.fullName }}</span>
+                            </button>
+                        </div>
+
+                        <!-- Pending Files -->
+                        <div v-if="pendingFiles.length > 0" class="mt-1 space-y-1">
+                            <div v-for="(file, index) in pendingFiles" :key="index"
+                                 class="flex items-center gap-2 text-xs text-gray-500 bg-gray-50 rounded px-2 py-1">
+                                <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" /></svg>
+                                <span class="truncate flex-1">{{ file.name }}</span>
+                                <button type="button" @click="removePendingFile(index)" class="text-gray-400 hover:text-red-500">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                            </div>
+                        </div>
+
                         <div class="flex justify-between items-center mt-2">
-                            <span class="text-xs text-gray-400">Ctrl+Enter to submit</span>
+                            <div class="flex items-center gap-2">
+                                <label class="cursor-pointer text-gray-400 hover:text-gray-600" title="Attach file">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" /></svg>
+                                    <input type="file" multiple class="hidden" @change="onFileSelect">
+                                </label>
+                                <span class="text-xs text-gray-400">Ctrl+Enter to submit</span>
+                            </div>
                             <button
                                 type="button"
                                 @click="addComment"
@@ -235,7 +487,17 @@ export default {
                             </svg>
                         </button>
                     </div>
-                    <p class="text-sm text-gray-600 whitespace-pre-wrap">{{ comment.content }}</p>
+                    <div class="text-sm text-gray-600 whitespace-pre-wrap" v-html="renderContent(comment.content)"></div>
+
+                    <!-- Comment Attachments -->
+                    <div v-if="comment.attachments && comment.attachments.length > 0" class="mt-2 space-y-1">
+                        <div v-for="attachment in comment.attachments" :key="attachment.id"
+                             class="flex items-center gap-2 text-xs">
+                            <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" /></svg>
+                            <a :href="attachment.downloadUrl" class="text-primary-600 hover:text-primary-500 truncate">{{ attachment.originalName }}</a>
+                            <span class="text-gray-400">{{ attachment.humanFileSize }}</span>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Empty State -->

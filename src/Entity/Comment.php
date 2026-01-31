@@ -33,6 +33,9 @@ class Comment
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
 
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $mentionedUserIds = null;
+
     #[ORM\Column]
     private \DateTimeImmutable $updatedAt;
 
@@ -105,5 +108,16 @@ class Comment
     public function isEdited(): bool
     {
         return $this->updatedAt > $this->createdAt;
+    }
+
+    public function getMentionedUserIds(): ?array
+    {
+        return $this->mentionedUserIds;
+    }
+
+    public function setMentionedUserIds(?array $mentionedUserIds): static
+    {
+        $this->mentionedUserIds = $mentionedUserIds;
+        return $this;
     }
 }

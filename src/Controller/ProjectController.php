@@ -12,6 +12,7 @@ use App\Repository\ProjectRepository;
 use App\Repository\RoleRepository;
 use App\Repository\TaskRepository;
 use App\Service\ActivityService;
+use App\Service\HtmlSanitizer;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -30,6 +31,7 @@ class ProjectController extends AbstractController
         private readonly RoleRepository $roleRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly ActivityService $activityService,
+        private readonly HtmlSanitizer $htmlSanitizer,
     ) {
     }
 
@@ -339,5 +341,26 @@ class ProjectController extends AbstractController
         }
 
         return $this->json(['members' => $members]);
+    }
+
+    #[Route('/{id}/description', name: 'app_project_update_description', methods: ['POST'])]
+    #[IsGranted('PROJECT_EDIT', subject: 'project')]
+    public function updateDescription(Request $request, Project $project): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+        $newDescription = $this->htmlSanitizer->sanitize($data['description'] ?? null);
+
+        $project->setDescription($newDescription);
+
+        /** @var User $user */
+        $user = $this->getUser();
+        $this->activityService->logProjectUpdated($project, $user);
+
+        $this->entityManager->flush();
+
+        return $this->json([
+            'success' => true,
+            'description' => $newDescription,
+        ]);
     }
 }

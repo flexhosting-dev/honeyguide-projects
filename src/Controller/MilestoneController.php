@@ -9,6 +9,7 @@ use App\Entity\User;
 use App\Form\MilestoneFormType;
 use App\Repository\ProjectRepository;
 use App\Service\ActivityService;
+use App\Service\HtmlSanitizer;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -24,6 +25,7 @@ class MilestoneController extends AbstractController
         private readonly ProjectRepository $projectRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly ActivityService $activityService,
+        private readonly HtmlSanitizer $htmlSanitizer,
     ) {
     }
 
@@ -193,5 +195,26 @@ class MilestoneController extends AbstractController
         $this->entityManager->flush();
 
         return new JsonResponse(['removed' => true]);
+    }
+
+    #[Route('/{id}/description', name: 'app_milestone_update_description', methods: ['POST'])]
+    public function updateDescription(Request $request, string $projectId, Milestone $milestone): JsonResponse
+    {
+        $project = $this->projectRepository->find($projectId);
+        if (!$project || $milestone->getProject()->getId()->toString() !== $projectId) {
+            throw $this->createNotFoundException();
+        }
+        $this->denyAccessUnlessGranted('PROJECT_EDIT', $project);
+
+        $data = json_decode($request->getContent(), true);
+        $newDescription = $this->htmlSanitizer->sanitize($data['description'] ?? null);
+
+        $milestone->setDescription($newDescription);
+        $this->entityManager->flush();
+
+        return new JsonResponse([
+            'success' => true,
+            'description' => $newDescription,
+        ]);
     }
 }
