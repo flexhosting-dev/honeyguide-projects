@@ -326,8 +326,8 @@ export default {
 
             <!-- Attachments Section -->
             <div v-if="showAttachments" class="mt-4">
-                <!-- Upload Zone (only if canEdit) -->
-                <div v-if="canEdit"
+                <!-- Upload Zone (only when editing) -->
+                <div v-if="canEdit && isEditing"
                      @dragover="onDragOver"
                      @dragleave="onDragLeave"
                      @drop="onDrop"
