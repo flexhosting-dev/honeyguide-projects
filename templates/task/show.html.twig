@@ -196,8 +196,40 @@
                 {% endif %}
             </div>
 
+            {# Milestone - full row #}
+            <div class="mb-4">
+                <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Milestone</dt>
+                <dd class="mt-1">
+                    {% if canEdit %}
+                    <div class="relative inline-block">
+                        <button type="button"
+                                class="milestone-btn text-sm text-gray-900 hover:text-primary-600 flex items-center"
+                                onclick="toggleMilestoneDropdown(this)">
+                            <span class="milestone-label">{{ task.milestone.name }}</span>
+                            <svg class="ml-1 h-3 w-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                            </svg>
+                        </button>
+                        <div class="milestone-dropdown hidden absolute left-0 mt-1 w-48 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-10">
+                            <div class="py-1">
+                                {% for milestone in project.milestones %}
+                                    <button type="button"
+                                            onclick="updateTaskMilestone('{{ task.id }}', '{{ milestone.id }}', '{{ milestone.name }}', this)"
+                                            class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 {{ milestone.id == task.milestone.id ? 'bg-gray-50 font-medium' : '' }}">
+                                        {{ milestone.name }}
+                                    </button>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <span class="text-sm text-gray-900">{{ task.milestone.name }}</span>
+                    {% endif %}
+                </dd>
+            </div>
+
             {# Details Grid #}
-            <div class="mb-6 grid grid-cols-3 gap-4">
+            <div class="mb-6 grid grid-cols-2 gap-4">
                 {# Start Date - Editable only if canEdit #}
                 <div>
                     <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Start Date</dt>
@@ -243,37 +275,6 @@
                                 Not set
                             {% endif %}
                         </span>
-                        {% endif %}
-                    </dd>
-                </div>
-                {# Milestone - Editable only if canEdit #}
-                <div>
-                    <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Milestone</dt>
-                    <dd class="mt-1">
-                        {% if canEdit %}
-                        <div class="relative inline-block">
-                            <button type="button"
-                                    class="milestone-btn text-sm text-gray-900 hover:text-primary-600 flex items-center"
-                                    onclick="toggleMilestoneDropdown(this)">
-                                <span class="milestone-label">{{ task.milestone.name }}</span>
-                                <svg class="ml-1 h-3 w-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                                </svg>
-                            </button>
-                            <div class="milestone-dropdown hidden absolute left-0 mt-1 w-48 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-10">
-                                <div class="py-1">
-                                    {% for milestone in project.milestones %}
-                                        <button type="button"
-                                                onclick="updateTaskMilestone('{{ task.id }}', '{{ milestone.id }}', '{{ milestone.name }}', this)"
-                                                class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 {{ milestone.id == task.milestone.id ? 'bg-gray-50 font-medium' : '' }}">
-                                            {{ milestone.name }}
-                                        </button>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                        </div>
-                        {% else %}
-                        <span class="text-sm text-gray-900">{{ task.milestone.name }}</span>
                         {% endif %}
                     </dd>
                 </div>
