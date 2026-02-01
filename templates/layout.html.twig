@@ -289,16 +289,18 @@
         </main>
     </div>
 
-    {# Task Panel Off-Canvas (slides from right) #}
+    {# Task Panel Off-Canvas (slides from right) — supports stacked subtask panels #}
     <div id="task-panel-overlay" class="fixed inset-0 z-[60] bg-gray-600 bg-opacity-50 transition-opacity duration-300 opacity-0 pointer-events-none" onclick="closeTaskPanel()"></div>
-    <div id="task-panel" class="fixed inset-y-0 right-0 z-[70] w-full max-w-xl transform translate-x-full transition-transform duration-300 ease-in-out bg-white shadow-xl">
-        <div id="task-panel-content" class="h-full">
-            {# Content loaded via AJAX #}
-            <div class="flex items-center justify-center h-full">
-                <svg class="animate-spin h-8 w-8 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
+    <div id="task-panel" class="fixed inset-y-0 right-0 z-[70] w-full max-w-xl transform translate-x-full transition-transform duration-300 ease-in-out bg-white shadow-xl overflow-hidden">
+        <div id="task-panel-stack" class="relative h-full">
+            <div id="task-panel-content" class="h-full panel-layer" data-task-id="">
+                {# Content loaded via AJAX #}
+                <div class="flex items-center justify-center h-full">
+                    <svg class="animate-spin h-8 w-8 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </div>
             </div>
         </div>
     </div>
@@ -307,78 +309,187 @@
     // Base path for all API calls (handles proxy prefix)
     window.BASE_PATH = '{{ app.request.basePath }}';
 
+    // Panel stack tracks layered task IDs
+    window._panelStack = [];
+
+    function _loadingSpinner() {
+        return `<div class="flex items-center justify-center h-full">
+            <svg class="animate-spin h-8 w-8 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+        </div>`;
+    }
+
+    function _errorContent() {
+        return `<div class="flex flex-col items-center justify-center h-full text-center p-6">
+            <svg class="h-12 w-12 text-red-400 mb-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+            </svg>
+            <p class="text-gray-900 font-medium">Failed to load task</p>
+            <p class="text-gray-500 text-sm mt-1">Please try again</p>
+            <button onclick="closeTaskPanel()" class="mt-4 text-sm text-primary-600 hover:text-primary-500">Close</button>
+        </div>`;
+    }
+
+    function _updatePanelCloseButtons() {
+        const stack = document.getElementById('task-panel-stack');
+        if (!stack) return;
+        const layers = stack.querySelectorAll('.panel-layer');
+        layers.forEach((layer, idx) => {
+            const backIcon = layer.querySelector('.panel-back-icon');
+            const closeIcon = layer.querySelector('.panel-close-icon');
+            if (backIcon && closeIcon) {
+                if (idx > 0) {
+                    backIcon.classList.remove('hidden');
+                    closeIcon.classList.add('hidden');
+                } else {
+                    backIcon.classList.add('hidden');
+                    closeIcon.classList.remove('hidden');
+                }
+            }
+        });
+    }
+
+    function _fetchPanelContent(layer, taskId) {
+        fetch(`${BASE_PATH}/tasks/${taskId}/panel`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(r => { if (!r.ok) throw new Error('Failed'); return r.text(); })
+        .then(html => {
+            layer.innerHTML = html;
+            _updatePanelCloseButtons();
+            if (typeof mountVueComponents === 'function') mountVueComponents();
+        })
+        .catch(() => { layer.innerHTML = _errorContent(); });
+    }
+
+    // Use openTaskPanel for normal opens; use pushSubtaskPanel from within a panel
     function openTaskPanel(taskId, updateUrl = true) {
         const panel = document.getElementById('task-panel');
         const overlay = document.getElementById('task-panel-overlay');
+        const stack = document.getElementById('task-panel-stack');
         const content = document.getElementById('task-panel-content');
 
-        // Update URL with task param
+        // Always reset stack — clean slate for a fresh task open
+        _panelStack = [taskId];
+        stack.querySelectorAll('.panel-layer:not(#task-panel-content)').forEach(el => el.remove());
+        content.style.transform = '';
+        content.style.opacity = '';
+        content.style.pointerEvents = '';
+        content.style.transition = '';
+        content.dataset.taskId = taskId;
+        content.innerHTML = _loadingSpinner();
+
+        panel.classList.remove('translate-x-full');
+        overlay.classList.remove('opacity-0', 'pointer-events-none');
+        document.body.style.overflow = 'hidden';
+
+        _fetchPanelContent(content, taskId);
+
         if (updateUrl) {
             const url = new URL(window.location);
             url.searchParams.set('task', taskId);
             window.history.pushState({ taskId }, '', url);
         }
+    }
 
-        // Show loading state
-        content.innerHTML = `
-            <div class="flex items-center justify-center h-full">
-                <svg class="animate-spin h-8 w-8 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-            </div>
-        `;
+    // Push a subtask panel on top of the current one (called from within panel)
+    function pushSubtaskPanel(taskId) {
+        const panel = document.getElementById('task-panel');
+        const stack = document.getElementById('task-panel-stack');
+        const isPanelOpen = !panel.classList.contains('translate-x-full');
 
-        // Show panel
-        panel.classList.remove('translate-x-full');
-        overlay.classList.remove('opacity-0', 'pointer-events-none');
+        if (!isPanelOpen) {
+            // Fallback: open normally if panel isn't open
+            openTaskPanel(taskId);
+            return;
+        }
 
-        // Prevent body scroll
-        document.body.style.overflow = 'hidden';
+        const currentLayer = stack.querySelector('.panel-layer:last-child');
+        currentLayer.style.transition = 'transform 0.3s ease-in-out, opacity 0.3s ease-in-out';
+        currentLayer.style.transform = 'translateX(-100%)';
+        currentLayer.style.opacity = '0';
+        currentLayer.style.pointerEvents = 'none';
 
-        // Fetch task details
-        fetch(`${BASE_PATH}/tasks/${taskId}/panel`, {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-        .then(response => {
-            if (!response.ok) throw new Error('Failed to load task');
-            return response.text();
-        })
-        .then(html => {
-            content.innerHTML = html;
-            // Trigger Vue component mounting for dynamically loaded content
-            if (typeof mountVueComponents === 'function') {
-                mountVueComponents();
-            }
-        })
-        .catch(error => {
-            console.error('Error loading task:', error);
-            content.innerHTML = `
-                <div class="flex flex-col items-center justify-center h-full text-center p-6">
-                    <svg class="h-12 w-12 text-red-400 mb-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
-                    </svg>
-                    <p class="text-gray-900 font-medium">Failed to load task</p>
-                    <p class="text-gray-500 text-sm mt-1">Please try again</p>
-                    <button onclick="closeTaskPanel()" class="mt-4 text-sm text-primary-600 hover:text-primary-500">Close</button>
-                </div>
-            `;
+        const newLayer = document.createElement('div');
+        newLayer.className = 'panel-layer absolute inset-0 h-full bg-white';
+        newLayer.dataset.taskId = taskId;
+        newLayer.innerHTML = _loadingSpinner();
+        newLayer.style.transform = 'translateX(100%)';
+        newLayer.style.transition = 'transform 0.3s ease-in-out';
+        stack.appendChild(newLayer);
+
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                newLayer.style.transform = 'translateX(0)';
+            });
         });
+
+        _panelStack.push(taskId);
+        _fetchPanelContent(newLayer, taskId);
+
+        const url = new URL(window.location);
+        url.searchParams.set('task', taskId);
+        window.history.pushState({ taskId }, '', url);
     }
 
     function closeTaskPanel(updateUrl = true) {
         const panel = document.getElementById('task-panel');
         const overlay = document.getElementById('task-panel-overlay');
+        const stack = document.getElementById('task-panel-stack');
+        const layers = stack.querySelectorAll('.panel-layer');
 
+        // If there are stacked layers, pop the top one (go back to parent)
+        if (layers.length > 1) {
+            const topLayer = layers[layers.length - 1];
+            const parentLayer = layers[layers.length - 2];
+
+            topLayer.style.transition = 'transform 0.3s ease-in-out, opacity 0.3s ease-in-out';
+            topLayer.style.transform = 'translateX(100%)';
+            topLayer.style.opacity = '0';
+
+            parentLayer.style.transition = 'transform 0.3s ease-in-out, opacity 0.3s ease-in-out';
+            parentLayer.style.transform = 'translateX(0)';
+            parentLayer.style.opacity = '1';
+            parentLayer.style.pointerEvents = '';
+
+            setTimeout(() => { topLayer.remove(); }, 300);
+
+            _panelStack.pop();
+
+            if (updateUrl) {
+                const url = new URL(window.location);
+                const parentTaskId = _panelStack[_panelStack.length - 1];
+                if (parentTaskId) {
+                    url.searchParams.set('task', parentTaskId);
+                }
+                window.history.pushState({ taskId: parentTaskId }, '', url);
+            }
+            return;
+        }
+
+        // Otherwise close the whole panel
         panel.classList.add('translate-x-full');
         overlay.classList.add('opacity-0', 'pointer-events-none');
-
-        // Restore body scroll
         document.body.style.overflow = '';
+        _panelStack = [];
 
-        // Remove task and create-task params from URL
+        // Clean up extra layers after transition
+        setTimeout(() => {
+            const extras = stack.querySelectorAll('.panel-layer:not(#task-panel-content)');
+            extras.forEach(el => el.remove());
+            // Reset the base layer
+            const base = document.getElementById('task-panel-content');
+            if (base) {
+                base.style.transform = '';
+                base.style.opacity = '';
+                base.style.pointerEvents = '';
+                base.style.transition = '';
+                base.dataset.taskId = '';
+            }
+        }, 350);
+
         if (updateUrl) {
             const url = new URL(window.location);
             url.searchParams.delete('task');
@@ -390,9 +501,17 @@
     function openTaskCreatePanel(projectId, updateUrl = true) {
         const panel = document.getElementById('task-panel');
         const overlay = document.getElementById('task-panel-overlay');
+        const stack = document.getElementById('task-panel-stack');
         const content = document.getElementById('task-panel-content');
 
-        // Update URL with create-task param
+        // Reset stack — remove any extra layers
+        _panelStack = [];
+        stack.querySelectorAll('.panel-layer:not(#task-panel-content)').forEach(el => el.remove());
+        content.style.transform = '';
+        content.style.opacity = '';
+        content.style.pointerEvents = '';
+        content.style.transition = '';
+
         if (updateUrl) {
             const url = new URL(window.location);
             url.searchParams.delete('task');
@@ -400,53 +519,21 @@
             window.history.pushState({ createTask: projectId }, '', url);
         }
 
-        // Show loading state
-        content.innerHTML = `
-            <div class="flex items-center justify-center h-full">
-                <svg class="animate-spin h-8 w-8 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-            </div>
-        `;
+        content.innerHTML = _loadingSpinner();
 
-        // Show panel
         panel.classList.remove('translate-x-full');
         overlay.classList.remove('opacity-0', 'pointer-events-none');
-
-        // Prevent body scroll
         document.body.style.overflow = 'hidden';
 
-        // Fetch create panel
         fetch(`${BASE_PATH}/projects/${projectId}/tasks/create-panel`, {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
-        .then(response => {
-            if (!response.ok) throw new Error('Failed to load form');
-            return response.text();
-        })
+        .then(r => { if (!r.ok) throw new Error('Failed'); return r.text(); })
         .then(html => {
             content.innerHTML = html;
-            // Trigger Vue component mounting for dynamically loaded content
-            if (typeof mountVueComponents === 'function') {
-                mountVueComponents();
-            }
+            if (typeof mountVueComponents === 'function') mountVueComponents();
         })
-        .catch(error => {
-            console.error('Error loading create form:', error);
-            content.innerHTML = `
-                <div class="flex flex-col items-center justify-center h-full text-center p-6">
-                    <svg class="h-12 w-12 text-red-400 mb-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
-                    </svg>
-                    <p class="text-gray-900 font-medium">Failed to load form</p>
-                    <p class="text-gray-500 text-sm mt-1">Please try again</p>
-                    <button onclick="closeTaskPanel()" class="mt-4 text-sm text-primary-600 hover:text-primary-500">Close</button>
-                </div>
-            `;
-        });
+        .catch(() => { content.innerHTML = _errorContent(); });
     }
 
     // Handle browser back/forward buttons
@@ -478,7 +565,7 @@
         }
     });
 
-    // Close on Escape key
+    // Close on Escape key (pops stack or closes panel)
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             const panel = document.getElementById('task-panel');

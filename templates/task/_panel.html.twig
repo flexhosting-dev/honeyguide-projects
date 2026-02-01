@@ -18,6 +18,11 @@
                 <p class="mt-1 text-sm text-gray-500">
                     {{ project.name }} / {{ task.milestone.name }}
                 </p>
+                {% if task.parent %}
+                <p class="mt-1 text-xs text-gray-500">
+                    Subtask of: <a href="{{ path('app_task_show', {id: task.parent.id}) }}" class="text-primary-600 hover:text-primary-800 font-medium" onclick="event.preventDefault(); pushSubtaskPanel('{{ task.parent.id }}');">{{ task.parent.title }}</a>
+                </p>
+                {% endif %}
                 <div class="flex items-center flex-wrap gap-2 mt-2">
                     {# Status Badge - Editable only if canEdit #}
                     {% if canEdit %}
@@ -108,9 +113,14 @@
                     <span class="text-xs text-gray-400">&middot; created {{ task.createdAt|date('M d, Y') }}</span>
                 </div>
             </div>
-            <button type="button" onclick="closeTaskPanel()" class="ml-4 rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500">
+            <button type="button" onclick="closeTaskPanel()" class="panel-close-btn ml-4 rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500">
                 <span class="sr-only">Close panel</span>
-                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                {# Back arrow (shown when stacked) #}
+                <svg class="h-6 w-6 panel-back-icon hidden" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+                </svg>
+                {# Close X (shown when not stacked) #}
+                <svg class="h-6 w-6 panel-close-icon" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
             </button>
@@ -200,38 +210,6 @@
             {% endif %}
         </div>
 
-        {# Milestone - full row #}
-        <div class="mb-4">
-            <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Milestone</dt>
-            <dd class="mt-1">
-                {% if canEdit %}
-                <div class="relative inline-block">
-                    <button type="button"
-                            class="milestone-btn text-sm text-gray-900 hover:text-primary-600 flex items-center"
-                            onclick="toggleMilestoneDropdown(this)">
-                        <span class="milestone-label">{{ task.milestone.name }}</span>
-                        <svg class="ml-1 h-3 w-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                        </svg>
-                    </button>
-                    <div class="milestone-dropdown hidden absolute left-0 mt-1 w-48 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-10">
-                        <div class="py-1">
-                            {% for milestone in project.milestones %}
-                                <button type="button"
-                                        onclick="updateTaskMilestone('{{ task.id }}', '{{ milestone.id }}', '{{ milestone.name }}', this)"
-                                        class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 {{ milestone.id == task.milestone.id ? 'bg-gray-50 font-medium' : '' }}">
-                                    {{ milestone.name }}
-                                </button>
-                            {% endfor %}
-                        </div>
-                    </div>
-                </div>
-                {% else %}
-                <span class="text-sm text-gray-900">{{ task.milestone.name }}</span>
-                {% endif %}
-            </dd>
-        </div>
-
         {# Details Grid #}
         <div class="mb-6 grid grid-cols-2 gap-4">
             {# Start Date - Editable only if canEdit #}
@@ -282,6 +260,37 @@
                     {% endif %}
                 </dd>
             </div>
+            {# Milestone - Editable only if canEdit #}
+            <div>
+                <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Milestone</dt>
+                <dd class="mt-1">
+                    {% if canEdit %}
+                    <div class="relative inline-block">
+                        <button type="button"
+                                class="milestone-btn text-sm text-gray-900 hover:text-primary-600 flex items-center"
+                                onclick="toggleMilestoneDropdown(this)">
+                            <span class="milestone-label">{{ task.milestone.name }}</span>
+                            <svg class="ml-1 h-3 w-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                            </svg>
+                        </button>
+                        <div class="milestone-dropdown hidden absolute left-0 mt-1 w-48 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-10">
+                            <div class="py-1">
+                                {% for milestone in project.milestones %}
+                                    <button type="button"
+                                            onclick="updateTaskMilestone('{{ task.id }}', '{{ milestone.id }}', '{{ milestone.name }}', this)"
+                                            class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 {{ milestone.id == task.milestone.id ? 'bg-gray-50 font-medium' : '' }}">
+                                        {{ milestone.name }}
+                                    </button>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <span class="text-sm text-gray-900">{{ task.milestone.name }}</span>
+                    {% endif %}
+                </dd>
+            </div>
         </div>
 
         {# Tags (Vue Component) - pass canEdit #}
@@ -303,6 +312,13 @@
                 </button>
                 <button type="button"
                         class="tab-btn px-4 py-2 text-sm font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-900 hover:border-gray-300 -mb-px"
+                        data-tab="subtasks"
+                        onclick="switchTab('subtasks', this)">
+                    Subtasks
+                    <span class="text-gray-400 font-normal ml-1">{% if task.subtaskCount > 0 %}({{ task.completedSubtaskCount }}/{{ task.subtaskCount }}){% endif %}</span>
+                </button>
+                <button type="button"
+                        class="tab-btn px-4 py-2 text-sm font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-900 hover:border-gray-300 -mb-px"
                         data-tab="comments"
                         onclick="switchTab('comments', this)">
                     Comments
@@ -319,6 +335,11 @@
             {# Checklist Tab Content (Vue Component) #}
             <div class="tab-content" id="tab-checklist">
                 {% include 'task/_checklist_vue.html.twig' with {task: task, canEdit: canEdit} %}
+            </div>
+
+            {# Subtasks Tab Content (Vue Component) #}
+            <div class="tab-content hidden" id="tab-subtasks">
+                {% include 'task/_subtasks_vue.html.twig' with {task: task, canEdit: canEdit} %}
             </div>
 
             {# Comments Tab Content (Vue Component) #}

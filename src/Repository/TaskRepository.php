@@ -27,7 +27,7 @@ class TaskRepository extends ServiceEntityRepository
      */
     public function findByMilestone(Milestone $milestone): array
     {
-        return $this->findBy(['milestone' => $milestone, 'parent' => null], ['position' => 'ASC']);
+        return $this->findBy(['milestone' => $milestone], ['position' => 'ASC']);
     }
 
     public function createQueryBuilderForProject(Project $project): QueryBuilder

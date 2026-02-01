@@ -38,7 +38,10 @@
             id: t.id ~ '',
             name: t.name,
             color: t.color
-        })
+        }),
+        subtaskCount: task.subtaskCount|default(0),
+        completedSubtaskCount: task.completedSubtaskCount|default(0),
+        parentId: task.parent ? task.parent.id ~ '' : null
     })|json_encode|e('html_attr') }}'
     data-vue-milestones='{{ milestones|map(m => {
         id: m.id ~ '',

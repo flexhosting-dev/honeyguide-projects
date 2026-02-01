@@ -989,6 +989,66 @@ class TaskController extends AbstractController
         ]);
     }
 
+    #[Route('/tasks/{id}/subtasks', name: 'app_task_create_subtask', methods: ['POST'])]
+    public function createSubtask(Request $request, Task $parentTask): JsonResponse
+    {
+        $project = $parentTask->getProject();
+        $this->denyAccessUnlessGranted('PROJECT_EDIT', $project);
+
+        /** @var User $user */
+        $user = $this->getUser();
+
+        if ($parentTask->getDepth() >= 2) {
+            return $this->json(['error' => 'Maximum subtask depth (3 levels) reached'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $data = json_decode($request->getContent(), true);
+        $title = trim($data['title'] ?? '');
+
+        if (empty($title)) {
+            return $this->json(['error' => 'Title is required'], Response::HTTP_BAD_REQUEST);
+        }
+
+        if (strlen($title) > 255) {
+            return $this->json(['error' => 'Title must be 255 characters or less'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $subtask = new Task();
+        $subtask->setTitle($title);
+        $subtask->setMilestone($parentTask->getMilestone());
+        $subtask->setParent($parentTask);
+
+        $maxPosition = $this->taskRepository->findMaxPositionInMilestone($parentTask->getMilestone());
+        $subtask->setPosition($maxPosition + 1);
+
+        $this->entityManager->persist($subtask);
+
+        $this->activityService->logTaskCreated(
+            $project,
+            $user,
+            $subtask->getId(),
+            $subtask->getTitle()
+        );
+
+        $this->entityManager->flush();
+
+        return $this->json([
+            'success' => true,
+            'subtask' => [
+                'id' => $subtask->getId()->toString(),
+                'title' => $subtask->getTitle(),
+                'status' => [
+                    'value' => $subtask->getStatus()->value,
+                    'label' => $subtask->getStatus()->label(),
+                ],
+                'priority' => [
+                    'value' => $subtask->getPriority()->value,
+                    'label' => $subtask->getPriority()->label(),
+                ],
+            ],
+        ]);
+    }
+
     #[Route('/projects/{projectId}/tasks/create-panel', name: 'app_task_create_panel', methods: ['GET'])]
     public function createPanel(string $projectId): Response
     {

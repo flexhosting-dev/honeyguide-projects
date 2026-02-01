@@ -1,0 +1,34 @@
+{# Subtasks Component - Vue Version #}
+{% set canEdit = canEdit|default(true) %}
+<div
+    data-vue-component="SubtasksEditor"
+    data-vue-task-id="{{ task.id }}"
+    data-vue-initial-subtasks='{{ task.subtasks|map(s => {
+        id: s.id ~ '',
+        title: s.title,
+        status: { value: s.status.value, label: s.status.label }
+    })|json_encode|e('html_attr') }}'
+    data-vue-base-path="{{ app.request.basePath }}"
+    data-vue-can-edit="{{ canEdit ? 'true' : 'false' }}"
+    data-vue-max-depth-reached="{{ task.depth >= 2 ? 'true' : 'false' }}"
+>
+    <noscript>
+        {% if task.subtasks|length > 0 %}
+            <ul class="space-y-1">
+            {% for subtask in task.subtasks %}
+                <li class="flex items-center gap-2 p-2 text-sm">
+                    <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
+                        {% if subtask.status.value == 'completed' %}bg-green-100 text-green-700
+                        {% elseif subtask.status.value == 'in_progress' %}bg-blue-100 text-blue-700
+                        {% else %}bg-gray-100 text-gray-700{% endif %}">
+                        {{ subtask.status.label }}
+                    </span>
+                    <a href="{{ path('app_task_show', {id: subtask.id}) }}" class="text-gray-900 hover:text-primary-600">{{ subtask.title }}</a>
+                </li>
+            {% endfor %}
+            </ul>
+        {% else %}
+            <p class="text-sm text-gray-400 italic py-4">No subtasks yet</p>
+        {% endif %}
+    </noscript>
+</div>

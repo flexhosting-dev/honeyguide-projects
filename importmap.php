@@ -55,4 +55,7 @@ return [
     'vue/components/RichTextEditor' => [
         'path' => './assets/vue/components/RichTextEditor.js',
     ],
+    'vue/components/SubtasksEditor' => [
+        'path' => './assets/vue/components/SubtasksEditor.js',
+    ],
 ];

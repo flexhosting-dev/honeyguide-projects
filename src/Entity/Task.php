@@ -325,6 +325,22 @@ class Task
         return $this->subtasks->count();
     }
 
+    public function getCompletedSubtaskCount(): int
+    {
+        return $this->subtasks->filter(fn(Task $t) => $t->getStatus() === TaskStatus::COMPLETED)->count();
+    }
+
+    public function getDepth(): int
+    {
+        $depth = 0;
+        $current = $this->parent;
+        while ($current !== null) {
+            $depth++;
+            $current = $current->getParent();
+        }
+        return $depth;
+    }
+
     public function getCommentCount(): int
     {
         return $this->comments->count();
