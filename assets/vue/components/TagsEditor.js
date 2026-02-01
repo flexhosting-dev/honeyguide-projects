@@ -281,11 +281,10 @@ export default {
                         </svg>
                     </button>
                 </span>
-            </div>
 
-            <!-- Add Tag Button (only if canEdit) -->
-            <span
-                v-if="canEdit && !showInput"
+                <!-- Add Tag Button (inline with tags) -->
+                <span
+                    v-if="canEdit && !showInput"
                 @click="openTagInput"
                 class="inline-flex items-center text-xs font-medium border-2 border-dashed border-gray-300 text-gray-500 pl-1.5 pr-2 py-0.5 cursor-pointer hover:border-gray-400 hover:text-gray-600 tag-chip"
                 style="--tag-color: transparent"
@@ -294,7 +293,8 @@ export default {
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                 </svg>
                 Add
-            </span>
+                </span>
+            </div>
 
             <!-- Add Tag Input (shown on click) -->
             <div v-if="canEdit && showInput" class="add-tag-container relative mt-2">
