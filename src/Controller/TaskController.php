@@ -1045,6 +1045,20 @@ class TaskController extends AbstractController
                     'value' => $subtask->getPriority()->value,
                     'label' => $subtask->getPriority()->label(),
                 ],
+                'milestoneId' => $subtask->getMilestone() ? $subtask->getMilestone()->getId()->toString() : null,
+                'dueDate' => $subtask->getDueDate()?->format('Y-m-d'),
+                'position' => $subtask->getPosition(),
+                'projectName' => $project->getName(),
+                'assignees' => [],
+                'tags' => [],
+                'commentCount' => 0,
+                'checklistCount' => 0,
+                'completedChecklistCount' => 0,
+                'subtaskCount' => 0,
+                'completedSubtaskCount' => 0,
+                'parentId' => $parentTask->getId()->toString(),
+                'parentChain' => $parentTask->getTitle(),
+                'depth' => $subtask->getDepth(),
             ],
         ]);
     }
@@ -1145,7 +1159,7 @@ class TaskController extends AbstractController
         return $this->json([
             'success' => true,
             'task' => [
-                'id' => $task->getId(),
+                'id' => $task->getId()->toString(),
                 'title' => $task->getTitle(),
                 'status' => [
                     'value' => $task->getStatus()->value,
@@ -1162,6 +1176,17 @@ class TaskController extends AbstractController
                 ],
                 'dueDate' => $task->getDueDate()?->format('Y-m-d'),
                 'position' => $task->getPosition(),
+                'projectName' => $project->getName(),
+                'assignees' => [],
+                'tags' => [],
+                'commentCount' => 0,
+                'checklistCount' => 0,
+                'completedChecklistCount' => 0,
+                'subtaskCount' => 0,
+                'completedSubtaskCount' => 0,
+                'parentId' => null,
+                'parentChain' => null,
+                'depth' => 0,
             ],
         ]);
     }

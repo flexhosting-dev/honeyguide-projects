@@ -96,24 +96,24 @@ export default {
             }
         };
 
-        // Handle textarea input for @mentions
+        // Handle textarea input for #mentions
         const onTextareaInput = (event) => {
             const textarea = event.target;
             const value = textarea.value;
             const cursorPos = textarea.selectionStart;
 
-            // Find @ before cursor
+            // Find # before cursor
             const textBeforeCursor = value.substring(0, cursorPos);
-            const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+            const lastHashIndex = textBeforeCursor.lastIndexOf('#');
 
-            if (lastAtIndex >= 0) {
-                const charBeforeAt = lastAtIndex > 0 ? textBeforeCursor[lastAtIndex - 1] : ' ';
-                const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
+            if (lastHashIndex >= 0) {
+                const charBeforeHash = lastHashIndex > 0 ? textBeforeCursor[lastHashIndex - 1] : ' ';
+                const textAfterHash = textBeforeCursor.substring(lastHashIndex + 1);
 
-                // Only trigger if @ is at start or after a space, and no space in query
-                if ((charBeforeAt === ' ' || charBeforeAt === '\n' || lastAtIndex === 0) && !textAfterAt.includes(' ')) {
-                    mentionStartIndex.value = lastAtIndex;
-                    mentionQuery.value = textAfterAt.toLowerCase();
+                // Only trigger if # is at start or after a space, and no space in query
+                if ((charBeforeHash === ' ' || charBeforeHash === '\n' || lastHashIndex === 0) && !textAfterHash.includes(' ')) {
+                    mentionStartIndex.value = lastHashIndex;
+                    mentionQuery.value = textAfterHash.toLowerCase();
                     showMentionDropdown.value = true;
                     mentionSelectedIndex.value = 0;
 
@@ -140,7 +140,7 @@ export default {
             const before = value.substring(0, mentionStartIndex.value);
             const after = value.substring(textarea.selectionStart);
 
-            newComment.value = before + '@' + member.fullName + ' ' + after;
+            newComment.value = before + '#' + member.fullName + ' ' + after;
             showMentionDropdown.value = false;
 
             nextTick(() => {
@@ -187,7 +187,7 @@ export default {
         const extractMentionedUserIds = (text) => {
             const ids = [];
             for (const member of mentionMembers.value) {
-                if (text.includes('@' + member.fullName)) {
+                if (text.includes('#' + member.fullName)) {
                     ids.push(member.id);
                 }
             }
@@ -199,9 +199,9 @@ export default {
             if (!text) return '';
             let html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-            // Replace @Name with styled spans
+            // Replace #Name with styled spans
             for (const member of mentionMembers.value) {
-                const mention = '@' + member.fullName;
+                const mention = '#' + member.fullName;
                 const escaped = mention.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 html = html.replace(new RegExp(escaped, 'g'),
                     `<span class="text-primary-600 font-medium">${mention}</span>`
@@ -405,7 +405,7 @@ export default {
                             @focus="onFocus"
                             class="comment-textarea w-full text-sm border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
                             rows="2"
-                            placeholder="Add a comment... (use @ to mention)"
+                            placeholder="Add a comment... (use # to mention)"
                             :disabled="isLoading"
                         ></textarea>
 

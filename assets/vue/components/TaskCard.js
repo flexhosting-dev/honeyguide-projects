@@ -19,10 +19,14 @@ export default {
         loading: {
             type: Boolean,
             default: false
+        },
+        canAddSubtask: {
+            type: Boolean,
+            default: false
         }
     },
 
-    emits: ['click', 'dragstart', 'dragend'],
+    emits: ['click', 'dragstart', 'dragend', 'add-subtask'],
 
     setup(props, { emit }) {
         const isDragging = ref(false);
@@ -108,6 +112,12 @@ export default {
             return assignee.user?.avatar || assignee.avatar || null;
         };
 
+        const handleAddSubtask = (event) => {
+            event.stopPropagation();
+            event.preventDefault();
+            emit('add-subtask', props.task);
+        };
+
         return {
             isDragging,
             priorityClasses,
@@ -121,7 +131,8 @@ export default {
             handleDragStart,
             handleDragEnd,
             getInitials,
-            getAvatar
+            getAvatar,
+            handleAddSubtask
         };
     },
 
@@ -252,6 +263,17 @@ export default {
                     +{{ task.tags.length - 3 }}
                 </span>
             </div>
+
+            <!-- Add subtask button -->
+            <button
+                v-if="canAddSubtask"
+                type="button"
+                class="task-card-add-subtask absolute bottom-2 right-2 w-5 h-5 rounded-full bg-gray-100 hover:bg-primary-100 text-gray-400 hover:text-primary-600 flex items-center justify-center opacity-0 transition-opacity"
+                title="Add subtask"
+                @click="handleAddSubtask"
+            >
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            </button>
         </div>
     `
 };

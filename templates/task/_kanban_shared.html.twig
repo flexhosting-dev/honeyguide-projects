@@ -21,6 +21,7 @@
         projectName: task.project.name,
         dueDate: task.dueDate ? task.dueDate|date('Y-m-d') : null,
         position: task.position,
+        depth: task.depth|default(0),
         commentCount: task.commentCount|default(0),
         checklistCount: task.checklistCount|default(0),
         completedChecklistCount: task.completedChecklistCount|default(0),
@@ -55,6 +56,11 @@
     data-vue-priority-url-template="{{ path('app_task_update_priority', {id: '__TASK_ID__'}) }}"
     data-vue-milestone-url-template="{{ path('app_task_update_milestone', {id: '__TASK_ID__'}) }}"
     data-vue-reorder-url="{{ path('app_task_reorder') }}"
+    data-vue-project-id="{{ project.id|default('') }}"
+    data-vue-create-url="{{ project is defined ? path('app_task_create_json', {projectId: project.id}) : '' }}"
+    data-vue-members-url="{{ project is defined ? path('app_project_members_list', {projectId: project.id}) : '' }}"
+    data-vue-assign-url-template="{{ path('app_task_update_assignees', {id: '__TASK_ID__'}) }}"
+    data-vue-subtask-url-template="{{ path('app_task_create_subtask', {id: '__TASK_ID__'}) }}"
 >
     {# Loading fallback shown before Vue mounts #}
     <div class="flex items-center justify-center py-12">
@@ -274,4 +280,10 @@
 .kb-bg-teal   { background-color: #f0fdfa; }
 .kb-bg-orange { background-color: #fff7ed; }
 .kb-bg-cyan   { background-color: #ecfeff; }
+
+/* Quick-add button in column header */
+.kanban-col.collapsed .kanban-col-add-btn { display: none; }
+
+/* Show subtask add button on card hover */
+.task-card:hover .task-card-add-subtask { opacity: 1; }
 </style>

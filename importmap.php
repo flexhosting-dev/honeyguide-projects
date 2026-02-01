@@ -58,4 +58,7 @@ return [
     'vue/components/SubtasksEditor' => [
         'path' => './assets/vue/components/SubtasksEditor.js',
     ],
+    'vue/components/QuickAddCard' => [
+        'path' => './assets/vue/components/QuickAddCard.js',
+    ],
 ];

@@ -1,10 +1,11 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import TaskCard from './TaskCard.js';
+import QuickAddCard from './QuickAddCard.js';
 
 export default {
     name: 'KanbanBoard',
 
-    components: { TaskCard },
+    components: { TaskCard, QuickAddCard },
 
     props: {
         initialTasks: {
@@ -36,6 +37,26 @@ export default {
             default: ''
         },
         reorderUrl: {
+            type: String,
+            default: ''
+        },
+        projectId: {
+            type: String,
+            default: ''
+        },
+        createUrl: {
+            type: String,
+            default: ''
+        },
+        membersUrl: {
+            type: String,
+            default: ''
+        },
+        assignUrlTemplate: {
+            type: String,
+            default: ''
+        },
+        subtaskUrlTemplate: {
             type: String,
             default: ''
         }
@@ -372,13 +393,80 @@ export default {
 
         const isTaskLoading = (taskId) => loadingTaskIds.value.has(taskId);
 
+        // Quick add state
+        const quickAddColumn = ref(null);
+        const quickAddAfterTask = ref(null);
+
+        const openColumnQuickAdd = (colValue) => {
+            quickAddAfterTask.value = null;
+            quickAddColumn.value = quickAddColumn.value === colValue ? null : colValue;
+        };
+
+        const openSubtaskQuickAdd = (task) => {
+            quickAddColumn.value = null;
+            quickAddAfterTask.value = quickAddAfterTask.value === task.id ? null : task.id;
+        };
+
+        const closeQuickAdd = () => {
+            quickAddColumn.value = null;
+            quickAddAfterTask.value = null;
+        };
+
+        const handleColumnTaskCreated = (taskData, colValue) => {
+            if (taskData) {
+                // Ensure defaults for kanban card display
+                taskData.assignees = taskData.assignees || [];
+                taskData.tags = taskData.tags || [];
+                taskData.commentCount = taskData.commentCount || 0;
+                taskData.checklistCount = taskData.checklistCount || 0;
+                taskData.completedChecklistCount = taskData.completedChecklistCount || 0;
+                taskData.subtaskCount = taskData.subtaskCount || 0;
+                taskData.completedSubtaskCount = taskData.completedSubtaskCount || 0;
+                taskData.depth = 0;
+                tasks.value.push(taskData);
+            }
+        };
+
+        const handleSubtaskCreated = (taskData, parentTask) => {
+            if (taskData) {
+                taskData.assignees = taskData.assignees || [];
+                taskData.tags = taskData.tags || [];
+                taskData.commentCount = taskData.commentCount || 0;
+                taskData.checklistCount = taskData.checklistCount || 0;
+                taskData.completedChecklistCount = taskData.completedChecklistCount || 0;
+                taskData.subtaskCount = taskData.subtaskCount || 0;
+                taskData.completedSubtaskCount = taskData.completedSubtaskCount || 0;
+                taskData.parentId = parentTask.id;
+                taskData.parentChain = parentTask.title;
+                taskData.depth = (parentTask.depth || 0) + 1;
+                // Inherit milestone from parent
+                if (!taskData.milestoneId) {
+                    taskData.milestoneId = parentTask.milestoneId;
+                }
+                tasks.value.push(taskData);
+                // Increment parent subtask count
+                const pi = tasks.value.findIndex(t => t.id === parentTask.id);
+                if (pi !== -1) {
+                    tasks.value[pi].subtaskCount = (tasks.value[pi].subtaskCount || 0) + 1;
+                }
+            }
+        };
+
+        const getParentTaskForQuickAdd = computed(() => {
+            if (!quickAddAfterTask.value) return null;
+            return tasks.value.find(t => t.id === quickAddAfterTask.value) || null;
+        });
+
         return {
             tasks, currentMode, columns, tasksByColumn, hasMilestones,
             draggedTask, dragOverColumn, dropIndex, isUpdating,
             isCollapsed, toggleCollapse, setMode,
             handleDragStart, handleDragEnd, handleColumnDragOver,
             handleColumnDragLeave, handleColumnDrop, handleTaskClick,
-            isTaskLoading, basePath
+            isTaskLoading, basePath,
+            quickAddColumn, quickAddAfterTask,
+            openColumnQuickAdd, openSubtaskQuickAdd, closeQuickAdd,
+            handleColumnTaskCreated, handleSubtaskCreated, getParentTaskForQuickAdd
         };
     },
 
@@ -410,11 +498,36 @@ export default {
                         <span class="kanban-badge" :class="col.badgeClass">
                             {{ col.label }} ({{ tasksByColumn[col.value]?.length || 0 }})
                         </span>
+                        <button
+                            v-if="createUrl"
+                            type="button"
+                            class="kanban-col-add-btn ml-1.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-white/60 hover:bg-white text-gray-500 hover:text-primary-600 transition-colors"
+                            title="Quick add task"
+                            @click.stop="openColumnQuickAdd(col.value)"
+                        >
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        </button>
                     </div>
 
                     <!-- Body -->
                     <div class="kanban-body">
                         <div class="kanban-dropzone">
+                            <!-- Column quick-add card at top -->
+                            <QuickAddCard
+                                v-if="quickAddColumn === col.value"
+                                :project-id="projectId"
+                                :milestones="milestones"
+                                :column-value="col.value"
+                                :column-mode="currentMode"
+                                :base-path="basePath"
+                                :members-url="membersUrl"
+                                :create-url="createUrl"
+                                :assign-url-template="assignUrlTemplate"
+                                :subtask-url-template="subtaskUrlTemplate"
+                                @task-created="(data) => handleColumnTaskCreated(data, col.value)"
+                                @cancel="closeQuickAdd"
+                            />
+
                             <template v-for="(task, index) in tasksByColumn[col.value]" :key="task.id">
                                 <div v-if="dragOverColumn === col.value && draggedTask && dropIndex === index"
                                     class="drop-placeholder"><span>Drop here</span></div>
@@ -423,9 +536,27 @@ export default {
                                     :draggable="true"
                                     :base-path="basePath"
                                     :loading="isTaskLoading(task.id)"
+                                    :can-add-subtask="(task.depth || 0) < 2"
                                     @click="handleTaskClick(task)"
                                     @dragstart="handleDragStart"
                                     @dragend="handleDragEnd"
+                                    @add-subtask="openSubtaskQuickAdd"
+                                />
+                                <!-- Subtask quick-add card after this task -->
+                                <QuickAddCard
+                                    v-if="quickAddAfterTask === task.id"
+                                    :project-id="projectId"
+                                    :milestones="milestones"
+                                    :column-value="col.value"
+                                    :column-mode="currentMode"
+                                    :base-path="basePath"
+                                    :members-url="membersUrl"
+                                    :create-url="createUrl"
+                                    :assign-url-template="assignUrlTemplate"
+                                    :subtask-url-template="subtaskUrlTemplate"
+                                    :parent-task="task"
+                                    @task-created="(data) => handleSubtaskCreated(data, task)"
+                                    @cancel="closeQuickAdd"
                                 />
                             </template>
                             <div v-if="dragOverColumn === col.value && draggedTask && dropIndex >= (tasksByColumn[col.value]?.length || 0)"
