@@ -143,6 +143,47 @@
             box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
         }
 
+        /* Dashed tag-chip for Add button */
+        .tag-chip-add {
+            position: relative;
+            border: 2px dashed #d1d5db;
+            border-left: none;
+            border-radius: 0 4px 4px 0;
+            margin-left: 10px;
+            line-height: 1;
+            height: 20px;
+            display: inline-flex;
+            align-items: center;
+        }
+        .tag-chip-add::before {
+            content: '';
+            position: absolute;
+            left: -10px;
+            top: -2px;
+            width: 0;
+            height: 0;
+            border-style: solid;
+            border-width: 12px 10px 12px 0;
+            border-color: transparent #d1d5db transparent transparent;
+        }
+        .tag-chip-add::after {
+            content: '';
+            position: absolute;
+            left: -7px;
+            top: 1px;
+            width: 0;
+            height: 0;
+            border-style: solid;
+            border-width: 9px 7px 9px 0;
+            border-color: transparent white transparent transparent;
+        }
+        .tag-chip-add:hover {
+            border-color: #9ca3af;
+        }
+        .tag-chip-add:hover::before {
+            border-color: transparent #9ca3af transparent transparent;
+        }
+
         /* Color swatch hover */
         .color-swatch {
             cursor: pointer;

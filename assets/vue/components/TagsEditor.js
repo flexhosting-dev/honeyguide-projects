@@ -285,14 +285,13 @@ export default {
                 <!-- Add Tag Button (inline with tags) -->
                 <span
                     v-if="canEdit && !showInput"
-                @click="openTagInput"
-                class="inline-flex items-center text-xs font-medium border-2 border-dashed border-gray-300 text-gray-500 pl-1.5 pr-2 py-0.5 cursor-pointer hover:border-gray-400 hover:text-gray-600 tag-chip"
-                style="--tag-color: transparent"
-            >
-                <svg class="h-3 w-3 mr-0.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                </svg>
-                Add
+                    @click="openTagInput"
+                    class="tag-chip-add inline-flex items-center text-xs font-medium text-gray-500 pl-1.5 pr-2 cursor-pointer hover:text-gray-600 hover:border-gray-400"
+                >
+                    <svg class="h-3 w-3 mr-0.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                    Add
                 </span>
             </div>
 
