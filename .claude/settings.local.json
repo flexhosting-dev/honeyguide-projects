@@ -32,7 +32,8 @@
       "Bash(done)",
       "Bash(python3:*)",
       "Bash(pip install:*)",
-      "Bash(git status:*)"
+      "Bash(git status:*)",
+      "WebFetch(domain:docs.dhtmlx.com)"
     ]
   }
 }

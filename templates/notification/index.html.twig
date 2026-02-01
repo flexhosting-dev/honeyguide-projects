@@ -1,0 +1,138 @@
+{% extends 'layout.html.twig' %}
+
+{% block title %}Notifications - WorkFlow{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Notifications</h1>
+            <p class="mt-1 text-sm text-gray-500">{{ unreadCount }} unread</p>
+        </div>
+        {% if unreadCount > 0 %}
+        <button onclick="markAllRead()" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Mark all as read
+        </button>
+        {% endif %}
+    </div>
+
+    {# Filter tabs #}
+    <div class="flex gap-1 mb-6 border-b border-gray-200">
+        {% set filters = [
+            {key: null, label: 'All'},
+            {key: 'unread', label: 'Unread'},
+            {key: 'mentions', label: 'Mentions'},
+            {key: 'assignments', label: 'Assignments'},
+        ] %}
+        {% for f in filters %}
+        <a href="{{ path('app_notifications', f.key ? {filter: f.key} : {}) }}"
+           class="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors {{ filter == f.key ? 'text-primary-600 border-primary-600' : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300' }}">
+            {{ f.label }}
+        </a>
+        {% endfor %}
+    </div>
+
+    {# Notification list #}
+    {% if notifications|length > 0 %}
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm divide-y divide-gray-100 overflow-hidden">
+        {% for notification in notifications %}
+        <div id="notification-{{ notification.id }}" class="flex items-start gap-4 px-5 py-4 {{ not notification.isRead ? 'bg-primary-50/40' : '' }} hover:bg-gray-50 transition-colors">
+            {# Actor avatar #}
+            <div class="flex-shrink-0">
+                {% if notification.actor %}
+                <span class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary-500">
+                    <span class="text-sm font-medium text-white">{{ notification.actor.initials }}</span>
+                </span>
+                {% else %}
+                <span class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-gray-400">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                    </svg>
+                </span>
+                {% endif %}
+            </div>
+
+            {# Content #}
+            <div class="flex-1 min-w-0">
+                <p class="text-sm text-gray-900">
+                    {% if notification.actor %}
+                        <span class="font-semibold">{{ notification.actor.fullName }}</span>
+                    {% endif %}
+                    {{ notification.type.label|lower }}
+                    {% if notification.entityName %}
+                        {% set url = notification.entityType == 'task' ? '/tasks/' ~ notification.entityId : (notification.entityType == 'project' ? '/projects/' ~ notification.entityId : null) %}
+                        {% if url %}
+                            <a href="{{ url }}" class="font-medium text-primary-600 hover:text-primary-700">{{ notification.entityName }}</a>
+                        {% else %}
+                            <span class="font-medium">{{ notification.entityName }}</span>
+                        {% endif %}
+                    {% endif %}
+                </p>
+                <p class="mt-0.5 text-xs text-gray-500" title="{{ notification.createdAt|date('M d, Y H:i') }}">
+                    {{ notification.createdAt|date('M d, H:i') }}
+                </p>
+            </div>
+
+            {# Unread indicator + mark as read #}
+            <div class="flex-shrink-0 flex items-center gap-2">
+                {% if not notification.isRead %}
+                <button onclick="markRead('{{ notification.id }}')" title="Mark as read" class="p-1 text-gray-400 hover:text-primary-600 transition-colors">
+                    <span class="block w-2.5 h-2.5 rounded-full bg-primary-500"></span>
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {# Pagination #}
+    {% if totalPages > 1 %}
+    <div class="flex justify-center gap-2 mt-6">
+        {% for p in 1..totalPages %}
+        <a href="{{ path('app_notifications', {filter: filter, page: p}) }}"
+           class="px-3 py-1.5 text-sm rounded-lg {{ p == currentPage ? 'bg-primary-600 text-white' : 'text-gray-600 hover:bg-gray-100' }}">
+            {{ p }}
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="text-center py-16">
+        <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+        </svg>
+        <h3 class="mt-4 text-sm font-semibold text-gray-900">No notifications</h3>
+        <p class="mt-1 text-sm text-gray-500">
+            {% if filter == 'unread' %}You're all caught up!
+            {% elseif filter == 'mentions' %}No mentions yet.
+            {% elseif filter == 'assignments' %}No assignment notifications.
+            {% else %}You don't have any notifications yet.{% endif %}
+        </p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function markRead(id) {
+    fetch('/notifications/' + id + '/read', { method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'} })
+        .then(r => r.json())
+        .then(() => {
+            const el = document.getElementById('notification-' + id);
+            if (el) {
+                el.classList.remove('bg-primary-50/40');
+                const dot = el.querySelector('button');
+                if (dot) dot.remove();
+            }
+        });
+}
+
+function markAllRead() {
+    fetch('/notifications/mark-all-read', { method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'} })
+        .then(r => r.json())
+        .then(() => location.reload());
+}
+</script>
+{% endblock %}

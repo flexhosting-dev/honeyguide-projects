@@ -492,6 +492,14 @@
 
     // ===== INLINE EDITING FUNCTIONS =====
 
+    // Permission-aware error message helper
+    function getErrorMessage(response, fallback) {
+        if (response && response.status === 403) {
+            return "You don't have permission to perform this action";
+        }
+        return fallback;
+    }
+
     // Close all dropdowns
     function closeAllDropdowns() {
         document.querySelectorAll('.status-dropdown, .priority-dropdown, .milestone-dropdown, .add-assignee-dropdown').forEach(d => {
@@ -561,7 +569,11 @@
                 body: JSON.stringify({ status: status })
             });
 
-            if (!response.ok) throw new Error('Failed to update status');
+            if (!response.ok) {
+                Toastr.error(getErrorMessage(response, 'Failed to update status'));
+                closeAllDropdowns();
+                return;
+            }
 
             const data = await response.json();
 
@@ -609,7 +621,11 @@
                 body: JSON.stringify({ priority: priority })
             });
 
-            if (!response.ok) throw new Error('Failed to update priority');
+            if (!response.ok) {
+                Toastr.error(getErrorMessage(response, 'Failed to update priority'));
+                closeAllDropdowns();
+                return;
+            }
 
             // Update the badge
             const badgeBtn = btn.closest('.priority-dropdown').previousElementSibling;
@@ -642,7 +658,11 @@
                 body: JSON.stringify({ milestone: milestoneId })
             });
 
-            if (!response.ok) throw new Error('Failed to update milestone');
+            if (!response.ok) {
+                Toastr.error(getErrorMessage(response, 'Failed to update milestone'));
+                closeAllDropdowns();
+                return;
+            }
 
             // Update the label
             const milestoneBtn = btn.closest('.milestone-dropdown').previousElementSibling;
@@ -677,13 +697,13 @@
                 body: JSON.stringify({ startDate: value || null })
             });
 
-            const data = await response.json();
-
             if (!response.ok) {
-                // Revert to original value
                 input.value = originalValue;
-                throw new Error(data.error || 'Failed to update start date');
+                Toastr.error(getErrorMessage(response, 'Failed to update start date'));
+                return;
             }
+
+            const data = await response.json();
 
             // Update the original value
             input.dataset.original = value;
@@ -725,13 +745,13 @@
                 body: JSON.stringify({ dueDate: value || null })
             });
 
-            const data = await response.json();
-
             if (!response.ok) {
-                // Revert to original value
                 input.value = originalValue;
-                throw new Error(data.error || 'Failed to update due date');
+                Toastr.error(getErrorMessage(response, 'Failed to update due date'));
+                return;
             }
+
+            const data = await response.json();
 
             // Update the original value
             input.dataset.original = value;
@@ -790,7 +810,11 @@
                     body: JSON.stringify({ title: newValue })
                 });
 
-                if (!response.ok) throw new Error('Failed to update title');
+                if (!response.ok) {
+                    e.target.textContent = original;
+                    Toastr.error(getErrorMessage(response, 'Failed to update title'));
+                    return;
+                }
 
                 e.target.dataset.original = newValue;
                 Toastr.success('Title updated');
@@ -863,7 +887,10 @@
                 body: JSON.stringify({ description: newValue })
             });
 
-            if (!response.ok) throw new Error('Failed to update description');
+            if (!response.ok) {
+                Toastr.error(getErrorMessage(response, 'Failed to update description'));
+                return;
+            }
 
             textarea.dataset.original = newValue;
 
@@ -906,7 +933,10 @@
                 body: JSON.stringify({ action: 'remove', userId: userId })
             });
 
-            if (!response.ok) throw new Error('Failed to remove assignee');
+            if (!response.ok) {
+                Toastr.error(getErrorMessage(response, 'Failed to remove assignee'));
+                return;
+            }
 
             // Remove the chip
             const chip = btn.closest('.assignee-chip');
@@ -1013,7 +1043,11 @@
                 body: JSON.stringify({ action: 'add', userId: userId })
             });
 
-            if (!response.ok) throw new Error('Failed to add assignee');
+            if (!response.ok) {
+                Toastr.error(getErrorMessage(response, 'Failed to add assignee'));
+                closeAllDropdowns();
+                return;
+            }
 
             // Add the new chip before the Add button
             const container = document.querySelector('.assignees-container');

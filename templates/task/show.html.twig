@@ -322,7 +322,7 @@
 
                 {# Comments Tab Content (Vue Component) #}
                 <div class="detail-tab-content hidden" id="detail-tab-comments">
-                    {% include 'task/_comments_vue.html.twig' with {task: task, canEdit: canEdit} %}
+                    {% include 'task/_comments_vue.html.twig' with {task: task, canEdit: canComment|default(true)} %}
                 </div>
 
                 {# Activity Tab Content (Vue Component) #}

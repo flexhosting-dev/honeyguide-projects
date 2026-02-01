@@ -1,6 +1,7 @@
 import './bootstrap.js';
 import '@hotwired/turbo';
 import './styles/app.css';
+import './js/notifications.js';
 
 // Vue components
 import { autoMountVueComponents } from 'vue/index';

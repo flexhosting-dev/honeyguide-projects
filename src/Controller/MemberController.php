@@ -9,7 +9,9 @@ use App\Repository\ProjectMemberRepository;
 use App\Repository\ProjectRepository;
 use App\Repository\RoleRepository;
 use App\Repository\UserRepository;
+use App\Enum\NotificationType;
 use App\Service\ActivityService;
+use App\Service\NotificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -26,6 +28,7 @@ class MemberController extends AbstractController
         private readonly RoleRepository $roleRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly ActivityService $activityService,
+        private readonly NotificationService $notificationService,
     ) {
     }
 
@@ -79,6 +82,15 @@ class MemberController extends AbstractController
             $currentUser,
             $user->getFullName(),
             $role->getName()
+        );
+
+        $this->notificationService->notify(
+            $user,
+            NotificationType::PROJECT_INVITED,
+            $currentUser,
+            'project',
+            $project->getId(),
+            $project->getName(),
         );
 
         $this->entityManager->flush();
@@ -148,6 +160,15 @@ class MemberController extends AbstractController
             $memberName = $member->getUser()->getFullName();
 
             $this->activityService->logMemberRemoved($project, $currentUser, $memberName);
+
+            $this->notificationService->notify(
+                $member->getUser(),
+                NotificationType::PROJECT_REMOVED,
+                $currentUser,
+                'project',
+                $project->getId(),
+                $project->getName(),
+            );
 
             $this->entityManager->remove($member);
             $this->entityManager->flush();

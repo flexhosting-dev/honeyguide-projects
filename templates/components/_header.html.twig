@@ -29,6 +29,28 @@
             {% endblock %}
         </div>
         <div class="flex items-center gap-x-4 lg:gap-x-6">
+            {# Notification bell #}
+            <div class="relative" data-controller="dropdown">
+                <button type="button" data-action="click->dropdown#toggle" data-notif-bell class="relative p-1.5 text-white/80 hover:text-white transition-colors">
+                    <span class="sr-only">View notifications</span>
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                    </svg>
+                    <span data-notification-count class="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-500 rounded-full" style="display:none;">0</span>
+                </button>
+                <div data-dropdown-target="menu" class="hidden absolute -right-2 sm:right-0 z-10 mt-2.5 w-[calc(100vw-1rem)] sm:w-96 origin-top-right rounded-xl bg-white shadow-xl ring-1 ring-gray-900/5 focus:outline-none">
+                    <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                        <h3 class="text-sm font-semibold text-gray-900">Notifications</h3>
+                        <div class="flex items-center gap-3">
+                            <button onclick="window._markAllNotifsRead && window._markAllNotifsRead()" class="text-xs text-primary-600 hover:text-primary-700 font-medium">Mark all read</button>
+                            <a href="{{ path('app_notifications') }}" class="text-xs text-gray-500 hover:text-gray-700 font-medium">View all</a>
+                        </div>
+                    </div>
+                    <div data-notification-list class="max-h-96 overflow-y-auto divide-y divide-gray-50">
+                    </div>
+                </div>
+            </div>
+
             {# User dropdown #}
             <div class="relative" data-controller="dropdown">
                 <button type="button" data-action="click->dropdown#toggle" class="-m-1.5 flex items-center p-1.5 group">
@@ -89,6 +111,28 @@
             {% endblock %}
         </div>
         <div class="flex items-center gap-x-4 lg:gap-x-6">
+            {# Notification bell #}
+            <div class="relative" data-controller="dropdown">
+                <button type="button" data-action="click->dropdown#toggle" data-notif-bell class="relative p-1.5 text-gray-500 hover:text-gray-700 transition-colors">
+                    <span class="sr-only">View notifications</span>
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                    </svg>
+                    <span data-notification-count class="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-500 rounded-full" style="display:none;">0</span>
+                </button>
+                <div data-dropdown-target="menu" class="hidden absolute -right-2 sm:right-0 z-10 mt-2.5 w-[calc(100vw-1rem)] sm:w-96 origin-top-right rounded-xl bg-white shadow-xl ring-1 ring-gray-900/5 focus:outline-none">
+                    <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                        <h3 class="text-sm font-semibold text-gray-900">Notifications</h3>
+                        <div class="flex items-center gap-3">
+                            <button onclick="window._markAllNotifsRead && window._markAllNotifsRead()" class="text-xs text-primary-600 hover:text-primary-700 font-medium">Mark all read</button>
+                            <a href="{{ path('app_notifications') }}" class="text-xs text-gray-500 hover:text-gray-700 font-medium">View all</a>
+                        </div>
+                    </div>
+                    <div data-notification-list class="max-h-96 overflow-y-auto divide-y divide-gray-50">
+                    </div>
+                </div>
+            </div>
+
             {# User dropdown #}
             <div class="relative" data-controller="dropdown">
                 <button type="button" data-action="click->dropdown#toggle" class="-m-1.5 flex items-center p-1.5">

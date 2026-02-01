@@ -75,6 +75,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 50, options: ['default' => 'gradient'])]
     private string $uiTheme = 'gradient';
 
+    #[ORM\Column(type: 'json')]
+    private array $notificationPreferences = [];
+
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
 
@@ -442,5 +445,26 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function isFavouriteProject(string $projectId): bool
     {
         return in_array($projectId, $this->favouriteProjectIds, true);
+    }
+
+    public function getNotificationPreferences(): array
+    {
+        return $this->notificationPreferences;
+    }
+
+    public function setNotificationPreferences(array $notificationPreferences): static
+    {
+        $this->notificationPreferences = $notificationPreferences;
+        return $this;
+    }
+
+    public function shouldReceiveNotification(\App\Enum\NotificationType $type, string $channel): bool
+    {
+        $prefs = $this->notificationPreferences;
+        if (isset($prefs[$type->value][$channel])) {
+            return (bool) $prefs[$type->value][$channel];
+        }
+        // Default: use the enum defaults
+        return $channel === 'in_app' ? $type->defaultInApp() : $type->defaultEmail();
     }
 }

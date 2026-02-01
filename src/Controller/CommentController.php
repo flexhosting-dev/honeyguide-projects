@@ -7,7 +7,10 @@ use App\Entity\Task;
 use App\Entity\User;
 use App\Form\CommentFormType;
 use App\Repository\TaskRepository;
+use App\Enum\NotificationType;
+use App\Repository\UserRepository;
 use App\Service\ActivityService;
+use App\Service\NotificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -21,6 +24,8 @@ class CommentController extends AbstractController
         private readonly TaskRepository $taskRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly ActivityService $activityService,
+        private readonly NotificationService $notificationService,
+        private readonly UserRepository $userRepository,
     ) {
     }
 
@@ -66,6 +71,35 @@ class CommentController extends AbstractController
                 $task->getId(),
                 $task->getTitle()
             );
+
+            // Notify task assignees about the comment
+            foreach ($task->getAssignees() as $assignee) {
+                $this->notificationService->notify(
+                    $assignee->getUser(),
+                    NotificationType::COMMENT_ADDED,
+                    $user,
+                    'task',
+                    $task->getId(),
+                    $task->getTitle(),
+                );
+            }
+
+            // Notify mentioned users
+            if ($mentionedUserIds) {
+                foreach ($mentionedUserIds as $mentionedUserId) {
+                    $mentionedUser = $this->userRepository->find($mentionedUserId);
+                    if ($mentionedUser) {
+                        $this->notificationService->notify(
+                            $mentionedUser,
+                            NotificationType::MENTIONED,
+                            $user,
+                            'task',
+                            $task->getId(),
+                            $task->getTitle(),
+                        );
+                    }
+                }
+            }
 
             $this->entityManager->flush();
 
