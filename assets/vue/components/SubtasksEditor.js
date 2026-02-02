@@ -25,11 +25,25 @@ export default {
         const selectedAssignee = ref(null);
         const selectedDueDate = ref('');
         const showMemberDropdown = ref(false);
-        const showDatePicker = ref(false);
+        const showDateDropdown = ref(false);
+        const showCustomDatePicker = ref(false);
         const memberSearch = ref('');
         const members = ref([]);
         const membersLoaded = ref(false);
         const triggerStart = ref(-1);
+
+        const formatDate = (d) => d.toISOString().split('T')[0];
+        const quickDateOptions = computed(() => {
+            const today = new Date();
+            const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+            const nextWeek = new Date(today); nextWeek.setDate(today.getDate() + 7);
+            return [
+                { label: 'Today', value: formatDate(today) },
+                { label: 'Tomorrow', value: formatDate(tomorrow) },
+                { label: 'In a week', value: formatDate(nextWeek) },
+                { label: 'Custom date...', value: '__custom__' },
+            ];
+        });
 
         const completedCount = computed(() =>
             subtasks.value.filter(s => s.status?.value === 'completed').length
@@ -65,19 +79,16 @@ export default {
                 triggerStart.value = pos - 1;
                 memberSearch.value = '';
                 showMemberDropdown.value = true;
-                showDatePicker.value = false;
+                showDateDropdown.value = false;
                 fetchMembers();
                 return;
             }
 
             if (val[pos - 1] === '@') {
-                showDatePicker.value = true;
+                showDateDropdown.value = true;
+                showCustomDatePicker.value = false;
                 showMemberDropdown.value = false;
                 newTitle.value = val.slice(0, pos - 1) + val.slice(pos);
-                nextTick(() => {
-                    const dateInput = inputEl.value?.closest('.subtask-smart-input')?.querySelector('.subtask-date-input');
-                    dateInput?.focus();
-                });
                 return;
             }
 
@@ -105,9 +116,27 @@ export default {
             nextTick(() => inputEl.value?.focus());
         };
 
-        const selectDate = (e) => {
+        const selectQuickDate = (option) => {
+            if (option.value === '__custom__') {
+                showCustomDatePicker.value = true;
+                showDateDropdown.value = false;
+                nextTick(() => {
+                    const dateInput = inputEl.value?.closest('.subtask-smart-input')?.querySelector('.subtask-date-input');
+                    dateInput?.showPicker?.();
+                    dateInput?.focus();
+                });
+                return;
+            }
+            selectedDueDate.value = option.value;
+            showDateDropdown.value = false;
+            showCustomDatePicker.value = false;
+            nextTick(() => inputEl.value?.focus());
+        };
+
+        const selectCustomDate = (e) => {
             selectedDueDate.value = e.target.value;
-            showDatePicker.value = false;
+            showCustomDatePicker.value = false;
+            showDateDropdown.value = false;
             nextTick(() => inputEl.value?.focus());
         };
 
@@ -175,8 +204,9 @@ export default {
                         newTitle.value = newTitle.value.slice(0, triggerStart.value);
                         triggerStart.value = -1;
                     }
-                } else if (showDatePicker.value) {
-                    showDatePicker.value = false;
+                } else if (showDateDropdown.value || showCustomDatePicker.value) {
+                    showDateDropdown.value = false;
+                    showCustomDatePicker.value = false;
                 }
             }
         };
@@ -205,8 +235,8 @@ export default {
         return {
             subtasks, newTitle, saving, error, completedCount, addSubtask, handleKeydown, handleInput,
             openSubtask, statusClass, basePath, inputEl,
-            selectedAssignee, selectedDueDate, showMemberDropdown, showDatePicker,
-            filteredMembers, selectMember, removeMember, selectDate, removeDate
+            selectedAssignee, selectedDueDate, showMemberDropdown, showDateDropdown, showCustomDatePicker,
+            filteredMembers, selectMember, removeMember, quickDateOptions, selectQuickDate, selectCustomDate, removeDate
         };
     },
 
@@ -277,9 +307,23 @@ export default {
                         </button>
                     </div>
 
-                    <!-- Date picker -->
-                    <div v-if="showDatePicker" class="absolute z-20 top-full left-0 mt-1">
-                        <input type="date" class="subtask-date-input text-sm border border-gray-300 rounded px-2 py-1" @change="selectDate" />
+                    <!-- Date dropdown -->
+                    <div v-if="showDateDropdown" class="absolute z-20 top-full left-0 mt-1 w-44 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
+                        <button
+                            v-for="opt in quickDateOptions"
+                            :key="opt.value"
+                            type="button"
+                            class="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 flex items-center gap-2"
+                            @click.stop="selectQuickDate(opt)"
+                        >
+                            <span>{{ opt.label }}</span>
+                            <span v-if="opt.value !== '__custom__'" class="ml-auto text-xs text-gray-400">{{ opt.value }}</span>
+                        </button>
+                    </div>
+
+                    <!-- Custom date picker (shown after choosing "Custom date...") -->
+                    <div v-if="showCustomDatePicker" class="absolute z-20 top-full left-0 mt-1">
+                        <input type="date" class="subtask-date-input text-sm border border-gray-300 rounded px-2 py-1" @change="selectCustomDate" />
                     </div>
                 </div>
 

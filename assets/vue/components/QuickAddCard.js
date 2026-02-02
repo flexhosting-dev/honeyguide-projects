@@ -28,11 +28,25 @@ export default {
 
         // Trigger states
         const showMemberDropdown = ref(false);
-        const showDatePicker = ref(false);
+        const showDateDropdown = ref(false);
+        const showCustomDatePicker = ref(false);
         const memberSearch = ref('');
         const members = ref([]);
         const membersLoaded = ref(false);
         const triggerStart = ref(-1);
+
+        const formatDate = (d) => d.toISOString().split('T')[0];
+        const quickDateOptions = computed(() => {
+            const today = new Date();
+            const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+            const nextWeek = new Date(today); nextWeek.setDate(today.getDate() + 7);
+            return [
+                { label: 'Today', value: formatDate(today) },
+                { label: 'Tomorrow', value: formatDate(tomorrow) },
+                { label: 'In a week', value: formatDate(nextWeek) },
+                { label: 'Custom date...', value: '__custom__' },
+            ];
+        });
 
         // Milestone logic
         const showMilestoneSelect = computed(() => {
@@ -58,7 +72,8 @@ export default {
         const handleGlobalKey = (e) => {
             if (e.key === 'Escape') {
                 showMemberDropdown.value = false;
-                showDatePicker.value = false;
+                showDateDropdown.value = false;
+                showCustomDatePicker.value = false;
                 emit('cancel');
             }
         };
@@ -94,21 +109,18 @@ export default {
                 triggerStart.value = pos - 1;
                 memberSearch.value = '';
                 showMemberDropdown.value = true;
-                showDatePicker.value = false;
+                showDateDropdown.value = false;
                 fetchMembers();
                 return;
             }
 
-            // Check for @ trigger → date picker
+            // Check for @ trigger → date dropdown
             if (val[pos - 1] === '@') {
-                showDatePicker.value = true;
+                showDateDropdown.value = true;
+                showCustomDatePicker.value = false;
                 showMemberDropdown.value = false;
                 // Remove the @ from title
                 title.value = val.slice(0, pos - 1) + val.slice(pos);
-                nextTick(() => {
-                    const dateInput = document.querySelector('.quick-add-date-input');
-                    dateInput?.focus();
-                });
                 return;
             }
 
@@ -138,9 +150,27 @@ export default {
             nextTick(() => inputEl.value?.focus());
         };
 
-        const selectDate = (e) => {
+        const selectQuickDate = (option) => {
+            if (option.value === '__custom__') {
+                showCustomDatePicker.value = true;
+                showDateDropdown.value = false;
+                nextTick(() => {
+                    const dateInput = document.querySelector('.quick-add-date-input');
+                    dateInput?.showPicker?.();
+                    dateInput?.focus();
+                });
+                return;
+            }
+            selectedDueDate.value = option.value;
+            showDateDropdown.value = false;
+            showCustomDatePicker.value = false;
+            nextTick(() => inputEl.value?.focus());
+        };
+
+        const selectCustomDate = (e) => {
             selectedDueDate.value = e.target.value;
-            showDatePicker.value = false;
+            showCustomDatePicker.value = false;
+            showDateDropdown.value = false;
             nextTick(() => inputEl.value?.focus());
         };
 
@@ -163,8 +193,9 @@ export default {
                         title.value = title.value.slice(0, triggerStart.value);
                         triggerStart.value = -1;
                     }
-                } else if (showDatePicker.value) {
-                    showDatePicker.value = false;
+                } else if (showDateDropdown.value || showCustomDatePicker.value) {
+                    showDateDropdown.value = false;
+                    showCustomDatePicker.value = false;
                 } else {
                     emit('cancel');
                 }
@@ -258,9 +289,9 @@ export default {
 
         return {
             title, inputEl, selectedAssignee, selectedDueDate, selectedMilestone,
-            submitting, showMemberDropdown, showDatePicker, filteredMembers,
+            submitting, showMemberDropdown, showDateDropdown, showCustomDatePicker, filteredMembers,
             showMilestoneSelect, handleInput, handleKeydown, selectMember,
-            removeMember, selectDate, removeDate, submit
+            removeMember, quickDateOptions, selectQuickDate, selectCustomDate, removeDate, submit
         };
     },
 
@@ -294,9 +325,23 @@ export default {
                     </button>
                 </div>
 
-                <!-- Date picker -->
-                <div v-if="showDatePicker" class="absolute z-20 top-full left-0 mt-1">
-                    <input type="date" class="quick-add-date-input text-sm border border-gray-300 rounded px-2 py-1" @change="selectDate" />
+                <!-- Date dropdown -->
+                <div v-if="showDateDropdown" class="absolute z-20 top-full left-0 mt-1 w-44 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
+                    <button
+                        v-for="opt in quickDateOptions"
+                        :key="opt.value"
+                        type="button"
+                        class="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50 flex items-center gap-2"
+                        @click.stop="selectQuickDate(opt)"
+                    >
+                        <span>{{ opt.label }}</span>
+                        <span v-if="opt.value !== '__custom__'" class="ml-auto text-xs text-gray-400">{{ opt.value }}</span>
+                    </button>
+                </div>
+
+                <!-- Custom date picker -->
+                <div v-if="showCustomDatePicker" class="absolute z-20 top-full left-0 mt-1">
+                    <input type="date" class="quick-add-date-input text-sm border border-gray-300 rounded px-2 py-1" @change="selectCustomDate" />
                 </div>
             </div>
 
