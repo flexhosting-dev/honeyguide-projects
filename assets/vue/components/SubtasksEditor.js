@@ -266,14 +266,24 @@ export default {
             <div v-if="canEdit && !maxDepthReached" class="mt-3 subtask-smart-input">
                 <div class="relative">
                     <div class="flex items-center gap-2">
-                        <input type="text"
-                               ref="inputEl"
-                               v-model="newTitle"
-                               @input="handleInput"
-                               @keydown="handleKeydown"
-                               placeholder="Add a subtask... (#assign, @date)"
-                               class="flex-1 text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:ring-primary-500 focus:border-primary-500"
-                               :disabled="saving">
+                        <div class="flex-1 flex items-center flex-wrap gap-1 border border-gray-300 rounded-md px-2 py-1 focus-within:ring-1 focus-within:ring-primary-500 focus-within:border-primary-500" @click="inputEl?.focus()">
+                            <span v-if="selectedAssignee" class="inline-flex items-center gap-1 rounded-full bg-blue-50 text-blue-700 px-2 py-0.5 text-xs whitespace-nowrap">
+                                {{ selectedAssignee.fullName }}
+                                <button type="button" class="hover:text-blue-900" @click.stop="removeMember">&times;</button>
+                            </span>
+                            <span v-if="selectedDueDate" class="inline-flex items-center gap-1 rounded-full bg-green-50 text-green-700 px-2 py-0.5 text-xs whitespace-nowrap">
+                                {{ selectedDueDate }}
+                                <button type="button" class="hover:text-green-900" @click.stop="removeDate">&times;</button>
+                            </span>
+                            <input type="text"
+                                   ref="inputEl"
+                                   v-model="newTitle"
+                                   @input="handleInput"
+                                   @keydown="handleKeydown"
+                                   placeholder="Add a subtask... (#assign, @date)"
+                                   class="flex-1 min-w-[120px] text-sm border-0 outline-none bg-transparent p-0.5"
+                                   :disabled="saving">
+                        </div>
                         <button @click="addSubtask"
                                 :disabled="!newTitle.trim() || saving"
                                 class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed">
@@ -318,17 +328,7 @@ export default {
                     <input type="date" ref="dateInputEl" class="sr-only" tabindex="-1" @change="selectCustomDate" />
                 </div>
 
-                <!-- Chips -->
-                <div v-if="selectedAssignee || selectedDueDate" class="flex flex-wrap gap-1.5 mt-1.5">
-                    <span v-if="selectedAssignee" class="inline-flex items-center gap-1 rounded-full bg-blue-50 text-blue-700 px-2 py-0.5 text-xs">
-                        {{ selectedAssignee.fullName }}
-                        <button type="button" class="hover:text-blue-900" @click.stop="removeMember">&times;</button>
-                    </span>
-                    <span v-if="selectedDueDate" class="inline-flex items-center gap-1 rounded-full bg-green-50 text-green-700 px-2 py-0.5 text-xs">
-                        {{ selectedDueDate }}
-                        <button type="button" class="hover:text-green-900" @click.stop="removeDate">&times;</button>
-                    </span>
-                </div>
+
 
                 <p v-if="error" class="mt-1 text-xs text-red-600">{{ error }}</p>
             </div>
