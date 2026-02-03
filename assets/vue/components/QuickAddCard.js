@@ -295,7 +295,7 @@ export default {
 
         // Computed placeholder based on project type
         const placeholder = computed(() => {
-            return props.isPersonalProject ? 'Task title... (@date)' : 'Task title... (#assign, @date)';
+            return props.isPersonalProject ? 'Task title... (@date, Assigned to you)' : 'Task title... (#assign, @date)';
         });
 
         return {
