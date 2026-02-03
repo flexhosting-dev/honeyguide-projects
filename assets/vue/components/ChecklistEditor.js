@@ -30,6 +30,10 @@ export default {
         const editingTitle = ref('');
         const newItemInput = ref(null);
 
+        // Drag and drop state
+        const draggedItem = ref(null);
+        const dragOverIndex = ref(null);
+
         const basePath = props.basePath || window.BASE_PATH || '';
 
         // Computed properties
@@ -118,6 +122,10 @@ export default {
                 if (input) {
                     input.focus();
                     input.select();
+                    // Scroll into view after mobile keyboard appears
+                    setTimeout(() => {
+                        input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 350);
                 }
             });
         };
@@ -202,6 +210,106 @@ export default {
             }
         };
 
+        // Scroll input into view after mobile keyboard appears
+        const scrollInputIntoView = () => {
+            setTimeout(() => {
+                newItemInput.value?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 350);
+        };
+
+        // Drag and drop handlers
+        const handleDragStart = (event, item) => {
+            draggedItem.value = item;
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', item.id);
+            // Add a slight delay to allow the drag image to be set
+            setTimeout(() => {
+                event.target.classList.add('dragging');
+            }, 0);
+        };
+
+        const handleDragEnd = (event) => {
+            event.target.classList.remove('dragging');
+            draggedItem.value = null;
+            dragOverIndex.value = null;
+        };
+
+        const handleDragOver = (event, index) => {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            dragOverIndex.value = index;
+        };
+
+        const handleDragLeave = (event) => {
+            // Only clear if leaving the checklist area entirely
+            if (!event.currentTarget.contains(event.relatedTarget)) {
+                dragOverIndex.value = null;
+            }
+        };
+
+        const handleDrop = async (event, targetIndex) => {
+            event.preventDefault();
+            if (!draggedItem.value || isLoading.value) return;
+
+            const draggedId = draggedItem.value.id;
+            const currentIndex = items.value.findIndex(i => i.id === draggedId);
+
+            if (currentIndex === -1 || currentIndex === targetIndex) {
+                draggedItem.value = null;
+                dragOverIndex.value = null;
+                return;
+            }
+
+            // Reorder items locally
+            const itemsCopy = [...items.value];
+            const [removed] = itemsCopy.splice(currentIndex, 1);
+
+            // Adjust target index if dragging from before to after
+            let insertIndex = targetIndex;
+            if (currentIndex < targetIndex) {
+                insertIndex = targetIndex - 1;
+            }
+            itemsCopy.splice(insertIndex, 0, removed);
+            items.value = itemsCopy;
+
+            draggedItem.value = null;
+            dragOverIndex.value = null;
+
+            // Persist to server
+            await saveOrder();
+        };
+
+        const saveOrder = async () => {
+            const itemIds = items.value.map(item => item.id);
+
+            try {
+                const response = await fetch(`${basePath}/tasks/${props.taskId}/checklists/reorder`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({ itemIds })
+                });
+
+                if (response.ok) {
+                    if (typeof Toastr !== 'undefined') {
+                        Toastr.success('Checklist Reordered', 'Item order updated');
+                    }
+                } else {
+                    console.error('Failed to save checklist order');
+                    if (typeof Toastr !== 'undefined') {
+                        Toastr.error('Reorder Failed', 'Could not save new order');
+                    }
+                }
+            } catch (error) {
+                console.error('Error saving checklist order:', error);
+                if (typeof Toastr !== 'undefined') {
+                    Toastr.error('Reorder Failed', 'Could not save new order');
+                }
+            }
+        };
+
         return {
             items,
             newItemTitle,
@@ -220,7 +328,16 @@ export default {
             cancelEdit,
             onEditKeydown,
             deleteItem,
-            onNewItemKeydown
+            onNewItemKeydown,
+            scrollInputIntoView,
+            // Drag and drop
+            draggedItem,
+            dragOverIndex,
+            handleDragStart,
+            handleDragEnd,
+            handleDragOver,
+            handleDragLeave,
+            handleDrop
         };
     },
 
@@ -248,6 +365,7 @@ export default {
                         type="text"
                         v-model="newItemTitle"
                         @keydown="onNewItemKeydown"
+                        @focus="scrollInputIntoView"
                         class="flex-1 text-sm border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                         placeholder="Add an item..."
                         :disabled="isLoading"
@@ -268,12 +386,22 @@ export default {
             <!-- Checklist Items -->
             <div class="checklist-items space-y-1">
                 <div
-                    v-for="item in items"
+                    v-for="(item, index) in items"
                     :key="item.id"
-                    class="checklist-item group flex items-center gap-2 p-2 rounded-md hover:bg-gray-50"
+                    class="checklist-item group flex items-center gap-2 p-2 rounded-md hover:bg-gray-50 transition-all"
+                    :class="{
+                        'opacity-50': draggedItem && draggedItem.id === item.id,
+                        'border-t-2 border-primary-500': dragOverIndex === index && draggedItem && draggedItem.id !== item.id
+                    }"
+                    :draggable="canEdit && editingItemId !== item.id"
+                    @dragstart="canEdit && handleDragStart($event, item)"
+                    @dragend="handleDragEnd"
+                    @dragover="canEdit && handleDragOver($event, index)"
+                    @dragleave="handleDragLeave"
+                    @drop="canEdit && handleDrop($event, index)"
                 >
                     <!-- Drag Handle (only if canEdit) -->
-                    <div v-if="canEdit" class="cursor-grab text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div v-if="canEdit" class="cursor-grab text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity select-none">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
                         </svg>
@@ -322,6 +450,16 @@ export default {
                         </svg>
                     </button>
                 </div>
+
+                <!-- Drop zone at end of list -->
+                <div
+                    v-if="canEdit && items.length > 0 && draggedItem"
+                    class="h-8 rounded-md transition-all"
+                    :class="{ 'border-t-2 border-primary-500 bg-primary-50': dragOverIndex === items.length }"
+                    @dragover="handleDragOver($event, items.length)"
+                    @dragleave="handleDragLeave"
+                    @drop="handleDrop($event, items.length)"
+                ></div>
 
                 <!-- Empty State -->
                 <p v-if="items.length === 0" class="text-sm text-gray-400 italic py-4">
