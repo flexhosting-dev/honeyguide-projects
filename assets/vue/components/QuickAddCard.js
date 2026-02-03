@@ -14,6 +14,7 @@ export default {
         assignUrlTemplate: { type: String, default: '' },
         subtaskUrlTemplate: { type: String, default: '' },
         parentTask: { type: Object, default: null },
+        isPersonalProject: { type: Boolean, default: false },
     },
 
     emits: ['task-created', 'cancel'],
@@ -113,8 +114,8 @@ export default {
             const val = e.target.value;
             const pos = e.target.selectionStart;
 
-            // Check for # trigger → member dropdown
-            if (val[pos - 1] === '#') {
+            // Check for # trigger → member dropdown (skip for personal projects - auto-assigned)
+            if (val[pos - 1] === '#' && !props.isPersonalProject) {
                 triggerStart.value = pos - 1;
                 memberSearch.value = '';
                 showMemberDropdown.value = true;
@@ -292,11 +293,17 @@ export default {
             }
         };
 
+        // Computed placeholder based on project type
+        const placeholder = computed(() => {
+            return props.isPersonalProject ? 'Task title... (@date)' : 'Task title... (#assign, @date)';
+        });
+
         return {
             title, inputEl, dateInputEl, selectedAssignee, selectedDueDate, selectedMilestone,
             submitting, showMemberDropdown, showDateDropdown, dropUp, filteredMembers,
             showMilestoneSelect, handleInput, handleKeydown, selectMember,
-            removeMember, quickDateOptions, selectQuickDate, selectCustomDate, removeDate, submit
+            removeMember, quickDateOptions, selectQuickDate, selectCustomDate, removeDate, submit,
+            placeholder, isPersonalProject: props.isPersonalProject
         };
     },
 
@@ -304,7 +311,7 @@ export default {
         <div class="quick-add-card bg-white rounded-lg shadow-sm border-2 border-primary-300 p-3" @click.stop>
             <div class="relative">
                 <div class="flex items-center flex-wrap gap-1" @click="$refs.inputEl?.focus()">
-                    <span v-if="selectedAssignee" class="inline-flex items-center gap-1 rounded-full bg-blue-50 text-blue-700 px-2 py-0.5 text-xs whitespace-nowrap">
+                    <span v-if="selectedAssignee && !isPersonalProject" class="inline-flex items-center gap-1 rounded-full bg-blue-50 text-blue-700 px-2 py-0.5 text-xs whitespace-nowrap">
                         <span class="text-blue-400">assigned to</span> {{ selectedAssignee.fullName }}
                         <button type="button" class="hover:text-blue-900" @click.stop="removeMember">&times;</button>
                     </span>
@@ -317,7 +324,7 @@ export default {
                         v-model="title"
                         type="text"
                         class="flex-1 min-w-[100px] text-sm border-0 outline-none bg-transparent placeholder-gray-400 p-0"
-                        placeholder="Task title... (#assign, @date)"
+                        :placeholder="placeholder"
                         enterkeyhint="send"
                         @input="handleInput"
                         @keydown="handleKeydown"
@@ -325,8 +332,8 @@ export default {
                     />
                 </div>
 
-                <!-- Member dropdown -->
-                <div v-if="showMemberDropdown" class="absolute z-20 left-0 w-56 bg-white rounded-lg shadow-lg border border-gray-200 max-h-40 overflow-y-auto" :class="dropUp ? 'bottom-full mb-1' : 'top-full mt-1'">
+                <!-- Member dropdown (hidden for personal projects) -->
+                <div v-if="showMemberDropdown && !isPersonalProject" class="absolute z-20 left-0 w-56 bg-white rounded-lg shadow-lg border border-gray-200 max-h-40 overflow-y-auto" :class="dropUp ? 'bottom-full mb-1' : 'top-full mt-1'">
                     <div v-if="filteredMembers.length === 0" class="px-3 py-2 text-xs text-gray-400">No members found</div>
                     <button
                         v-for="member in filteredMembers"

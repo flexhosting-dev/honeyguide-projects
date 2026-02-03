@@ -59,6 +59,10 @@ export default {
         subtaskUrlTemplate: {
             type: String,
             default: ''
+        },
+        isPersonalProject: {
+            type: Boolean,
+            default: false
         }
     },
 
@@ -529,6 +533,7 @@ export default {
                                 :create-url="createUrl"
                                 :assign-url-template="assignUrlTemplate"
                                 :subtask-url-template="subtaskUrlTemplate"
+                                :is-personal-project="isPersonalProject"
                                 @task-created="(data) => handleColumnTaskCreated(data, col.value)"
                                 @cancel="closeQuickAdd"
                             />
@@ -559,6 +564,7 @@ export default {
                                     :create-url="createUrl"
                                     :assign-url-template="assignUrlTemplate"
                                     :subtask-url-template="subtaskUrlTemplate"
+                                    :is-personal-project="isPersonalProject"
                                     :parent-task="task"
                                     @task-created="(data) => handleSubtaskCreated(data, task)"
                                     @cancel="closeQuickAdd"
