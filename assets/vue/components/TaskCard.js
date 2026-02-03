@@ -77,6 +77,19 @@ export default {
             return `${basePath}/tasks/${props.task.id}`;
         });
 
+        // Task depth for visual indicator
+        const taskDepth = computed(() => {
+            return props.task.depth || 0;
+        });
+
+        const depthLabel = computed(() => {
+            const depth = taskDepth.value;
+            if (depth === 0) return 'Top-level task';
+            if (depth === 1) return 'Subtask (Level 1)';
+            if (depth === 2) return 'Subtask (Level 2)';
+            return `Subtask (Level ${depth})`;
+        });
+
         // Methods
         const handleClick = (event) => {
             event.preventDefault();
@@ -127,6 +140,8 @@ export default {
             displayedAssignees,
             extraAssigneesCount,
             taskUrl,
+            taskDepth,
+            depthLabel,
             handleClick,
             handleDragStart,
             handleDragEnd,
@@ -156,13 +171,36 @@ export default {
                 </svg>
             </div>
             <div class="flex items-start justify-between">
-                <h4 class="text-sm flex-1 min-w-0 line-clamp-3">
-                    <a
-                        :href="taskUrl"
-                        class="font-medium text-gray-900 hover:text-primary-600 task-link"
-                        :data-task-id="task.id"
-                        @click="handleClick"
-                    >{{ task.title }}</a><span v-if="task.parentChain" class="text-xs text-gray-400 font-normal ml-1" :title="task.parentChain">in {{ task.parentChain }}</span>
+                <h4 class="text-sm flex-1 min-w-0 line-clamp-3 flex items-start gap-1.5">
+                    <!-- Depth indicator -->
+                    <span v-if="taskDepth > 0" class="flex-shrink-0 mt-0.5" :title="depthLabel">
+                        <!-- Level 1: One line -->
+                        <svg v-if="taskDepth === 1" class="w-4 h-4 text-gray-400" viewBox="0 0 16 16" fill="none">
+                            <rect x="2" y="3" width="6" height="1.5" rx="0.5" fill="currentColor"/>
+                            <rect x="4" y="7" width="10" height="1.5" rx="0.5" fill="currentColor"/>
+                        </svg>
+                        <!-- Level 2: Two lines -->
+                        <svg v-else-if="taskDepth === 2" class="w-4 h-4 text-gray-400" viewBox="0 0 16 16" fill="none">
+                            <rect x="2" y="2" width="6" height="1.5" rx="0.5" fill="currentColor"/>
+                            <rect x="4" y="6" width="10" height="1.5" rx="0.5" fill="currentColor"/>
+                            <rect x="4" y="10" width="10" height="1.5" rx="0.5" fill="currentColor"/>
+                        </svg>
+                        <!-- Level 3+: Three lines -->
+                        <svg v-else class="w-4 h-4 text-gray-400" viewBox="0 0 16 16" fill="none">
+                            <rect x="2" y="1" width="6" height="1.5" rx="0.5" fill="currentColor"/>
+                            <rect x="4" y="5" width="10" height="1.5" rx="0.5" fill="currentColor"/>
+                            <rect x="4" y="9" width="10" height="1.5" rx="0.5" fill="currentColor"/>
+                            <rect x="4" y="13" width="10" height="1.5" rx="0.5" fill="currentColor"/>
+                        </svg>
+                    </span>
+                    <span class="flex-1 min-w-0">
+                        <a
+                            :href="taskUrl"
+                            class="font-medium text-gray-900 hover:text-primary-600 task-link"
+                            :data-task-id="task.id"
+                            @click="handleClick"
+                        >{{ task.title }}</a><span v-if="task.parentChain" class="text-xs text-gray-400 font-normal ml-1" :title="task.parentChain">in {{ task.parentChain }}</span>
+                    </span>
                 </h4>
                 <span
                     class="ml-2 flex-shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
@@ -172,7 +210,10 @@ export default {
                 </span>
             </div>
 
-            <p v-if="task.projectName || task.project?.name" class="mt-1 text-xs text-gray-500">
+            <p v-if="task.projectName || task.project?.name" class="mt-1 text-xs text-gray-500 flex items-center gap-1">
+                <svg class="w-3 h-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
+                </svg>
                 {{ task.projectName || task.project?.name }}
             </p>
 
