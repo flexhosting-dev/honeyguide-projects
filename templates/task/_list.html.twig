@@ -1,15 +1,15 @@
 {# Task List View #}
-<div class="bg-white shadow rounded-lg overflow-hidden" id="task-list-container">
+<div class="bg-white shadow rounded-lg overflow-x-auto" id="task-list-container">
     {% if tasks|length > 0 %}
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
                     <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500 sm:pl-6">Task</th>
                     <th scope="col" class="px-3 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Priority</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Milestone</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Due Date</th>
-                    <th scope="col" class="px-3 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Assignee</th>
+                    <th scope="col" class="hidden md:table-cell px-3 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Priority</th>
+                    <th scope="col" class="hidden lg:table-cell px-3 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Milestone</th>
+                    <th scope="col" class="px-3 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Due</th>
+                    <th scope="col" class="hidden sm:table-cell px-3 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Assignee</th>
                     <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6">
                         <span class="sr-only">Actions</span>
                     </th>
@@ -46,7 +46,7 @@
                                 {{ task.status.label }}
                             </span>
                         </td>
-                        <td class="whitespace-nowrap px-3 py-4">
+                        <td class="hidden md:table-cell whitespace-nowrap px-3 py-4">
                             <span class="task-priority-badge inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
                                 {% if task.priority.value == 'high' %}bg-red-100 text-red-700
                                 {% elseif task.priority.value == 'medium' %}bg-yellow-100 text-yellow-700
@@ -56,7 +56,7 @@
                                 {{ task.priority.label }}
                             </span>
                         </td>
-                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                        <td class="hidden lg:table-cell whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                             <span class="task-milestone">{{ task.milestone.name }}</span>
                         </td>
                         <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
@@ -68,7 +68,7 @@
                                 {% endif %}
                             </span>
                         </td>
-                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                        <td class="hidden sm:table-cell whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                             <div class="task-assignees">
                                 {% if task.assignees|length > 0 %}
                                     <div class="flex -space-x-1">
