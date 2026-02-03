@@ -70,6 +70,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private array $favouriteProjectIds = [];
 
     #[ORM\Column(type: 'json')]
+    private array $hiddenProjectIds = [];
+
+    #[ORM\Column(type: 'json')]
     private array $recentProjectIds = [];
 
     #[ORM\Column(length: 50, options: ['default' => 'gradient'])]
@@ -445,6 +448,39 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function isFavouriteProject(string $projectId): bool
     {
         return in_array($projectId, $this->favouriteProjectIds, true);
+    }
+
+    public function getHiddenProjectIds(): array
+    {
+        return $this->hiddenProjectIds;
+    }
+
+    public function setHiddenProjectIds(array $hiddenProjectIds): static
+    {
+        $this->hiddenProjectIds = $hiddenProjectIds;
+        return $this;
+    }
+
+    public function hideProject(string $projectId): static
+    {
+        if (!in_array($projectId, $this->hiddenProjectIds, true)) {
+            $this->hiddenProjectIds[] = $projectId;
+        }
+        return $this;
+    }
+
+    public function unhideProject(string $projectId): static
+    {
+        $this->hiddenProjectIds = array_values(array_filter(
+            $this->hiddenProjectIds,
+            fn($id) => $id !== $projectId
+        ));
+        return $this;
+    }
+
+    public function isProjectHidden(string $projectId): bool
+    {
+        return in_array($projectId, $this->hiddenProjectIds, true);
     }
 
     public function getNotificationPreferences(): array

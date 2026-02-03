@@ -2226,6 +2226,108 @@
         }
     }
 
+    // ===== HIDE/UNHIDE PROJECTS FROM INDEX =====
+    function toggleHiddenProjects() {
+        const grid = document.getElementById('hidden-projects-grid');
+        const chevron = document.getElementById('hidden-projects-chevron');
+        if (grid && chevron) {
+            grid.classList.toggle('hidden');
+            chevron.classList.toggle('-rotate-90');
+        }
+    }
+
+    async function hideProject(projectId, btn) {
+        const card = btn.closest('[data-project-card]');
+        if (!card) return;
+
+        card.style.transition = 'opacity 0.3s, transform 0.3s';
+        card.style.opacity = '0.5';
+
+        try {
+            const response = await fetch(`${BASE_PATH}/projects/${projectId}/hide`, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.error || 'Failed to hide project');
+            }
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Animate card removal
+                card.style.opacity = '0';
+                card.style.transform = 'scale(0.95)';
+                setTimeout(() => {
+                    card.remove();
+
+                    // Remove from favourites sidebar
+                    removeFavouriteFromSidebar(projectId);
+
+                    // Remove from recent projects sidebar
+                    document.querySelectorAll(`.recent-project-item[data-project-id="${projectId}"]`).forEach(el => {
+                        el.style.transition = 'opacity 0.2s, transform 0.2s, height 0.2s, margin 0.2s, padding 0.2s';
+                        el.style.opacity = '0';
+                        el.style.transform = 'translateX(-10px)';
+                        setTimeout(() => {
+                            el.style.height = '0';
+                            el.style.margin = '0';
+                            el.style.padding = '0';
+                            el.style.overflow = 'hidden';
+                            setTimeout(() => el.remove(), 200);
+                        }, 200);
+                    });
+
+                    // Reload page to show hidden projects section
+                    window.location.reload();
+                }, 300);
+
+                Toastr.success(`"${data.projectName}" hidden`);
+            }
+        } catch (error) {
+            console.error('Error hiding project:', error);
+            card.style.opacity = '1';
+            card.style.transform = '';
+            Toastr.error(error.message || 'Failed to hide project');
+        }
+    }
+
+    async function unhideProject(projectId, btn) {
+        const card = btn.closest('[data-project-card]');
+        if (!card) return;
+
+        card.style.transition = 'opacity 0.3s, transform 0.3s';
+        card.style.opacity = '0.5';
+
+        try {
+            const response = await fetch(`${BASE_PATH}/projects/${projectId}/unhide`, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            if (!response.ok) throw new Error('Failed to unhide project');
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Reload page to show project in main list
+                Toastr.success(`"${data.projectName}" restored`);
+                window.location.reload();
+            }
+        } catch (error) {
+            console.error('Error unhiding project:', error);
+            card.style.opacity = '1';
+            card.style.transform = '';
+            Toastr.error('Failed to unhide project');
+        }
+    }
+
     // ===== DETAIL PAGE TAB FUNCTIONS =====
     function switchDetailTab(tabName, btn) {
         // Update button states

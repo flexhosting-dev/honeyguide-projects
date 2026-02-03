@@ -96,4 +96,30 @@ class ProjectRepository extends ServiceEntityRepository
             ->getQuery()
             ->getOneOrNullResult();
     }
+
+    /**
+     * Get hidden projects for user.
+     *
+     * @return Project[]
+     */
+    public function findHiddenForUser(User $user): array
+    {
+        $hiddenIds = $user->getHiddenProjectIds();
+
+        if (empty($hiddenIds)) {
+            return [];
+        }
+
+        // Only return projects user has access to
+        return $this->createQueryBuilder('p')
+            ->leftJoin('p.members', 'm')
+            ->where('p.id IN (:ids)')
+            ->andWhere('p.owner = :user OR m.user = :user OR p.isPublic = true')
+            ->setParameter('ids', $hiddenIds)
+            ->setParameter('user', $user)
+            ->distinct()
+            ->orderBy('p.name', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 }

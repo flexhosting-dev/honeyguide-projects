@@ -37,9 +37,9 @@
             {% if personalProject is defined and personalProject %}
             <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4">Team Projects</h2>
             {% endif %}
-            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div id="projects-grid" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {% for project in projects %}
-                    {% include 'project/_card.html.twig' with {project: project} %}
+                    {% include 'project/_card.html.twig' with {project: project, isHidden: false} %}
                 {% endfor %}
             </div>
         </div>
@@ -51,6 +51,28 @@
             action_url: path('app_project_new'),
             action_text: 'New Project'
         } %}
+    {% endif %}
+
+    {# Hidden Projects Section #}
+    {% if hiddenProjects is defined and hiddenProjects|length > 0 %}
+    <div id="hidden-projects-section">
+        <button type="button"
+                onclick="toggleHiddenProjects()"
+                class="flex items-center gap-2 text-sm font-medium text-gray-500 uppercase tracking-wider mb-4 hover:text-gray-700 transition-colors">
+            <svg id="hidden-projects-chevron" class="h-4 w-4 transform -rotate-90 transition-transform" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+            </svg>
+            <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
+            </svg>
+            Hidden Projects ({{ hiddenProjects|length }})
+        </button>
+        <div id="hidden-projects-grid" class="hidden grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {% for project in hiddenProjects %}
+                {% include 'project/_card.html.twig' with {project: project, isHidden: true} %}
+            {% endfor %}
+        </div>
+    </div>
     {% endif %}
 </div>
 {% endblock %}

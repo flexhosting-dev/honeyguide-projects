@@ -12,7 +12,7 @@
 {% set color = colors[colorIndex] %}
 {% set accent = accentColors[color] %}
 
-<div class="card-accent-{{ color }} relative flex flex-col rounded-xl shadow-soft hover:shadow-md transition-all">
+<div class="card-accent-{{ color }} relative flex flex-col rounded-xl shadow-soft hover:shadow-md transition-all" data-project-card="{{ project.id }}">
     <div class="flex flex-1 flex-col p-5">
         <div class="flex items-start justify-between">
             <div class="flex items-center">
@@ -74,6 +74,21 @@
                     <div data-dropdown-target="menu" class="hidden absolute right-0 z-10 mt-2 w-32 origin-top-right rounded-md bg-white py-2 shadow-lg ring-1 ring-gray-900/5">
                         <a href="{{ path('app_project_show', {id: project.id}) }}" class="block px-3 py-1 text-sm leading-6 text-gray-900 hover:bg-gray-50">View</a>
                         <a href="{{ path('app_project_edit', {id: project.id}) }}" class="block px-3 py-1 text-sm leading-6 text-gray-900 hover:bg-gray-50">Edit</a>
+                        {% if not project.personal %}
+                            {% if isHidden|default(false) %}
+                            <button type="button"
+                                    onclick="unhideProject('{{ project.id }}', this)"
+                                    class="w-full text-left block px-3 py-1 text-sm leading-6 text-gray-900 hover:bg-gray-50">
+                                Unhide
+                            </button>
+                            {% else %}
+                            <button type="button"
+                                    onclick="hideProject('{{ project.id }}', this)"
+                                    class="w-full text-left block px-3 py-1 text-sm leading-6 text-gray-900 hover:bg-gray-50">
+                                Hide
+                            </button>
+                            {% endif %}
+                        {% endif %}
                     </div>
                 </div>
             </div>

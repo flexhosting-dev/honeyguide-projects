@@ -822,7 +822,255 @@ POST /api/me/personal-project/tasks # Quick-add task to personal project
 
 ---
 
-## 8. Additional Future Considerations
+## 8. CSV Import & Export
+
+**Priority:** Medium
+**Complexity:** Medium
+**Impact:** Enables bulk task creation, migration from other tools, and data portability
+
+### Overview
+Allow users to import tasks from CSV files and export existing tasks to CSV. This is essential for migrating from spreadsheets, other project management tools, or bulk task creation workflows.
+
+### Import Features
+
+#### 1. Import Wizard (Multi-Step)
+
+**Step 1: File Upload**
+- Drag-and-drop or file picker
+- Accept `.csv` and `.xlsx` files
+- File size limit: 5MB
+- Preview first 5 rows immediately
+
+**Step 2: Column Mapping**
+- Auto-detect common column names (Title, Status, Due Date, etc.)
+- Manual mapping dropdown for each detected column
+- Required fields: Title (minimum)
+- Optional fields: Status, Priority, Due Date, Start Date, Assignee, Tags, Description, Milestone
+
+**Step 3: Data Preview & Validation**
+- Show preview table with mapped data
+- Highlight validation errors (invalid dates, unknown assignees, etc.)
+- Row-by-row error messages
+- Option to skip invalid rows or fix inline
+- Count: "X tasks ready to import, Y rows with errors"
+
+**Step 4: Import Options**
+- Target project selection
+- Target milestone (or create new)
+- Default status for imported tasks
+- Default priority for imported tasks
+- Duplicate handling: Skip, Update, Create Duplicate
+
+**Step 5: Import Summary**
+- Progress bar during import
+- Results: X imported, Y skipped, Z errors
+- Download error log CSV
+- Link to view imported tasks
+
+#### 2. Supported Fields
+
+| CSV Column | Maps To | Format | Required |
+|------------|---------|--------|----------|
+| Title | task.title | Text | Yes |
+| Description | task.description | Text | No |
+| Status | task.status | `todo`, `in_progress`, `in_review`, `completed` | No |
+| Priority | task.priority | `none`, `low`, `medium`, `high` | No |
+| Due Date | task.dueDate | `YYYY-MM-DD` or `MM/DD/YYYY` | No |
+| Start Date | task.startDate | `YYYY-MM-DD` or `MM/DD/YYYY` | No |
+| Assignee | task.assignees | Email or full name (comma-separated for multiple) | No |
+| Tags | task.tags | Comma-separated tag names | No |
+| Milestone | task.milestone | Milestone name (creates if not exists) | No |
+| Parent Task | task.parent | Title of parent task (for subtasks) | No |
+| Checklist | task.checklist | Semicolon-separated checklist items | No |
+
+#### 3. Downloadable Templates
+
+**CSV Template:**
+- Header row with all supported columns
+- 3 example rows with valid data
+- Comments explaining formats
+
+```csv
+Title,Description,Status,Priority,Due Date,Assignee,Tags,Milestone
+"Set up dev environment","Install dependencies and configure",todo,high,2026-02-15,john@example.com,"setup,backend",Sprint 1
+"Design login page","Create wireframes and mockups",in_progress,medium,2026-02-10,"jane@example.com,bob@example.com","design,frontend",Sprint 1
+"Write API docs",,todo,low,2026-02-20,,"documentation",Sprint 2
+```
+
+**Excel Template (.xlsx) with Smart Dropdowns:**
+
+When user downloads the Excel template, use Excel's Data Validation feature to provide dropdown lists for fields with predefined options. Dropdowns are populated based on user's permissions and project context.
+
+| Column | Dropdown Options |
+|--------|------------------|
+| Status | `To Do`, `In Progress`, `In Review`, `Completed` |
+| Priority | `None`, `Low`, `Medium`, `High` |
+| Project | User's accessible projects (if importing to multiple) |
+| Milestone | Milestones from selected project(s) |
+| Assignee | Project members the user can assign to |
+| Tags | Existing tags from selected project(s) |
+
+**Implementation Details:**
+- Use PhpSpreadsheet's `DataValidation` class to create dropdown lists
+- Populate options dynamically when template is generated
+- Store reference data in a hidden "Options" sheet for longer lists
+- Named ranges for easy maintenance
+
+```php
+// Example: Adding Status dropdown to column C
+$validation = $sheet->getCell('C2')->getDataValidation();
+$validation->setType(DataValidation::TYPE_LIST);
+$validation->setFormula1('"To Do,In Progress,In Review,Completed"');
+$validation->setShowDropDown(true);
+
+// For longer lists (e.g., project members), use named range
+$optionsSheet->fromArray($memberNames, null, 'A1');
+$spreadsheet->addNamedRange(new NamedRange('Assignees', $optionsSheet, 'A1:A' . count($memberNames)));
+$validation->setFormula1('Assignees');
+```
+
+**Benefits:**
+- Reduces data entry errors
+- Users see valid options without leaving Excel
+- Faster bulk data entry
+- Consistent data formatting
+
+### Export Features
+
+#### 1. Export Options
+
+- Export all tasks in project
+- Export filtered tasks (from current filter)
+- Export selected tasks (from table view)
+- Export tasks from milestone
+
+#### 2. Export Formats
+
+- **CSV**: Standard comma-separated values
+- **Excel (.xlsx)**: With formatting and multiple sheets
+
+#### 3. Exportable Fields
+
+All task fields plus:
+- Created Date
+- Updated Date
+- Created By
+- Subtask Count
+- Comment Count
+- Checklist Progress
+
+#### 4. Export Customization
+
+- Select which columns to include
+- Choose date format
+- Include/exclude completed tasks
+- Include/exclude subtasks
+
+### Import API
+
+```php
+// POST /projects/{id}/import
+// Content-Type: multipart/form-data
+// Body: file (CSV), mapping (JSON)
+
+// Response
+{
+    "success": true,
+    "imported": 45,
+    "skipped": 3,
+    "errors": [
+        {"row": 12, "field": "dueDate", "message": "Invalid date format"},
+        {"row": 23, "field": "assignee", "message": "User not found: unknown@email.com"}
+    ]
+}
+```
+
+### Export API
+
+```php
+// GET /projects/{id}/export?format=csv&fields=title,status,priority,dueDate
+
+// Response: File download with appropriate Content-Type
+```
+
+### Implementation Phases
+
+1. **Backend CSV Parser**
+   - CSV parsing service with encoding detection
+   - Field validation and transformation
+   - Batch insert for performance
+
+2. **Import Wizard UI**
+   - Step 1: File upload with drag-drop
+   - Step 2: Column mapper component
+   - Step 3: Preview table with validation
+   - Step 4: Options form
+   - Step 5: Progress and results
+
+3. **Export Functionality**
+   - Export service with field selection
+   - CSV writer
+   - Download endpoint
+
+4. **Excel Support**
+   - Add PhpSpreadsheet dependency
+   - Excel parsing for import
+   - Excel generation for export
+
+5. **Template Download**
+   - Generate sample CSV dynamically
+   - Include project-specific milestones/tags
+
+### Error Handling
+
+- **File Errors**: Too large, wrong format, encoding issues
+- **Mapping Errors**: Required field not mapped
+- **Validation Errors**: Invalid values, unknown users
+- **Import Errors**: Database failures, constraint violations
+
+All errors should be user-friendly and actionable.
+
+### Files Affected
+
+**Backend:**
+- New: `src/Service/CsvImportService.php`
+- New: `src/Service/CsvExportService.php`
+- New: `src/DTO/ImportMappingDTO.php`
+- New: `src/DTO/ImportResultDTO.php`
+- New: `src/Controller/ImportExportController.php`
+- Modified: `composer.json` - Add `phpoffice/phpspreadsheet`
+
+**Frontend:**
+- New: `templates/import/wizard.html.twig`
+- New: `assets/vue/components/ImportWizard.js`
+- New: `assets/vue/components/ImportWizard/FileUpload.js`
+- New: `assets/vue/components/ImportWizard/ColumnMapper.js`
+- New: `assets/vue/components/ImportWizard/PreviewTable.js`
+- New: `assets/vue/components/ImportWizard/ImportOptions.js`
+- New: `assets/vue/components/ImportWizard/ImportResults.js`
+- Modified: `templates/project/show.html.twig` - Add Import/Export buttons
+- New: `templates/export/options.html.twig` - Export options modal
+
+### Security Considerations
+
+- Validate file type and content (not just extension)
+- Sanitize all imported text fields
+- Limit import size to prevent DoS
+- Rate limit import endpoint
+- Audit log for imports (who imported what, when)
+- Permission check: Only project managers can import
+
+### UX Considerations
+
+- Show progress for large imports
+- Allow cancellation during import
+- Preserve partially imported data on error
+- Email notification when large import completes
+- Import history page showing past imports
+
+---
+
+## 9. Additional Future Considerations
 
 ### Offline Support (Service Workers)
 - Cache tasks locally for offline viewing
@@ -851,6 +1099,259 @@ POST /api/me/personal-project/tasks # Quick-add task to personal project
 
 ---
 
+## 10. Customizable Task Statuses
+
+**Priority:** Medium
+**Complexity:** Medium
+**Impact:** Enables organizations to tailor workflow stages to their specific processes
+
+### Overview
+Allow portal administrators to customize the task status types available throughout the system. Each custom status must be mapped to a parent type of either "Open" or "Closed", enabling proper workflow tracking while supporting diverse business processes.
+
+### Core Concepts
+
+#### Parent Status Types
+All custom statuses inherit from one of two fundamental types:
+
+| Parent Type | Meaning | Examples |
+|-------------|---------|----------|
+| **Open** | Task is not yet complete, still requires action | To Do, In Progress, In Review, On Hold, Blocked, Waiting for Input |
+| **Closed** | Task is finished, no further action needed | Completed, Done, Cancelled, Dropped, Won't Fix, Duplicate |
+
+#### Why Parent Types Matter
+- **Progress Calculation**: Only tasks with "Closed" parent status count toward completion percentage
+- **Filters**: "Show open tasks" filter uses parent type, not individual status
+- **Reports**: Burndown charts, velocity metrics based on Open → Closed transitions
+- **Kanban**: Can visually separate Open vs Closed columns
+
+### Default Statuses
+
+System ships with these default statuses (can be modified/deleted by admin):
+
+| Status | Parent Type | Color | Icon |
+|--------|-------------|-------|------|
+| To Do | Open | Gray | circle-outline |
+| In Progress | Open | Blue | play-circle |
+| In Review | Open | Purple | eye |
+| Completed | Closed | Green | check-circle |
+
+### Admin Configuration UI
+
+**Location:** Portal Settings → Task Statuses (`/settings/statuses`)
+
+#### Status List View
+- Table showing all statuses with: Name, Parent Type, Color, Icon, Task Count, Actions
+- Drag handle to reorder (affects dropdown order)
+- Add Status button
+- Cannot delete status if tasks are using it (must reassign first)
+
+#### Add/Edit Status Modal
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| Name | Text input | Yes | Max 50 chars, unique |
+| Parent Type | Radio buttons | Yes | Open / Closed |
+| Color | Color picker | Yes | Preset colors + custom hex |
+| Icon | Icon picker | No | Optional status icon |
+| Description | Textarea | No | Help text shown in tooltips |
+
+#### Reordering
+- Drag-and-drop to reorder statuses
+- Order determines display in dropdowns and kanban columns
+- Separate ordering for Open and Closed groups
+
+#### Deleting a Status
+1. Check if any tasks use this status
+2. If yes: Show modal "X tasks use this status. Reassign to:" with dropdown
+3. Bulk update tasks to new status
+4. Delete original status
+
+### Database Schema
+
+**New Entity: `TaskStatusType`**
+```php
+#[ORM\Entity(repositoryClass: TaskStatusTypeRepository::class)]
+#[ORM\Table(name: 'task_status_type')]
+class TaskStatusType
+{
+    #[ORM\Id]
+    #[ORM\Column(type: 'uuid')]
+    private UuidInterface $id;
+
+    #[ORM\Column(length: 50, unique: true)]
+    private string $name;
+
+    #[ORM\Column(length: 20)]
+    private string $slug;  // URL-safe identifier
+
+    #[ORM\Column(length: 10)]
+    private string $parentType;  // 'open' or 'closed'
+
+    #[ORM\Column(length: 7)]
+    private string $color;  // Hex color code
+
+    #[ORM\Column(length: 50, nullable: true)]
+    private ?string $icon = null;
+
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $description = null;
+
+    #[ORM\Column(type: 'integer')]
+    private int $sortOrder = 0;
+
+    #[ORM\Column(type: 'boolean')]
+    private bool $isDefault = false;  // Cannot be deleted
+
+    #[ORM\Column]
+    private \DateTimeImmutable $createdAt;
+
+    #[ORM\Column]
+    private \DateTimeImmutable $updatedAt;
+}
+```
+
+**Migration for Task Entity:**
+```php
+// Change task.status from enum to relation
+#[ORM\ManyToOne(targetEntity: TaskStatusType::class)]
+#[ORM\JoinColumn(nullable: false)]
+private TaskStatusType $status;
+```
+
+### API Endpoints
+
+```
+GET    /api/statuses              # List all statuses (for dropdowns)
+GET    /settings/statuses         # Admin status management page
+POST   /settings/statuses         # Create new status
+PUT    /settings/statuses/{id}    # Update status
+DELETE /settings/statuses/{id}    # Delete status (with reassignment)
+POST   /settings/statuses/reorder # Reorder statuses
+```
+
+### Migration Strategy
+
+**Data Migration Steps:**
+1. Create `task_status_type` table
+2. Insert default statuses matching current enum values
+3. Add `status_type_id` column to `task` table
+4. Populate `status_type_id` based on current `status` enum value
+5. Drop old `status` enum column
+6. Rename `status_type_id` to `status_id`
+
+**Backward Compatibility:**
+- Existing code using `TaskStatus` enum will need refactoring
+- Create compatibility layer during transition if needed
+- Update all status comparisons to use entity or slug
+
+### UI Integration
+
+#### Task Forms
+- Status dropdown populated from `TaskStatusType` entities
+- Grouped by parent type: "Open" section, "Closed" section
+- Show color indicator next to each option
+
+#### Kanban Board
+- Columns generated from active statuses
+- Column headers show status color
+- "Open" and "Closed" columns visually distinguished
+- Option to collapse all "Closed" columns
+
+#### Filters
+- Status filter shows all custom statuses
+- Add meta-filter: "All Open" / "All Closed"
+- Filter chips show status color
+
+#### Task Cards/List
+- Status badge uses custom color
+- Optional icon display
+
+### Permissions
+
+| Action | Permission | Default Role |
+|--------|------------|--------------|
+| View statuses | (all users) | Everyone |
+| Create status | `settings.statuses.create` | Portal Admin |
+| Edit status | `settings.statuses.edit` | Portal Admin |
+| Delete status | `settings.statuses.delete` | Portal Admin |
+| Reorder statuses | `settings.statuses.edit` | Portal Admin |
+
+### Implementation Phases
+
+1. **Entity & Migration**
+   - Create `TaskStatusType` entity
+   - Create migration (with data migration for existing tasks)
+   - Create repository with ordering
+
+2. **Admin UI**
+   - Status list page
+   - Add/Edit status modal
+   - Drag-to-reorder functionality
+   - Delete with reassignment
+
+3. **Refactor Task Entity**
+   - Change status from enum to relation
+   - Update all status references throughout codebase
+   - Update TaskStatus enum usages to entity lookups
+
+4. **Update Task UI**
+   - Status dropdowns use dynamic list
+   - Update kanban to use custom statuses
+   - Update filters
+   - Update task cards/badges
+
+5. **Reports & Metrics**
+   - Update progress calculations to use parent type
+   - Update any status-based reports
+
+### Files Affected
+
+**Backend:**
+- New: `src/Entity/TaskStatusType.php`
+- New: `src/Repository/TaskStatusTypeRepository.php`
+- New: `src/Controller/Settings/StatusController.php`
+- New: `src/Form/TaskStatusTypeFormType.php`
+- New: `migrations/VersionXXX.php` - Create table + data migration
+- Modified: `src/Entity/Task.php` - Change status field
+- Modified: `src/Repository/TaskRepository.php` - Update status queries
+- Modified: `src/Controller/TaskController.php` - Status lookups
+- Modified: `src/Enum/TaskStatus.php` - Deprecate or remove
+- Modified: `src/Service/TaskService.php` - Status handling
+- Modified: `src/Twig/AppExtension.php` - Status helpers
+
+**Frontend:**
+- New: `templates/settings/statuses/index.html.twig`
+- New: `templates/settings/statuses/_form.html.twig`
+- New: `assets/js/status-admin.js` - Reorder, delete handling
+- Modified: `templates/task/_form.html.twig` - Dynamic status dropdown
+- Modified: `assets/vue/components/KanbanBoard.js` - Dynamic columns
+- Modified: `templates/task/_card.html.twig` - Dynamic status colors
+- Modified: `templates/task/_filters.html.twig` - Dynamic status options
+
+### Edge Cases
+
+- **Empty statuses**: Require at least one Open and one Closed status
+- **Default status**: Mark one Open status as default for new tasks
+- **Kanban column order**: Allow customizing which statuses appear as columns
+- **Status transitions**: Optional: Define allowed transitions (e.g., can't go from "Done" back to "To Do")
+- **Project-specific statuses**: Future enhancement - allow per-project status customization
+
+### Example Custom Configurations
+
+**Software Development:**
+- Open: Backlog, Ready, In Development, Code Review, QA Testing
+- Closed: Done, Won't Fix, Duplicate
+
+**Sales Pipeline:**
+- Open: Lead, Contacted, Proposal Sent, Negotiation
+- Closed: Won, Lost, Disqualified
+
+**Support Tickets:**
+- Open: New, Triaged, In Progress, Waiting on Customer
+- Closed: Resolved, Closed, Spam
+
+---
+
 ## Notes
 
 - Features are listed roughly in order of suggested implementation priority
@@ -860,4 +1361,4 @@ POST /api/me/personal-project/tasks # Quick-add task to personal project
 
 ---
 
-*Last updated: February 2026*
+*Last updated: 3 February 2026*

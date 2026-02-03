@@ -49,7 +49,7 @@ class TaskRepository extends ServiceEntityRepository
 
     public function createQueryBuilderForUserTasks(User $user): QueryBuilder
     {
-        return $this->createQueryBuilder('t')
+        $qb = $this->createQueryBuilder('t')
             ->join('t.assignees', 'a')
             ->join('t.milestone', 'm')
             ->join('m.project', 'p')
@@ -57,6 +57,27 @@ class TaskRepository extends ServiceEntityRepository
             ->setParameter('user', $user)
             ->orderBy('t.dueDate', 'ASC')
             ->addOrderBy('t.priority', 'DESC');
+
+        // Exclude tasks from hidden projects
+        $this->excludeHiddenProjects($qb, $user);
+
+        return $qb;
+    }
+
+    /**
+     * Helper to exclude tasks from user's hidden projects.
+     */
+    private function excludeHiddenProjects(QueryBuilder $qb, User $user): void
+    {
+        $hiddenProjectIds = $user->getHiddenProjectIds();
+        if (!empty($hiddenProjectIds)) {
+            // Ensure milestone alias exists
+            if (!in_array('m', $qb->getAllAliases())) {
+                $qb->join('t.milestone', 'm');
+            }
+            $qb->andWhere('m.project NOT IN (:hiddenProjectIds)')
+                ->setParameter('hiddenProjectIds', $hiddenProjectIds);
+        }
     }
 
     /**
@@ -72,17 +93,20 @@ class TaskRepository extends ServiceEntityRepository
      */
     public function findOverdueTasks(User $user): array
     {
-        return $this->createQueryBuilder('t')
+        $qb = $this->createQueryBuilder('t')
             ->join('t.assignees', 'a')
+            ->join('t.milestone', 'm')
             ->where('a.user = :user')
             ->andWhere('t.dueDate < :today')
             ->andWhere('t.status != :completed')
             ->setParameter('user', $user)
             ->setParameter('today', new \DateTimeImmutable('today'))
             ->setParameter('completed', TaskStatus::COMPLETED)
-            ->orderBy('t.dueDate', 'ASC')
-            ->getQuery()
-            ->getResult();
+            ->orderBy('t.dueDate', 'ASC');
+
+        $this->excludeHiddenProjects($qb, $user);
+
+        return $qb->getQuery()->getResult();
     }
 
     /**
@@ -93,8 +117,9 @@ class TaskRepository extends ServiceEntityRepository
         $today = new \DateTimeImmutable('today');
         $tomorrow = $today->modify('+1 day');
 
-        return $this->createQueryBuilder('t')
+        $qb = $this->createQueryBuilder('t')
             ->join('t.assignees', 'a')
+            ->join('t.milestone', 'm')
             ->where('a.user = :user')
             ->andWhere('t.dueDate >= :today')
             ->andWhere('t.dueDate < :tomorrow')
@@ -103,9 +128,11 @@ class TaskRepository extends ServiceEntityRepository
             ->setParameter('today', $today)
             ->setParameter('tomorrow', $tomorrow)
             ->setParameter('completed', TaskStatus::COMPLETED)
-            ->orderBy('t.priority', 'DESC')
-            ->getQuery()
-            ->getResult();
+            ->orderBy('t.priority', 'DESC');
+
+        $this->excludeHiddenProjects($qb, $user);
+
+        return $qb->getQuery()->getResult();
     }
 
     public function getNextPosition(Milestone $milestone, ?TaskStatus $status = null): int
@@ -329,7 +356,7 @@ class TaskRepository extends ServiceEntityRepository
 
     /**
      * Find all tasks accessible to the user (for All Tasks page).
-     * For admins: all tasks in the system
+     * For admins: all tasks in the system (excluding their hidden projects)
      * For regular users: all tasks from projects they are members of
      *
      * @return Task[]
@@ -337,7 +364,7 @@ class TaskRepository extends ServiceEntityRepository
     public function findAllTasksFiltered(User $user, TaskFilterDTO $filter, bool $isAdmin = false): array
     {
         if ($isAdmin) {
-            // Admin can see all tasks
+            // Admin can see all tasks (but still respects their hidden projects)
             $qb = $this->createQueryBuilder('t')
                 ->join('t.milestone', 'm')
                 ->orderBy('t.dueDate', 'ASC')
@@ -369,6 +396,9 @@ class TaskRepository extends ServiceEntityRepository
                 ->orderBy('t.dueDate', 'ASC')
                 ->addOrderBy('t.priority', 'DESC');
         }
+
+        // Exclude tasks from user's hidden projects
+        $this->excludeHiddenProjects($qb, $user);
 
         $this->applyFilter($qb, $filter);
 

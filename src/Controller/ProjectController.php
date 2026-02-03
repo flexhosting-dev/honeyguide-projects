@@ -44,22 +44,28 @@ class ProjectController extends AbstractController
         /** @var User $user */
         $user = $this->getUser();
         $allProjects = $this->projectRepository->findByUser($user);
+        $hiddenProjectIds = $user->getHiddenProjectIds();
 
-        // Separate personal project from team projects
+        // Separate personal project from team projects, filtering out hidden projects
         $personalProject = null;
         $projects = [];
         foreach ($allProjects as $project) {
+            $projectId = (string) $project->getId();
             if ($project->isPersonal() && $project->getOwner() === $user) {
                 $personalProject = $project;
-            } else {
+            } elseif (!in_array($projectId, $hiddenProjectIds, true)) {
                 $projects[] = $project;
             }
         }
+
+        // Fetch hidden projects separately
+        $hiddenProjects = $this->projectRepository->findHiddenForUser($user);
 
         return $this->render('project/index.html.twig', [
             'page_title' => 'Projects',
             'projects' => $projects,
             'personalProject' => $personalProject,
+            'hiddenProjects' => $hiddenProjects,
             'recent_projects' => $this->projectRepository->findRecentForUser($user),
             'favourite_projects' => $this->projectRepository->findFavouritesForUser($user),
         ]);
@@ -342,6 +348,51 @@ class ProjectController extends AbstractController
         return $this->json([
             'success' => true,
             'isFavourite' => !$isFavourite,
+            'projectName' => $project->getName(),
+        ]);
+    }
+
+    #[Route('/{id}/hide', name: 'app_project_hide', methods: ['POST'])]
+    public function hide(Request $request, Project $project): JsonResponse
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+
+        // Prevent hiding personal projects
+        if ($project->isPersonal()) {
+            return $this->json([
+                'success' => false,
+                'error' => 'Personal projects cannot be hidden.',
+            ], 400);
+        }
+
+        $projectId = (string) $project->getId();
+        $user->hideProject($projectId);
+
+        // Also remove from favourites and recent projects
+        $user->removeFavouriteProject($projectId);
+        $user->removeRecentProject($projectId);
+
+        $this->entityManager->flush();
+
+        return $this->json([
+            'success' => true,
+            'projectName' => $project->getName(),
+        ]);
+    }
+
+    #[Route('/{id}/unhide', name: 'app_project_unhide', methods: ['POST'])]
+    public function unhide(Request $request, Project $project): JsonResponse
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+
+        $projectId = (string) $project->getId();
+        $user->unhideProject($projectId);
+        $this->entityManager->flush();
+
+        return $this->json([
+            'success' => true,
             'projectName' => $project->getName(),
         ]);
     }
