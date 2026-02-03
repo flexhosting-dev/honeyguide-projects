@@ -690,7 +690,139 @@ Comprehensive notification system with in-app notifications, optional email noti
 
 ---
 
-## 7. Additional Future Considerations
+## 7. Personal Projects
+
+**Priority:** Medium
+**Complexity:** Medium
+**Impact:** Provides users with a private workspace for personal task management
+
+### Overview
+Every user gets an automatically created personal project that serves as their private workspace. This project is named "{FirstName}'s Personal Project" and is owned by the user. They can invite members, assign tasks to others, and use it as their default project when creating tasks without specifying a project.
+
+### Key Features
+
+#### 1. Automatic Creation
+- Personal project created automatically when a new user account is created
+- Project name format: `{FirstName}'s Personal Project` (e.g., "John's Personal Project")
+- User is automatically set as the project owner
+- Cannot be deleted (soft-delete disabled for personal projects)
+
+#### 2. Privacy & Ownership
+- Personal project is private by default (not visible in project listings to other users)
+- Only the owner and invited members can see/access the project
+- Owner has full control (can invite/remove members, assign tasks)
+- Members can be assigned tasks but cannot invite others (unless given role permissions)
+
+#### 3. Default Project Behavior
+- In "My Tasks" view, when adding a task without specifying a project, it defaults to the user's personal project
+- Quick-add task forms include option to select project, with personal project pre-selected
+- Tasks created via "My Tasks" → "Add Task" button default to personal project
+
+#### 4. Member Management
+- Owner can invite other users as members
+- Invited members can:
+  - View tasks in the personal project
+  - Be assigned tasks by the owner
+  - Comment on tasks they're assigned to
+- Standard role-based permissions apply
+
+#### 5. Project Identification
+- Personal projects marked with a special flag (`is_personal` on Project entity)
+- Distinct visual indicator in UI (e.g., user icon, "Personal" badge)
+- Listed separately in project selector dropdowns (e.g., "My Personal Project" section)
+
+### Database Changes
+
+**Project Entity:**
+```php
+// Add to src/Entity/Project.php
+#[ORM\Column(type: 'boolean', options: ['default' => false])]
+private bool $isPersonal = false;
+
+public function isPersonal(): bool
+{
+    return $this->isPersonal;
+}
+
+public function setIsPersonal(bool $isPersonal): self
+{
+    $this->isPersonal = $isPersonal;
+    return $this;
+}
+```
+
+**User Entity:**
+```php
+// Add convenience method to src/Entity/User.php
+public function getPersonalProject(): ?Project
+{
+    // Could be a direct relation or fetched via repository
+}
+```
+
+### Implementation Phases
+
+1. **Entity & Migration**
+   - Add `is_personal` boolean column to Project entity
+   - Create migration
+   - Add `getPersonalProject()` method to User repository
+
+2. **Auto-Creation on User Registration**
+   - Create `PersonalProjectService` to handle creation
+   - Hook into user registration flow (EventSubscriber or Controller)
+   - Create personal project with correct name and ownership
+   - Handle existing users (migration command to create personal projects)
+
+3. **Default Project Selection**
+   - Modify TaskCreateForm to default to personal project when no project specified
+   - Update "My Tasks" quick-add to use personal project as default
+   - Add personal project section in project dropdowns
+
+4. **UI Indicators**
+   - Add "Personal" badge to project cards/lists
+   - Separate section in project selector: "Personal" vs "Team Projects"
+   - Personal project appears at top of user's project list
+
+5. **Protection Rules**
+   - Prevent deletion of personal projects
+   - Prevent changing `is_personal` flag via UI
+   - Prevent renaming (or auto-rename if user changes their name)
+
+### API Endpoints
+
+```
+GET  /api/me/personal-project       # Get current user's personal project
+POST /api/me/personal-project/tasks # Quick-add task to personal project
+```
+
+### Files Affected
+
+**Backend:**
+- Modified: `src/Entity/Project.php` - Add `isPersonal` field
+- Modified: `src/Entity/User.php` - Add `getPersonalProject()` helper
+- New: `src/Service/PersonalProjectService.php` - Creation/management logic
+- Modified: `src/Repository/ProjectRepository.php` - `findPersonalProject(User $user)`
+- Modified: `src/EventSubscriber/UserCreatedSubscriber.php` - Auto-create on registration
+- New: `src/Command/CreateMissingPersonalProjectsCommand.php` - Backfill for existing users
+- Modified: `src/Controller/TaskController.php` - Default project logic
+- New: `migrations/VersionXXX.php`
+
+**Frontend:**
+- Modified: `templates/task/my_tasks.html.twig` - Default to personal project
+- Modified: `assets/vue/components/TaskCreateForm.js` - Project dropdown with personal project default
+- Modified: `templates/project/_selector.html.twig` - Group personal vs team projects
+- Modified: `templates/project/index.html.twig` - Show personal project distinctly
+
+### Edge Cases
+
+- **User name change**: Optionally update personal project name when user updates their first name
+- **User deletion**: Personal project deleted with user (cascade) or reassigned
+- **Duplicate prevention**: Ensure only one personal project per user exists
+- **Empty first name**: Fall back to "{Username}'s Personal Project" or "Personal Project"
+
+---
+
+## 8. Additional Future Considerations
 
 ### Offline Support (Service Workers)
 - Cache tasks locally for offline viewing
@@ -728,4 +860,4 @@ Comprehensive notification system with in-app notifications, optional email noti
 
 ---
 
-*Last updated: January 2026*
+*Last updated: February 2026*
