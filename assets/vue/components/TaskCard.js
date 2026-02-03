@@ -171,36 +171,13 @@ export default {
                 </svg>
             </div>
             <div class="flex items-start justify-between">
-                <h4 class="text-sm flex-1 min-w-0 line-clamp-3 flex items-start gap-1.5">
-                    <!-- Depth indicator -->
-                    <span v-if="taskDepth > 0" class="flex-shrink-0 mt-0.5" :title="depthLabel">
-                        <!-- Level 1: One line -->
-                        <svg v-if="taskDepth === 1" class="w-4 h-4 text-gray-400" viewBox="0 0 16 16" fill="none">
-                            <rect x="2" y="3" width="6" height="1.5" rx="0.5" fill="currentColor"/>
-                            <rect x="4" y="7" width="10" height="1.5" rx="0.5" fill="currentColor"/>
-                        </svg>
-                        <!-- Level 2: Two lines -->
-                        <svg v-else-if="taskDepth === 2" class="w-4 h-4 text-gray-400" viewBox="0 0 16 16" fill="none">
-                            <rect x="2" y="2" width="6" height="1.5" rx="0.5" fill="currentColor"/>
-                            <rect x="4" y="6" width="10" height="1.5" rx="0.5" fill="currentColor"/>
-                            <rect x="4" y="10" width="10" height="1.5" rx="0.5" fill="currentColor"/>
-                        </svg>
-                        <!-- Level 3+: Three lines -->
-                        <svg v-else class="w-4 h-4 text-gray-400" viewBox="0 0 16 16" fill="none">
-                            <rect x="2" y="1" width="6" height="1.5" rx="0.5" fill="currentColor"/>
-                            <rect x="4" y="5" width="10" height="1.5" rx="0.5" fill="currentColor"/>
-                            <rect x="4" y="9" width="10" height="1.5" rx="0.5" fill="currentColor"/>
-                            <rect x="4" y="13" width="10" height="1.5" rx="0.5" fill="currentColor"/>
-                        </svg>
-                    </span>
-                    <span class="flex-1 min-w-0">
-                        <a
-                            :href="taskUrl"
-                            class="font-medium text-gray-900 hover:text-primary-600 task-link"
-                            :data-task-id="task.id"
-                            @click="handleClick"
-                        >{{ task.title }}</a><span v-if="task.parentChain" class="text-xs text-gray-400 font-normal ml-1" :title="task.parentChain">in {{ task.parentChain }}</span>
-                    </span>
+                <h4 class="text-sm flex-1 min-w-0 line-clamp-3">
+                    <a
+                        :href="taskUrl"
+                        class="font-medium text-gray-900 hover:text-primary-600 task-link"
+                        :data-task-id="task.id"
+                        @click="handleClick"
+                    >{{ task.title }}</a><span v-if="task.parentChain" class="text-xs text-gray-400 font-normal ml-1" :title="task.parentChain">in {{ task.parentChain }}</span>
                 </h4>
                 <span
                     class="ml-2 flex-shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
@@ -242,26 +219,43 @@ export default {
                         {{ task.commentCount }}
                     </span>
 
-                    <!-- Checklist Progress -->
+                    <!-- Depth indicator (always show for subtasks, show count if has subtasks) -->
+                    <span
+                        v-if="taskDepth > 0 || task.subtaskCount > 0"
+                        class="flex items-center text-xs text-gray-500"
+                        :title="depthLabel + (task.subtaskCount > 0 ? ' - ' + (task.completedSubtaskCount || 0) + '/' + task.subtaskCount + ' subtasks' : '')"
+                    >
+                        <!-- Level 0: Top-level task icon (one child line) -->
+                        <svg v-if="taskDepth === 0" class="h-4 w-4" :class="{ 'mr-1': task.subtaskCount > 0 }" viewBox="0 0 16 16" fill="currentColor">
+                            <rect x="2" y="4" width="6" height="1.5" rx="0.5"/>
+                            <rect x="4" y="8" width="10" height="1.5" rx="0.5"/>
+                        </svg>
+                        <!-- Level 1: Two child lines -->
+                        <svg v-else-if="taskDepth === 1" class="h-4 w-4" :class="{ 'mr-1': task.subtaskCount > 0 }" viewBox="0 0 16 16" fill="currentColor">
+                            <rect x="2" y="2" width="6" height="1.5" rx="0.5"/>
+                            <rect x="4" y="6" width="10" height="1.5" rx="0.5"/>
+                            <rect x="4" y="10" width="10" height="1.5" rx="0.5"/>
+                        </svg>
+                        <!-- Level 2+: Three child lines -->
+                        <svg v-else class="h-4 w-4" :class="{ 'mr-1': task.subtaskCount > 0 }" viewBox="0 0 16 16" fill="currentColor">
+                            <rect x="2" y="1" width="6" height="1.5" rx="0.5"/>
+                            <rect x="4" y="5" width="10" height="1.5" rx="0.5"/>
+                            <rect x="4" y="9" width="10" height="1.5" rx="0.5"/>
+                            <rect x="4" y="13" width="10" height="1.5" rx="0.5"/>
+                        </svg>
+                        <span v-if="task.subtaskCount > 0">{{ task.completedSubtaskCount || 0 }}/{{ task.subtaskCount }}</span>
+                    </span>
+
+                    <!-- Checklist Progress (checkmark icon) -->
                     <span
                         v-if="task.checklistCount > 0"
                         class="flex items-center text-xs text-gray-500"
+                        title="Checklist items"
                     >
                         <svg class="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         {{ task.completedChecklistCount || 0 }}/{{ task.checklistCount }}
-                    </span>
-
-                    <!-- Subtask Progress -->
-                    <span
-                        v-if="task.subtaskCount > 0"
-                        class="flex items-center text-xs text-gray-500"
-                    >
-                        <svg class="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z" />
-                        </svg>
-                        {{ task.completedSubtaskCount || 0 }}/{{ task.subtaskCount }}
                     </span>
                 </div>
 

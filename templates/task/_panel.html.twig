@@ -22,8 +22,24 @@
                     {{ project.name }} / {{ task.milestone.name }}
                 </p>
                 {% if task.parent %}
-                <p class="mt-1 text-xs text-gray-500">
-                    Subtask of: <a href="{{ path('app_task_show', {id: task.parent.id}) }}" class="text-primary-600 hover:text-primary-800 font-medium" onclick="event.preventDefault(); pushSubtaskPanel('{{ task.parent.id }}');">{{ task.parent.title }}</a>
+                <p class="mt-1 text-xs text-gray-500 flex items-center gap-1">
+                    {# Depth indicator icon #}
+                    {% set depth = task.depth|default(1) %}
+                    {% if depth == 1 %}
+                    <svg class="w-4 h-4 text-gray-400" viewBox="0 0 16 16" fill="currentColor" title="Subtask (Level 1)">
+                        <rect x="2" y="2" width="6" height="1.5" rx="0.5"/>
+                        <rect x="4" y="6" width="10" height="1.5" rx="0.5"/>
+                        <rect x="4" y="10" width="10" height="1.5" rx="0.5"/>
+                    </svg>
+                    {% elseif depth >= 2 %}
+                    <svg class="w-4 h-4 text-gray-400" viewBox="0 0 16 16" fill="currentColor" title="Subtask (Level {{ depth }})">
+                        <rect x="2" y="1" width="6" height="1.5" rx="0.5"/>
+                        <rect x="4" y="5" width="10" height="1.5" rx="0.5"/>
+                        <rect x="4" y="9" width="10" height="1.5" rx="0.5"/>
+                        <rect x="4" y="13" width="10" height="1.5" rx="0.5"/>
+                    </svg>
+                    {% endif %}
+                    <span>Subtask of: <a href="{{ path('app_task_show', {id: task.parent.id}) }}" class="text-primary-600 hover:text-primary-800 font-medium" onclick="event.preventDefault(); pushSubtaskPanel('{{ task.parent.id }}');">{{ task.parent.title }}</a></span>
                 </p>
                 {% endif %}
                 <div class="flex items-center flex-wrap gap-2 mt-2">
