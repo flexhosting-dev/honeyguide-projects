@@ -23,28 +23,14 @@
     {% endif %}
 </div>
 
-{# Project Description - inline below status #}
+{% if project.description %}
+{# Project Description - read-only display #}
 <div class="mb-6">
-    <div
-        data-vue-component="RichTextEditor"
-        data-vue-entity-type="project"
-        data-vue-entity-id="{{ project.id }}"
-        data-vue-save-endpoint="{{ path('app_project_update_description', {id: project.id}) }}"
-        data-vue-initial-content="{{ project.description|default('')|e('html_attr') }}"
-        data-vue-base-path="{{ app.request.basePath }}"
-        data-vue-can-edit="{{ canEditProject|default(false) ? 'true' : 'false' }}"
-        data-vue-show-attachments="false"
-        data-vue-initial-attachments="[]"
-    >
-        <div class="text-sm text-gray-500">
-            {% if project.description %}
-                <div class="prose prose-sm">{{ project.description|raw }}</div>
-            {% else %}
-                <span class="text-gray-400 italic">Click to add description...</span>
-            {% endif %}
-        </div>
+    <div class="prose prose-sm max-w-none text-gray-600">
+        {{ project.description|raw }}
     </div>
 </div>
+{% endif %}
 
 {% set totalTasks = tasks|length %}
 {% set completedTasks = tasks|filter(t => t.status.value == 'completed')|length %}

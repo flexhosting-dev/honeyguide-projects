@@ -12,7 +12,20 @@
 <div>
     {{ form_label(form.description, null, {'label_attr': {'class': 'block text-sm font-medium leading-6 text-gray-900'}}) }}
     <div class="mt-2">
-        {{ form_widget(form.description) }}
+        {# Hidden field for form submission #}
+        {{ form_widget(form.description, {'attr': {'style': 'display:none'}}) }}
+        {# Rich text editor that syncs to the hidden field #}
+        <div
+            data-vue-component="RichTextEditor"
+            data-vue-form-field-id="{{ form.description.vars.id }}"
+            data-vue-initial-content="{{ form.description.vars.value|default('')|e('html_attr') }}"
+            data-vue-can-edit="true"
+            data-vue-show-attachments="false"
+        >
+            <div class="border border-gray-300 rounded-lg p-3 min-h-[120px] text-sm text-gray-500">
+                Loading editor...
+            </div>
+        </div>
     </div>
     {{ form_errors(form.description) }}
 </div>

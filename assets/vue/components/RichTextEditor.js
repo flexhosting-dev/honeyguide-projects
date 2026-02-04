@@ -13,11 +13,12 @@ export default {
         canEdit: { type: Boolean, default: true },
         initialAttachments: { type: Array, default: () => [] },
         showAttachments: { type: Boolean, default: true },
+        formFieldId: { type: String, default: '' }, // When set, syncs to form field instead of AJAX
     },
 
     setup(props) {
         const content = ref(props.initialContent || '');
-        const isEditing = ref(false);
+        const isEditing = ref(!!props.formFieldId); // Start editing if form mode
         const isSaving = ref(false);
         const editorRef = ref(null);
         const attachments = ref([...props.initialAttachments]);
@@ -25,6 +26,23 @@ export default {
         const isDragOver = ref(false);
 
         const basePath = props.basePath || window.BASE_PATH || '';
+        const isFormMode = computed(() => !!props.formFieldId);
+
+        // Sync content to form field
+        const syncToFormField = () => {
+            if (!props.formFieldId) return;
+            const field = document.getElementById(props.formFieldId);
+            if (field && editorRef.value) {
+                field.value = editorRef.value.innerHTML;
+            }
+        };
+
+        // Handle editor input in form mode
+        const onEditorInput = () => {
+            if (isFormMode.value) {
+                syncToFormField();
+            }
+        };
 
         // Load attachments from API on mount if taskId is present
         const loadAttachments = async () => {
@@ -45,6 +63,14 @@ export default {
         onMounted(() => {
             if (props.showAttachments && props.taskId) {
                 loadAttachments();
+            }
+            // Initialize form field content and start editing in form mode
+            if (isFormMode.value) {
+                nextTick(() => {
+                    if (editorRef.value) {
+                        editorRef.value.innerHTML = content.value;
+                    }
+                });
             }
         });
 
@@ -239,6 +265,7 @@ export default {
             isUploading,
             isDragOver,
             hasContent,
+            isFormMode,
             canEdit: props.canEdit,
             showAttachments: props.showAttachments,
             startEditing,
@@ -254,6 +281,7 @@ export default {
             onDragLeave,
             onDrop,
             getFileIcon,
+            onEditorInput,
         };
     },
 
@@ -330,12 +358,13 @@ export default {
                     ref="editorRef"
                     contenteditable="true"
                     class="prose prose-sm max-w-none p-3 min-h-[120px] text-sm text-gray-700 focus:outline-none"
-                    @keydown.ctrl.enter="saveDescription"
-                    @keydown.meta.enter="saveDescription"
+                    @input="onEditorInput"
+                    @keydown.ctrl.enter="!isFormMode && saveDescription()"
+                    @keydown.meta.enter="!isFormMode && saveDescription()"
                 ></div>
 
-                <!-- Actions -->
-                <div class="flex justify-end gap-2 px-3 py-2 bg-gray-50 border-t border-gray-200">
+                <!-- Actions (hidden in form mode) -->
+                <div v-if="!isFormMode" class="flex justify-end gap-2 px-3 py-2 bg-gray-50 border-t border-gray-200">
                     <span class="text-xs text-gray-400 mr-auto mt-1.5">Ctrl+Enter to save</span>
                     <button type="button" @click="cancelEditing" class="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
                     <button type="button" @click="saveDescription" class="px-3 py-1.5 text-sm bg-primary-600 text-white rounded-md hover:bg-primary-500 disabled:opacity-50" :disabled="isSaving">
