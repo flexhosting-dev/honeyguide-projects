@@ -59,6 +59,9 @@ export function autoMountVueComponents(components) {
                             }
                         }
                     } catch (e) {
+                        // Log JSON parse errors for debugging
+                        console.warn(`Failed to parse JSON for prop "${propName}" in component "${componentName}":`, e.message);
+                        console.warn('Value was:', value.substring(0, 200) + (value.length > 200 ? '...' : ''));
                         // Keep as string if not valid JSON
                     }
                 }
@@ -67,8 +70,17 @@ export function autoMountVueComponents(components) {
             }
         });
 
-        const app = createApp(component, props);
-        app.mount(element);
+        try {
+            const app = createApp(component, props);
+            app.config.errorHandler = (err, vm, info) => {
+                console.error(`Vue error in ${componentName}:`, err);
+                console.error('Error info:', info);
+            };
+            app.mount(element);
+        } catch (err) {
+            console.error(`Failed to mount Vue component "${componentName}":`, err);
+            console.error('Props were:', props);
+        }
     });
 }
 
