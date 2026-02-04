@@ -14,6 +14,7 @@ import KanbanBoard from 'vue/components/KanbanBoard';
 import RichTextEditor from 'vue/components/RichTextEditor';
 import SubtasksEditor from 'vue/components/SubtasksEditor';
 import QuickAddCard from 'vue/components/QuickAddCard';
+import TaskTable from 'vue/components/TaskTable';
 
 // Register Vue components
 const vueComponents = {
@@ -25,7 +26,8 @@ const vueComponents = {
     KanbanBoard,
     RichTextEditor,
     SubtasksEditor,
-    QuickAddCard
+    QuickAddCard,
+    TaskTable
 };
 
 // Mount Vue components on page load and after Turbo navigations

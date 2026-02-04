@@ -61,4 +61,28 @@ return [
     'vue/components/QuickAddCard' => [
         'path' => './assets/vue/components/QuickAddCard.js',
     ],
+    'vue/components/TaskTable' => [
+        'path' => './assets/vue/components/TaskTable.js',
+    ],
+    'vue/components/TaskTable/TableHeader' => [
+        'path' => './assets/vue/components/TaskTable/TableHeader.js',
+    ],
+    'vue/components/TaskTable/TaskRow' => [
+        'path' => './assets/vue/components/TaskTable/TaskRow.js',
+    ],
+    'vue/components/TaskTable/ColumnConfig' => [
+        'path' => './assets/vue/components/TaskTable/ColumnConfig.js',
+    ],
+    'vue/components/TaskTable/GroupRow' => [
+        'path' => './assets/vue/components/TaskTable/GroupRow.js',
+    ],
+    'vue/components/TaskTable/EditableCell' => [
+        'path' => './assets/vue/components/TaskTable/EditableCell.js',
+    ],
+    'vue/components/TaskTable/BulkActionBar' => [
+        'path' => './assets/vue/components/TaskTable/BulkActionBar.js',
+    ],
+    'vue/components/TaskTable/TreeToggle' => [
+        'path' => './assets/vue/components/TaskTable/TreeToggle.js',
+    ],
 ];

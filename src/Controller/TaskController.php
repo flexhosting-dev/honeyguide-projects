@@ -1267,6 +1267,240 @@ class TaskController extends AbstractController
         ]);
     }
 
+    #[Route('/tasks/bulk-update', name: 'app_task_bulk_update', methods: ['POST'])]
+    public function bulkUpdate(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+
+        $data = json_decode($request->getContent(), true);
+        $taskIds = $data['taskIds'] ?? [];
+        $updates = $data['updates'] ?? [];
+
+        if (empty($taskIds) || !is_array($taskIds)) {
+            return $this->json(['error' => 'Task IDs array is required'], Response::HTTP_BAD_REQUEST);
+        }
+
+        if (empty($updates)) {
+            return $this->json(['error' => 'No updates provided'], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Fetch all tasks and verify permissions
+        $tasks = [];
+        $projectsChecked = [];
+
+        foreach ($taskIds as $taskId) {
+            $task = $this->taskRepository->find($taskId);
+            if (!$task) {
+                return $this->json(['error' => 'Task not found: ' . $taskId], Response::HTTP_BAD_REQUEST);
+            }
+
+            $project = $task->getProject();
+            $projectId = $project->getId()->toString();
+
+            // Check permission once per project
+            if (!isset($projectsChecked[$projectId])) {
+                $this->denyAccessUnlessGranted('PROJECT_EDIT', $project);
+                $projectsChecked[$projectId] = true;
+            }
+
+            $tasks[] = $task;
+        }
+
+        // Apply updates
+        $updatedCount = 0;
+
+        // Status update
+        if (isset($updates['status'])) {
+            $newStatus = TaskStatus::tryFrom($updates['status']);
+            if ($newStatus) {
+                foreach ($tasks as $task) {
+                    $oldStatus = $task->getStatus();
+                    if ($oldStatus !== $newStatus) {
+                        $task->setStatus($newStatus);
+                        $this->activityService->logTaskStatusChanged(
+                            $task->getProject(),
+                            $user,
+                            $task->getId(),
+                            $task->getTitle(),
+                            $oldStatus->label(),
+                            $newStatus->label()
+                        );
+                        $updatedCount++;
+                    }
+                }
+            }
+        }
+
+        // Priority update
+        if (isset($updates['priority'])) {
+            $newPriority = TaskPriority::tryFrom($updates['priority']);
+            if ($newPriority) {
+                foreach ($tasks as $task) {
+                    $oldPriority = $task->getPriority();
+                    if ($oldPriority !== $newPriority) {
+                        $task->setPriority($newPriority);
+                        $this->activityService->logTaskPriorityChanged(
+                            $task->getProject(),
+                            $user,
+                            $task->getId(),
+                            $task->getTitle(),
+                            $oldPriority->label(),
+                            $newPriority->label()
+                        );
+                        $updatedCount++;
+                    }
+                }
+            }
+        }
+
+        // Milestone update
+        if (isset($updates['milestone'])) {
+            $newMilestone = $this->milestoneRepository->find($updates['milestone']);
+            if ($newMilestone) {
+                foreach ($tasks as $task) {
+                    // Verify milestone belongs to same project
+                    if ($newMilestone->getProject()->getId()->toString() === $task->getProject()->getId()->toString()) {
+                        $oldMilestone = $task->getMilestone();
+                        if (!$oldMilestone || $oldMilestone->getId()->toString() !== $newMilestone->getId()->toString()) {
+                            $task->setMilestone($newMilestone);
+                            $this->activityService->logTaskMilestoneChanged(
+                                $task->getProject(),
+                                $user,
+                                $task->getId(),
+                                $task->getTitle(),
+                                $oldMilestone ? $oldMilestone->getName() : 'None',
+                                $newMilestone->getName()
+                            );
+                            $updatedCount++;
+                        }
+                    }
+                }
+            }
+        }
+
+        $this->entityManager->flush();
+
+        return $this->json([
+            'success' => true,
+            'updated' => $updatedCount,
+        ]);
+    }
+
+    #[Route('/tasks/{id}/children', name: 'app_task_children', methods: ['GET'])]
+    public function getChildren(Request $request, Task $task): JsonResponse
+    {
+        $project = $task->getProject();
+        $this->denyAccessUnlessGranted('PROJECT_VIEW', $project);
+
+        $basePath = $request->getBasePath();
+        $children = [];
+
+        foreach ($task->getSubtasks() as $subtask) {
+            $children[] = [
+                'id' => $subtask->getId()->toString(),
+                'title' => $subtask->getTitle(),
+                'status' => [
+                    'value' => $subtask->getStatus()->value,
+                    'label' => $subtask->getStatus()->label(),
+                ],
+                'priority' => [
+                    'value' => $subtask->getPriority()->value,
+                    'label' => $subtask->getPriority()->label(),
+                ],
+                'milestoneId' => $subtask->getMilestone() ? $subtask->getMilestone()->getId()->toString() : null,
+                'projectName' => $project->getName(),
+                'dueDate' => $subtask->getDueDate()?->format('Y-m-d'),
+                'startDate' => $subtask->getStartDate()?->format('Y-m-d'),
+                'position' => $subtask->getPosition(),
+                'depth' => $subtask->getDepth(),
+                'parentId' => $task->getId()->toString(),
+                'parentChain' => $task->getTitle(),
+                'assignees' => array_map(function ($a) use ($basePath) {
+                    return [
+                        'id' => $a->getId()->toString(),
+                        'user' => [
+                            'id' => $a->getUser()->getId()->toString(),
+                            'firstName' => $a->getUser()->getFirstName(),
+                            'lastName' => $a->getUser()->getLastName(),
+                            'fullName' => $a->getUser()->getFullName(),
+                            'avatar' => $a->getUser()->getAvatar() ? $basePath . '/uploads/avatars/' . $a->getUser()->getAvatar() : null,
+                        ]
+                    ];
+                }, $subtask->getAssignees()->toArray()),
+                'tags' => array_map(function ($t) {
+                    return [
+                        'id' => $t->getId()->toString(),
+                        'name' => $t->getName(),
+                        'color' => $t->getColor(),
+                    ];
+                }, $subtask->getTags()->toArray()),
+                'subtaskCount' => $subtask->getSubtasks()->count(),
+                'completedSubtaskCount' => $subtask->getSubtasks()->filter(
+                    fn($s) => $s->getStatus()->value === 'completed'
+                )->count(),
+                'commentCount' => 0, // Could add comment counting if needed
+                'checklistCount' => 0,
+                'completedChecklistCount' => 0,
+            ];
+        }
+
+        // Sort by position
+        usort($children, fn($a, $b) => ($a['position'] ?? 0) <=> ($b['position'] ?? 0));
+
+        return $this->json([
+            'success' => true,
+            'children' => $children,
+        ]);
+    }
+
+    #[Route('/tasks/bulk-delete', name: 'app_task_bulk_delete', methods: ['POST'])]
+    public function bulkDelete(Request $request): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+        $taskIds = $data['taskIds'] ?? [];
+
+        if (empty($taskIds) || !is_array($taskIds)) {
+            return $this->json(['error' => 'Task IDs array is required'], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Fetch all tasks and verify permissions
+        $tasks = [];
+        $projectsChecked = [];
+
+        foreach ($taskIds as $taskId) {
+            $task = $this->taskRepository->find($taskId);
+            if (!$task) {
+                continue; // Skip missing tasks
+            }
+
+            $project = $task->getProject();
+            $projectId = $project->getId()->toString();
+
+            // Check permission once per project
+            if (!isset($projectsChecked[$projectId])) {
+                $this->denyAccessUnlessGranted('PROJECT_EDIT', $project);
+                $projectsChecked[$projectId] = true;
+            }
+
+            $tasks[] = $task;
+        }
+
+        // Delete tasks
+        $deletedCount = 0;
+        foreach ($tasks as $task) {
+            $this->entityManager->remove($task);
+            $deletedCount++;
+        }
+
+        $this->entityManager->flush();
+
+        return $this->json([
+            'success' => true,
+            'deleted' => $deletedCount,
+        ]);
+    }
+
     #[Route('/projects/{projectId}/members', name: 'app_project_members_list', methods: ['GET'])]
     public function getProjectMembers(string $projectId): JsonResponse
     {

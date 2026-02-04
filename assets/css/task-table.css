@@ -1,0 +1,250 @@
+/* Task Table Styles */
+
+/* Container */
+.task-table-container {
+    position: relative;
+}
+
+.task-table-container table {
+    table-layout: fixed;
+}
+
+/* Responsive column hiding */
+@media (max-width: 1024px) {
+    .task-table-container th:nth-child(n+6),
+    .task-table-container td:nth-child(n+6) {
+        display: none;
+    }
+}
+
+@media (max-width: 768px) {
+    .task-table-container th:nth-child(n+5),
+    .task-table-container td:nth-child(n+5) {
+        display: none;
+    }
+}
+
+@media (max-width: 640px) {
+    .task-table-container th:nth-child(n+4),
+    .task-table-container td:nth-child(n+4) {
+        display: none;
+    }
+}
+
+/* Tree lines for subtasks */
+.task-table-row-child {
+    position: relative;
+}
+
+/* Tree line - vertical */
+.task-table-row-child::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 50%;
+    width: 1px;
+    background-color: #e5e7eb;
+}
+
+/* Tree line - horizontal */
+.task-table-row-child::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 12px;
+    height: 1px;
+    background-color: #e5e7eb;
+}
+
+/* Adjust tree line position based on depth */
+.task-table-row[data-depth="1"]::before,
+.task-table-row[data-depth="1"]::after {
+    left: 28px;
+}
+
+.task-table-row[data-depth="2"]::before,
+.task-table-row[data-depth="2"]::after {
+    left: 52px;
+}
+
+/* Continue line for sibling tasks */
+.task-table-row-child.has-next-sibling::before {
+    bottom: 0;
+}
+
+/* Tree toggle button styles */
+.tree-toggle {
+    transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.tree-toggle:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.tree-toggle:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.3);
+}
+
+/* Indentation for tree levels */
+.tree-indent-1 { padding-left: 24px; }
+.tree-indent-2 { padding-left: 48px; }
+.tree-indent-3 { padding-left: 72px; }
+
+/* Hover effects */
+.task-table-row:hover .task-title {
+    color: var(--color-primary-600, #4f46e5);
+}
+
+/* Selected row styling */
+.task-table-row.bg-primary-50 {
+    background-color: rgba(79, 70, 229, 0.05);
+}
+
+/* Sticky header */
+.task-table-container thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #f9fafb;
+}
+
+/* Group row styling */
+.group-row {
+    background-color: #f9fafb;
+    border-top: 1px solid #e5e7eb;
+}
+
+.group-row:hover {
+    background-color: #f3f4f6;
+}
+
+/* Inline edit styles */
+.cell-editor input,
+.cell-editor select {
+    min-width: 100px;
+}
+
+.cell-editor input:focus,
+.cell-editor select:focus {
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+}
+
+/* Quick add row */
+.quick-add-row {
+    background-color: rgba(79, 70, 229, 0.05);
+}
+
+/* Bulk action bar animation */
+.bulk-action-bar {
+    animation: slideUp 0.2s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translate(-50%, 20px);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+}
+
+/* Column config dropdown */
+.column-config-dropdown {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+/* Drag handle for column reorder */
+.drag-handle {
+    cursor: grab;
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
+
+/* Loading overlay for table */
+.task-table-loading {
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+}
+
+/* Empty cell placeholder */
+.cell-empty {
+    color: #9ca3af;
+}
+
+/* Truncate text in cells */
+.cell-truncate {
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Status badge colors - ensure consistency with inline edit */
+.status-todo { background-color: #f3f4f6; color: #374151; }
+.status-in_progress { background-color: #dbeafe; color: #1e40af; }
+.status-in_review { background-color: #fef3c7; color: #92400e; }
+.status-completed { background-color: #d1fae5; color: #065f46; }
+
+/* Priority badge colors */
+.priority-none { background-color: #f3f4f6; color: #374151; }
+.priority-low { background-color: #dbeafe; color: #1e40af; }
+.priority-medium { background-color: #fef3c7; color: #92400e; }
+.priority-high { background-color: #fee2e2; color: #991b1b; }
+
+/* Mobile optimizations */
+@media (max-width: 640px) {
+    .task-table-container {
+        font-size: 0.875rem;
+    }
+
+    .task-table-container th,
+    .task-table-container td {
+        padding: 0.5rem 0.25rem;
+    }
+
+    /* Make title column full width on mobile */
+    .task-table-container th:nth-child(2),
+    .task-table-container td:nth-child(2) {
+        width: 100% !important;
+        min-width: 150px;
+    }
+
+    /* Hide bulk action bar text on mobile */
+    .bulk-action-bar .action-label {
+        display: none;
+    }
+}
+
+/* Print styles */
+@media print {
+    .task-table-container {
+        box-shadow: none;
+    }
+
+    .task-table-container thead {
+        position: static;
+    }
+
+    .bulk-action-bar {
+        display: none;
+    }
+
+    /* Show all columns when printing */
+    .task-table-container th,
+    .task-table-container td {
+        display: table-cell !important;
+    }
+}

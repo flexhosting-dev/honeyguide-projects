@@ -1,0 +1,203 @@
+{#
+   Task Table Component - Vue-powered spreadsheet-like table view
+   Variables:
+   - tasks: Task[] (flat list of all tasks)
+   - milestones: list of Milestone entities
+   - members: array of project members
+   - canEdit: boolean (whether user can edit tasks)
+   - project: Project (optional, for project-specific context)
+#}
+
+{% set milestones = milestones|default([]) %}
+{% set members = members|default([]) %}
+{% set canEdit = canEdit|default(false) %}
+{% set basePath = app.request.basePath %}
+
+<div
+    data-vue-component="TaskTable"
+    data-vue-initial-tasks='{{ tasks|map(task => {
+        id: task.id ~ '',
+        title: task.title,
+        status: { value: task.status.value, label: task.status.label },
+        priority: { value: task.priority.value, label: task.priority.label },
+        milestoneId: task.milestone ? task.milestone.id ~ '' : null,
+        projectName: task.project.name,
+        dueDate: task.dueDate ? task.dueDate|date('Y-m-d') : null,
+        startDate: task.startDate ? task.startDate|date('Y-m-d') : null,
+        position: task.position,
+        depth: task.depth|default(0),
+        parentId: task.parent ? task.parent.id ~ '' : null,
+        parentChain: task.parentChain,
+        commentCount: task.commentCount|default(0),
+        checklistCount: task.checklistCount|default(0),
+        completedChecklistCount: task.completedChecklistCount|default(0),
+        subtaskCount: task.subtaskCount|default(0),
+        completedSubtaskCount: task.completedSubtaskCount|default(0),
+        assignees: task.assignees|map(a => {
+            id: a.id ~ '',
+            user: {
+                id: a.user.id ~ '',
+                firstName: a.user.firstName,
+                lastName: a.user.lastName,
+                fullName: a.user.fullName,
+                avatar: a.user.avatar ? basePath ~ '/uploads/avatars/' ~ a.user.avatar : null
+            }
+        }),
+        tags: task.tags|map(t => {
+            id: t.id ~ '',
+            name: t.name,
+            color: t.color
+        })
+    })|json_encode|e('html_attr') }}'
+    data-vue-milestones='{{ milestones|map(m => {
+        id: m.id ~ '',
+        name: m.name,
+        dueDate: m.dueDate ? m.dueDate|date('Y-m-d') : null,
+        projectId: m.project ? m.project.id ~ '' : null
+    })|json_encode|e('html_attr') }}'
+    data-vue-members='{{ members|map(m => {
+        id: m.id ~ '',
+        fullName: m.fullName,
+        firstName: m.firstName,
+        lastName: m.lastName,
+        avatar: m.avatar ? basePath ~ '/uploads/avatars/' ~ m.avatar : null
+    })|json_encode|e('html_attr') }}'
+    data-vue-base-path="{{ basePath }}"
+    data-vue-can-edit="{{ canEdit ? 'true' : 'false' }}"
+    data-vue-status-url-template="{{ path('app_task_update_status', {id: '__TASK_ID__'}) }}"
+    data-vue-priority-url-template="{{ path('app_task_update_priority', {id: '__TASK_ID__'}) }}"
+    data-vue-title-url-template="{{ path('app_task_update_title', {id: '__TASK_ID__'}) }}"
+    data-vue-due-date-url-template="{{ path('app_task_update_due_date', {id: '__TASK_ID__'}) }}"
+    data-vue-milestone-url-template="{{ path('app_task_update_milestone', {id: '__TASK_ID__'}) }}"
+    data-vue-project-id="{{ project ? project.id : '' }}"
+    data-vue-create-url="{{ project is defined and project ? path('app_task_create_json', {projectId: project.id}) : '' }}"
+    data-vue-storage-key="{{ storageKey|default('task_table') }}"
+    data-vue-children-url-template="{{ path('app_task_children', {id: '__TASK_ID__'}) }}"
+>
+    {# Loading fallback shown before Vue mounts #}
+    <div class="flex items-center justify-center py-12">
+        <svg class="animate-spin h-8 w-8 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span class="ml-3 text-gray-500">Loading task table...</span>
+    </div>
+</div>
+
+<style>
+/* Task table specific styles */
+.task-table-container {
+    position: relative;
+}
+
+.task-table-container table {
+    table-layout: fixed;
+}
+
+/* Make title column flex to fill remaining space */
+.task-table-container th:nth-child(2),
+.task-table-container td:nth-child(2) {
+    width: auto !important;
+    min-width: 200px;
+}
+
+/* Responsive column hiding */
+@media (max-width: 1024px) {
+    .task-table-container th:nth-child(n+6),
+    .task-table-container td:nth-child(n+6) {
+        display: none;
+    }
+}
+
+@media (max-width: 768px) {
+    .task-table-container th:nth-child(n+5),
+    .task-table-container td:nth-child(n+5) {
+        display: none;
+    }
+}
+
+@media (max-width: 640px) {
+    .task-table-container th:nth-child(n+4),
+    .task-table-container td:nth-child(n+4) {
+        display: none;
+    }
+}
+
+/* Tree line styles for subtasks */
+.task-table-row-child {
+    position: relative;
+}
+
+/* Hover effects */
+.task-table-row:hover .task-title {
+    color: var(--color-primary-600, #4f46e5);
+}
+
+/* Selected row styling */
+.task-table-row.bg-primary-50 {
+    background-color: rgba(79, 70, 229, 0.05);
+}
+
+/* Sticky header */
+.task-table-container thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #f9fafb;
+}
+
+/* Focus visible styles for accessibility */
+.task-table-row:focus-visible {
+    outline: 2px solid var(--color-primary-500, #6366f1);
+    outline-offset: -2px;
+}
+
+/* Keyboard navigation focus styles */
+.task-table-row:focus {
+    outline: none;
+    box-shadow: inset 0 0 0 2px var(--color-primary-500, #6366f1);
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+    .task-table-row,
+    .task-table-container * {
+        transition: none !important;
+        animation: none !important;
+    }
+}
+
+/* Mobile-specific adjustments */
+@media (max-width: 640px) {
+    .task-table-container th,
+    .task-table-container td {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+
+    .task-table-container th:nth-child(2),
+    .task-table-container td:nth-child(2) {
+        min-width: 150px;
+    }
+
+    /* Smaller font on mobile */
+    .task-table-container .text-sm {
+        font-size: 0.8125rem;
+    }
+}
+
+/* Bulk action bar mobile adjustments */
+@media (max-width: 640px) {
+    .bulk-action-bar {
+        left: 1rem;
+        right: 1rem;
+        transform: none;
+        max-width: calc(100% - 2rem);
+    }
+
+    .bulk-action-bar > div {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+}
+</style>
