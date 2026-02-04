@@ -311,6 +311,11 @@ function showTab(index, save = true) {
         localStorage.setItem(STORAGE_KEY_TAB, index);
     }
 
+    // Mount Vue components when Tasks tab is shown (panel may have been hidden)
+    if (index === 2 && typeof window.mountVueComponents === 'function') {
+        setTimeout(function() { window.mountVueComponents(); }, 0);
+    }
+
     // Reload feed every time Feed tab is opened
     if (index === 4 && !feedState.loading) {
         reloadFeed();
