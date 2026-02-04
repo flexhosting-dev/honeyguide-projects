@@ -219,6 +219,38 @@ class MilestoneController extends AbstractController
         return new JsonResponse(['removed' => true]);
     }
 
+    #[Route('/{id}/tasks', name: 'app_milestone_tasks', methods: ['GET'])]
+    public function getTasks(string $projectId, Milestone $milestone): JsonResponse
+    {
+        $project = $this->projectRepository->find($projectId);
+        if (!$project || $milestone->getProject()->getId()->toString() !== $projectId) {
+            throw $this->createNotFoundException();
+        }
+        $this->denyAccessUnlessGranted('PROJECT_VIEW', $project);
+
+        $tasks = [];
+        foreach ($milestone->getTasks() as $task) {
+            // Only include top-level tasks
+            if ($task->getParent() !== null) {
+                continue;
+            }
+            $tasks[] = [
+                'id' => $task->getId()->toString(),
+                'title' => $task->getTitle(),
+                'status' => [
+                    'value' => $task->getStatus()->value,
+                    'label' => $task->getStatus()->label(),
+                ],
+                'priority' => [
+                    'value' => $task->getPriority()->value,
+                    'label' => $task->getPriority()->label(),
+                ],
+            ];
+        }
+
+        return new JsonResponse(['tasks' => $tasks]);
+    }
+
     #[Route('/{id}/description', name: 'app_milestone_update_description', methods: ['POST'])]
     public function updateDescription(Request $request, string $projectId, Milestone $milestone): JsonResponse
     {

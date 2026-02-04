@@ -28,37 +28,17 @@
                     Edit
                 </a>
                 {% endif %}
-                {% if canCreateTask|default(false) %}
-                <a href="{{ path('app_task_new', {milestoneId: milestone.id}) }}"
-                   class="inline-flex items-center rounded-md bg-primary-600 px-2.5 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-500">
-                    Add Task
-                </a>
-                {% endif %}
             </div>
         </div>
 
-        {# Milestone Description - Rich Text Editor #}
+        {% if milestone.description %}
+        {# Milestone Description - read-only display #}
         <div class="mt-3">
-            <div
-                data-vue-component="RichTextEditor"
-                data-vue-entity-type="milestone"
-                data-vue-entity-id="{{ milestone.id }}"
-                data-vue-save-endpoint="{{ path('app_milestone_update_description', {projectId: project.id, id: milestone.id}) }}"
-                data-vue-initial-content="{{ milestone.description|default('')|e('html_attr') }}"
-                data-vue-base-path="{{ app.request.basePath }}"
-                data-vue-can-edit="{{ canEditMilestone|default(false) ? 'true' : 'false' }}"
-                data-vue-show-attachments="false"
-                data-vue-initial-attachments="[]"
-            >
-                <div class="text-sm text-gray-500">
-                    {% if milestone.description %}
-                        <div class="prose">{{ milestone.description|raw }}</div>
-                    {% else %}
-                        <span class="text-gray-400 italic">Click to add description...</span>
-                    {% endif %}
-                </div>
+            <div class="prose prose-sm max-w-none text-gray-600">
+                {{ milestone.description|raw }}
             </div>
         </div>
+        {% endif %}
 
         {# Annual Targets — collapsible #}
         {% if milestone.targets|length > 0 %}
@@ -103,11 +83,14 @@
         </div>
     </div>
 
-    {# Tasks Preview #}
-    {% if milestone.tasks|length > 0 %}
+    {# Tasks Preview - Top-level tasks only #}
+    {% set topLevelTasks = milestone.tasks|filter(t => t.parent is null) %}
+    {% if topLevelTasks|length > 0 %}
+        {% set tasksListId = 'tasks-list-' ~ milestone.id %}
+        {% set moreButtonId = 'more-tasks-' ~ milestone.id %}
         <div class="border-t border-gray-200 px-4 py-4 sm:px-6">
-            <ul role="list" class="divide-y divide-gray-100">
-                {% for task in milestone.tasks|slice(0, 5) %}
+            <ul role="list" class="divide-y divide-gray-100" id="{{ tasksListId }}">
+                {% for task in topLevelTasks|slice(0, 5) %}
                     <li class="py-2 flex items-center justify-between">
                         <div class="flex items-center">
                             <span class="inline-flex items-center justify-center h-6 w-6 rounded-full text-xs
@@ -137,8 +120,13 @@
                     </li>
                 {% endfor %}
             </ul>
-            {% if milestone.tasks|length > 5 %}
-                <p class="mt-2 text-sm text-gray-500">+ {{ milestone.tasks|length - 5 }} more tasks</p>
+            {% if topLevelTasks|length > 5 %}
+                <button type="button" id="{{ moreButtonId }}"
+                        class="mt-2 text-sm text-primary-600 hover:text-primary-700 font-medium"
+                        data-tasks-url="{{ path('app_milestone_tasks', {projectId: project.id, id: milestone.id}) }}"
+                        onclick="loadMoreTasks('{{ tasksListId }}', '{{ moreButtonId }}', this.dataset.tasksUrl)">
+                    + {{ topLevelTasks|length - 5 }} more tasks
+                </button>
             {% endif %}
         </div>
     {% endif %}

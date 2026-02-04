@@ -1,4 +1,64 @@
 {# Milestones List Partial #}
+<script>
+function loadMoreTasks(listId, buttonId, url) {
+    const list = document.getElementById(listId);
+    const button = document.getElementById(buttonId);
+    if (!list || !button) return;
+
+    button.textContent = 'Loading...';
+    button.disabled = true;
+
+    fetch(url, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        // Clear existing items and show all tasks
+        list.innerHTML = '';
+        data.tasks.forEach(task => {
+            const statusClasses = {
+                'completed': 'bg-green-100 text-green-700',
+                'in_progress': 'bg-blue-100 text-blue-700',
+                'in_review': 'bg-yellow-100 text-yellow-700'
+            };
+            const priorityClasses = {
+                'high': 'bg-red-100 text-red-700',
+                'medium': 'bg-yellow-100 text-yellow-700',
+                'low': 'bg-blue-100 text-blue-700'
+            };
+            const statusClass = statusClasses[task.status.value] || 'bg-gray-100 text-gray-700';
+            const priorityClass = priorityClasses[task.priority.value] || 'bg-gray-100 text-gray-700';
+            const isCompleted = task.status.value === 'completed';
+
+            const li = document.createElement('li');
+            li.className = 'py-2 flex items-center justify-between';
+            li.innerHTML = `
+                <div class="flex items-center">
+                    <span class="inline-flex items-center justify-center h-6 w-6 rounded-full text-xs ${statusClass}">
+                        ${isCompleted
+                            ? '<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>'
+                            : '<span class="w-2 h-2 rounded-full bg-current"></span>'
+                        }
+                    </span>
+                    <span class="ml-3 text-sm ${isCompleted ? 'text-gray-500 line-through' : 'text-gray-900'}">
+                        ${task.title}
+                    </span>
+                </div>
+                <span class="text-xs font-medium px-2 py-0.5 rounded-full ${priorityClass}">
+                    ${task.priority.label}
+                </span>
+            `;
+            list.appendChild(li);
+        });
+        // Remove the button after loading
+        button.remove();
+    })
+    .catch(() => {
+        button.textContent = 'Failed to load';
+        button.disabled = false;
+    });
+}
+</script>
 <div class="space-y-4">
     <div class="flex items-center justify-between">
         <h3 class="text-base font-semibold leading-6 text-gray-900">Milestones</h3>
