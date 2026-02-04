@@ -54,7 +54,9 @@ export default {
             const dueDate = new Date(props.task.dueDate);
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            return dueDate < today && props.task.status?.value !== 'completed';
+            // Check if status is closed (parentType === 'closed' or legacy status === 'completed')
+            const isClosed = props.task.status?.parentType === 'closed' || props.task.status?.value === 'completed';
+            return dueDate < today && !isClosed;
         });
 
         const formattedDueDate = computed(() => {

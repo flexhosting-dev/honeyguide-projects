@@ -79,6 +79,10 @@ export default {
         milestonesUrlTemplate: {
             type: String,
             default: ''
+        },
+        statusColumns: {
+            type: Array,
+            default: () => []
         }
     },
 
@@ -94,13 +98,28 @@ export default {
 
         const basePath = props.basePath || window.BASE_PATH || '';
 
-        // Column configurations
-        const statusColumns = [
-            { value: 'todo', label: 'To Do', badgeClass: 'kb-badge-gray', bgClass: 'kb-bg-gray' },
-            { value: 'in_progress', label: 'In Progress', badgeClass: 'kb-badge-blue', bgClass: 'kb-bg-blue' },
-            { value: 'in_review', label: 'In Review', badgeClass: 'kb-badge-yellow', bgClass: 'kb-bg-yellow' },
-            { value: 'completed', label: 'Completed', badgeClass: 'kb-badge-green', bgClass: 'kb-bg-green' }
+        // Default status columns (fallback if no prop provided)
+        const defaultStatusColumns = [
+            { value: 'todo', label: 'To Do', color: '#6B7280', badgeClass: 'kb-badge-gray', bgClass: 'kb-bg-gray' },
+            { value: 'in_progress', label: 'In Progress', color: '#3B82F6', badgeClass: 'kb-badge-blue', bgClass: 'kb-bg-blue' },
+            { value: 'in_review', label: 'In Review', color: '#F59E0B', badgeClass: 'kb-badge-yellow', bgClass: 'kb-bg-yellow' },
+            { value: 'completed', label: 'Completed', color: '#10B981', badgeClass: 'kb-badge-green', bgClass: 'kb-bg-green' }
         ];
+
+        // Column configurations - use prop if provided, else use default
+        const statusColumnsConfig = computed(() => {
+            if (props.statusColumns && props.statusColumns.length > 0) {
+                return props.statusColumns.map(col => ({
+                    value: col.value,
+                    label: col.label,
+                    color: col.color,
+                    parentType: col.parentType,
+                    badgeClass: 'kb-badge-custom',
+                    bgClass: 'kb-bg-custom'
+                }));
+            }
+            return defaultStatusColumns;
+        });
 
         const priorityColumns = [
             { value: 'none', label: 'None', badgeClass: 'kb-badge-gray', bgClass: 'kb-bg-gray' },
@@ -112,7 +131,7 @@ export default {
         const milestoneColorCycle = ['indigo', 'purple', 'pink', 'teal', 'orange', 'cyan'];
 
         const columns = computed(() => {
-            if (currentMode.value === 'status') return statusColumns;
+            if (currentMode.value === 'status') return statusColumnsConfig.value;
             if (currentMode.value === 'priority') return priorityColumns;
             if (currentMode.value === 'milestone') {
                 return props.milestones.map((m, i) => {
@@ -126,7 +145,7 @@ export default {
                     };
                 });
             }
-            return statusColumns;
+            return statusColumnsConfig.value;
         });
 
         const tasksByColumn = computed(() => {
@@ -550,7 +569,8 @@ export default {
                     v-for="col in columns"
                     :key="col.value"
                     class="kanban-col rounded-lg"
-                    :class="[col.bgClass, { collapsed: isCollapsed(col.value) }]"
+                    :class="[col.color ? '' : col.bgClass, { collapsed: isCollapsed(col.value) }]"
+                    :style="col.color ? { '--col-color': col.color, backgroundColor: 'color-mix(in srgb, ' + col.color + ' 8%, white)' } : {}"
                     :data-column-key="col.value"
                     @dragover="handleColumnDragOver($event, col.value)"
                     @dragleave="handleColumnDragLeave($event)"
@@ -578,7 +598,9 @@ export default {
 
                     <!-- Badge -->
                     <div class="kanban-badge-wrap">
-                        <span class="kanban-badge" :class="col.badgeClass">
+                        <span class="kanban-badge"
+                              :class="col.color ? '' : col.badgeClass"
+                              :style="col.color ? { backgroundColor: 'color-mix(in srgb, ' + col.color + ' 15%, white)', color: 'color-mix(in srgb, ' + col.color + ' 80%, black)' } : {}">
                             {{ col.label }} ({{ tasksByColumn[col.value]?.length || 0 }})
                         </span>
                     </div>

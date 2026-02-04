@@ -5,6 +5,7 @@ namespace App\Entity;
 use App\Enum\TaskPriority;
 use App\Enum\TaskStatus;
 use App\Repository\TaskRepository;
+use App\Entity\TaskStatusType;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
@@ -17,6 +18,7 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
 #[ORM\Entity(repositoryClass: TaskRepository::class)]
 #[ORM\HasLifecycleCallbacks]
 #[ORM\Index(name: 'idx_task_status', columns: ['status'])]
+#[ORM\Index(name: 'idx_task_status_type', columns: ['status_type_id'])]
 #[ORM\Index(name: 'idx_task_priority', columns: ['priority'])]
 #[ORM\Index(name: 'idx_task_due_date', columns: ['due_date'])]
 #[Assert\Callback('validateDates')]
@@ -44,6 +46,10 @@ class Task
 
     #[ORM\Column(type: 'string', enumType: TaskStatus::class)]
     private TaskStatus $status = TaskStatus::TODO;
+
+    #[ORM\ManyToOne(targetEntity: TaskStatusType::class)]
+    #[ORM\JoinColumn(name: 'status_type_id', nullable: true, onDelete: 'SET NULL')]
+    private ?TaskStatusType $statusType = null;
 
     #[ORM\Column(type: 'string', enumType: TaskPriority::class)]
     private TaskPriority $priority = TaskPriority::NONE;
@@ -168,6 +174,62 @@ class Task
     {
         $this->status = $status;
         return $this;
+    }
+
+    public function getStatusType(): ?TaskStatusType
+    {
+        return $this->statusType;
+    }
+
+    public function setStatusType(?TaskStatusType $statusType): static
+    {
+        $this->statusType = $statusType;
+        // Also update the legacy enum for backwards compatibility
+        if ($statusType !== null) {
+            $enumStatus = TaskStatus::tryFrom($statusType->getSlug());
+            if ($enumStatus !== null) {
+                $this->status = $enumStatus;
+            }
+        }
+        return $this;
+    }
+
+    public function getEffectiveStatusLabel(): string
+    {
+        if ($this->statusType !== null) {
+            return $this->statusType->getName();
+        }
+        return $this->status->label();
+    }
+
+    public function getEffectiveStatusValue(): string
+    {
+        if ($this->statusType !== null) {
+            return $this->statusType->getSlug();
+        }
+        return $this->status->value;
+    }
+
+    public function getEffectiveStatusColor(): string
+    {
+        if ($this->statusType !== null) {
+            return $this->statusType->getColor();
+        }
+        // Return default colors for legacy enum statuses
+        return match($this->status) {
+            TaskStatus::TODO => '#6B7280',
+            TaskStatus::IN_PROGRESS => '#3B82F6',
+            TaskStatus::IN_REVIEW => '#F59E0B',
+            TaskStatus::COMPLETED => '#10B981',
+        };
+    }
+
+    public function isEffectivelyCompleted(): bool
+    {
+        if ($this->statusType !== null) {
+            return $this->statusType->isClosed();
+        }
+        return $this->status === TaskStatus::COMPLETED;
     }
 
     public function getPriority(): TaskPriority
@@ -328,7 +390,7 @@ class Task
 
     public function getCompletedSubtaskCount(): int
     {
-        return $this->subtasks->filter(fn(Task $t) => $t->getStatus() === TaskStatus::COMPLETED)->count();
+        return $this->subtasks->filter(fn(Task $t) => $t->isEffectivelyCompleted())->count();
     }
 
     public function getDepth(): int
@@ -375,7 +437,7 @@ class Task
         if ($this->dueDate === null) {
             return false;
         }
-        if ($this->status === TaskStatus::COMPLETED) {
+        if ($this->isEffectivelyCompleted()) {
             return false;
         }
         return $this->dueDate < new \DateTimeImmutable('today');

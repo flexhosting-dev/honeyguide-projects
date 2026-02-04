@@ -44,45 +44,36 @@
                 {% endif %}
                 <div class="flex items-center flex-wrap gap-2 mt-2">
                     {# Status Badge - Editable only if canEdit #}
+                    {% set currentStatusColor = task.statusType ? task.statusType.color : task.effectiveStatusColor %}
+                    {% set currentStatusLabel = task.effectiveStatusLabel %}
+                    {% set currentStatusValue = task.effectiveStatusValue %}
                     {% if canEdit %}
                     <div class="relative inline-block">
                         <button type="button"
-                                class="status-badge-btn inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-gray-300
-                                    {% if task.status.value == 'completed' %}bg-green-100 text-green-700
-                                    {% elseif task.status.value == 'in_progress' %}bg-blue-100 text-blue-700
-                                    {% elseif task.status.value == 'in_review' %}bg-yellow-100 text-yellow-700
-                                    {% else %}bg-gray-100 text-gray-700{% endif %}"
-                                data-current="{{ task.status.value }}"
+                                class="status-badge-btn inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-gray-300"
+                                style="background-color: color-mix(in srgb, {{ currentStatusColor }} 15%, white); color: color-mix(in srgb, {{ currentStatusColor }} 80%, black);"
+                                data-current="{{ currentStatusValue }}"
+                                data-color="{{ currentStatusColor }}"
                                 onclick="toggleStatusDropdown(this)">
-                            <span class="status-label">{{ task.status.label }}</span>
+                            <span class="status-label">{{ currentStatusLabel }}</span>
                             <svg class="ml-1 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
                             </svg>
                         </button>
                         <div class="status-dropdown hidden absolute left-0 mt-1 w-40 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-10">
                             <div class="py-1">
-                                <button type="button" onclick="updateTaskStatus('{{ task.id }}', 'todo', this)" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
-                                    <span class="w-2 h-2 rounded-full bg-gray-400 mr-2"></span> To Do
+                                {% for status in allStatuses|default([]) %}
+                                <button type="button" onclick="updateTaskStatus('{{ task.id }}', '{{ status.slug }}', this)" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center" data-color="{{ status.color }}">
+                                    <span class="w-2 h-2 rounded-full mr-2" style="background-color: {{ status.color }};"></span> {{ status.name }}
                                 </button>
-                                <button type="button" onclick="updateTaskStatus('{{ task.id }}', 'in_progress', this)" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
-                                    <span class="w-2 h-2 rounded-full bg-blue-400 mr-2"></span> In Progress
-                                </button>
-                                <button type="button" onclick="updateTaskStatus('{{ task.id }}', 'in_review', this)" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
-                                    <span class="w-2 h-2 rounded-full bg-yellow-400 mr-2"></span> In Review
-                                </button>
-                                <button type="button" onclick="updateTaskStatus('{{ task.id }}', 'completed', this)" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
-                                    <span class="w-2 h-2 rounded-full bg-green-400 mr-2"></span> Completed
-                                </button>
+                                {% endfor %}
                             </div>
                         </div>
                     </div>
                     {% else %}
-                    <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
-                        {% if task.status.value == 'completed' %}bg-green-100 text-green-700
-                        {% elseif task.status.value == 'in_progress' %}bg-blue-100 text-blue-700
-                        {% elseif task.status.value == 'in_review' %}bg-yellow-100 text-yellow-700
-                        {% else %}bg-gray-100 text-gray-700{% endif %}">
-                        {{ task.status.label }}
+                    <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
+                          style="background-color: color-mix(in srgb, {{ currentStatusColor }} 15%, white); color: color-mix(in srgb, {{ currentStatusColor }} 80%, black);">
+                        {{ currentStatusLabel }}
                     </span>
                     {% endif %}
 

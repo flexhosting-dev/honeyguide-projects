@@ -1,0 +1,185 @@
+{% extends 'layout.html.twig' %}
+
+{% block title %}Task Statuses - WorkFlow{% endblock %}
+
+{% set page_title = 'Task Statuses' %}
+
+{% block content %}
+<div class="statuses-page space-y-6">
+    <nav class="statuses-breadcrumb flex items-center gap-2 text-sm text-gray-500">
+        <a href="{{ path('app_settings') }}" class="hover:text-primary-600 transition-colors">Settings</a>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+        </svg>
+        <span class="text-gray-900 font-medium">Task Statuses</span>
+    </nav>
+
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Task Statuses</h1>
+            <p class="mt-1 text-sm text-gray-500">Customize the workflow statuses for tasks</p>
+        </div>
+        <a href="{{ path('app_admin_statuses_new') }}" class="inline-flex items-center rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500">
+            <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            New Status
+        </a>
+    </div>
+
+    <!-- Open Statuses -->
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-medium text-gray-900">Open Statuses</h2>
+            <p class="mt-1 text-sm text-gray-500">Tasks in these statuses are considered active/in-progress</p>
+        </div>
+        <div class="divide-y divide-gray-200" id="open-statuses-list">
+            {% for status in openStatuses %}
+            <div class="px-6 py-4 flex items-center justify-between status-row" data-status-id="{{ status.id }}">
+                <div class="flex items-center gap-4 flex-1">
+                    <div class="cursor-move text-gray-400 hover:text-gray-600 drag-handle">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/>
+                        </svg>
+                    </div>
+                    <div class="w-4 h-4 rounded-full flex-shrink-0" style="background-color: {{ status.color }};"></div>
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-sm font-medium text-gray-900">{{ status.name }}</h3>
+                            {% if status.isSystem %}
+                            <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">System</span>
+                            {% endif %}
+                            {% if status.isDefault %}
+                            <span class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Default</span>
+                            {% endif %}
+                        </div>
+                        {% if status.description %}
+                        <p class="mt-1 text-sm text-gray-500">{{ status.description }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="text-sm text-gray-500">
+                        {{ statusCounts[status.id] ?? 0 }} {{ (statusCounts[status.id] ?? 0) == 1 ? 'task' : 'tasks' }}
+                    </div>
+                </div>
+                <div class="ml-4 flex items-center space-x-2">
+                    <a href="{{ path('app_admin_statuses_edit', {id: status.id}) }}" class="text-primary-600 hover:text-primary-900 text-sm font-medium">Edit</a>
+                    {% if not status.isDefault %}
+                    <form method="post" action="{{ path('app_admin_statuses_set_default', {id: status.id}) }}" class="inline">
+                        <input type="hidden" name="_token" value="{{ csrf_token('set-default' ~ status.id) }}">
+                        <button type="submit" class="text-gray-600 hover:text-gray-900 text-sm font-medium">Set Default</button>
+                    </form>
+                    {% endif %}
+                    {% if not status.isSystem %}
+                    <form method="post" action="{{ path('app_admin_statuses_delete', {id: status.id}) }}" class="inline" onsubmit="return confirm('Are you sure you want to delete this status?');">
+                        <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ status.id) }}">
+                        <button type="submit" class="text-red-600 hover:text-red-900 text-sm font-medium">Delete</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+            <div class="px-6 py-4 text-sm text-gray-500">No open statuses defined.</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Closed Statuses -->
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-medium text-gray-900">Closed Statuses</h2>
+            <p class="mt-1 text-sm text-gray-500">Tasks in these statuses are considered complete/done</p>
+        </div>
+        <div class="divide-y divide-gray-200" id="closed-statuses-list">
+            {% for status in closedStatuses %}
+            <div class="px-6 py-4 flex items-center justify-between status-row" data-status-id="{{ status.id }}">
+                <div class="flex items-center gap-4 flex-1">
+                    <div class="cursor-move text-gray-400 hover:text-gray-600 drag-handle">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/>
+                        </svg>
+                    </div>
+                    <div class="w-4 h-4 rounded-full flex-shrink-0" style="background-color: {{ status.color }};"></div>
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-sm font-medium text-gray-900">{{ status.name }}</h3>
+                            {% if status.isSystem %}
+                            <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">System</span>
+                            {% endif %}
+                            {% if status.isDefault %}
+                            <span class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Default</span>
+                            {% endif %}
+                        </div>
+                        {% if status.description %}
+                        <p class="mt-1 text-sm text-gray-500">{{ status.description }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="text-sm text-gray-500">
+                        {{ statusCounts[status.id] ?? 0 }} {{ (statusCounts[status.id] ?? 0) == 1 ? 'task' : 'tasks' }}
+                    </div>
+                </div>
+                <div class="ml-4 flex items-center space-x-2">
+                    <a href="{{ path('app_admin_statuses_edit', {id: status.id}) }}" class="text-primary-600 hover:text-primary-900 text-sm font-medium">Edit</a>
+                    {% if not status.isDefault %}
+                    <form method="post" action="{{ path('app_admin_statuses_set_default', {id: status.id}) }}" class="inline">
+                        <input type="hidden" name="_token" value="{{ csrf_token('set-default' ~ status.id) }}">
+                        <button type="submit" class="text-gray-600 hover:text-gray-900 text-sm font-medium">Set Default</button>
+                    </form>
+                    {% endif %}
+                    {% if not status.isSystem %}
+                    <form method="post" action="{{ path('app_admin_statuses_delete', {id: status.id}) }}" class="inline" onsubmit="return confirm('Are you sure you want to delete this status?');">
+                        <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ status.id) }}">
+                        <button type="submit" class="text-red-600 hover:text-red-900 text-sm font-medium">Delete</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+            <div class="px-6 py-4 text-sm text-gray-500">No closed statuses defined.</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Simple drag-to-reorder using Sortable.js if available, or manual implementation
+    const lists = ['open-statuses-list', 'closed-statuses-list'];
+
+    lists.forEach(listId => {
+        const list = document.getElementById(listId);
+        if (!list) return;
+
+        let draggedItem = null;
+
+        list.querySelectorAll('.status-row').forEach(row => {
+            const handle = row.querySelector('.drag-handle');
+            if (!handle) return;
+
+            handle.addEventListener('mousedown', function(e) {
+                draggedItem = row;
+                row.classList.add('opacity-50');
+            });
+        });
+
+        document.addEventListener('mouseup', function() {
+            if (draggedItem) {
+                draggedItem.classList.remove('opacity-50');
+                // Save the new order
+                const order = Array.from(list.querySelectorAll('.status-row'))
+                    .map(row => row.dataset.statusId);
+
+                fetch('{{ path("app_admin_statuses_reorder") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ order: order })
+                });
+
+                draggedItem = null;
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

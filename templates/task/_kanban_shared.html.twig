@@ -16,10 +16,16 @@
 
 <div
     data-vue-component="KanbanBoard"
+    data-vue-status-columns='{{ allStatuses|default([])|map(s => {
+        value: s.slug,
+        label: s.name,
+        color: s.color,
+        parentType: s.parentType
+    })|json_encode|e('html_attr') }}'
     data-vue-initial-tasks='{{ tasks|map(task => {
         id: task.id ~ '',
         title: task.title,
-        status: { value: task.status.value, label: task.status.label },
+        status: { value: task.effectiveStatusValue, label: task.effectiveStatusLabel, color: task.effectiveStatusColor, parentType: task.statusType ? task.statusType.parentType : (task.status.value == 'completed' ? 'closed' : 'open') },
         priority: { value: task.priority.value, label: task.priority.label },
         milestoneId: task.milestone ? task.milestone.id ~ '' : null,
         projectName: task.project.name,

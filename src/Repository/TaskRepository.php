@@ -6,6 +6,7 @@ use App\DTO\TaskFilterDTO;
 use App\Entity\Milestone;
 use App\Entity\Project;
 use App\Entity\Task;
+use App\Entity\TaskStatusType;
 use App\Entity\User;
 use App\Enum\TaskStatus;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -96,11 +97,13 @@ class TaskRepository extends ServiceEntityRepository
         $qb = $this->createQueryBuilder('t')
             ->join('t.assignees', 'a')
             ->join('t.milestone', 'm')
+            ->leftJoin('t.statusType', 'st')
             ->where('a.user = :user')
             ->andWhere('t.dueDate < :today')
-            ->andWhere('t.status != :completed')
+            ->andWhere('(st.parentType != :closedType OR (st IS NULL AND t.status != :completed))')
             ->setParameter('user', $user)
             ->setParameter('today', new \DateTimeImmutable('today'))
+            ->setParameter('closedType', TaskStatusType::PARENT_TYPE_CLOSED)
             ->setParameter('completed', TaskStatus::COMPLETED)
             ->orderBy('t.dueDate', 'ASC');
 
@@ -120,13 +123,15 @@ class TaskRepository extends ServiceEntityRepository
         $qb = $this->createQueryBuilder('t')
             ->join('t.assignees', 'a')
             ->join('t.milestone', 'm')
+            ->leftJoin('t.statusType', 'st')
             ->where('a.user = :user')
             ->andWhere('t.dueDate >= :today')
             ->andWhere('t.dueDate < :tomorrow')
-            ->andWhere('t.status != :completed')
+            ->andWhere('(st.parentType != :closedType OR (st IS NULL AND t.status != :completed))')
             ->setParameter('user', $user)
             ->setParameter('today', $today)
             ->setParameter('tomorrow', $tomorrow)
+            ->setParameter('closedType', TaskStatusType::PARENT_TYPE_CLOSED)
             ->setParameter('completed', TaskStatus::COMPLETED)
             ->orderBy('t.priority', 'DESC');
 
@@ -166,10 +171,16 @@ class TaskRepository extends ServiceEntityRepository
 
     public function applyFilter(QueryBuilder $qb, TaskFilterDTO $filter): QueryBuilder
     {
-        // Filter by statuses
-        if (!empty($filter->statuses)) {
-            $qb->andWhere('t.status IN (:statuses)')
-                ->setParameter('statuses', $filter->statuses);
+        // Filter by statuses (using statusType relation or legacy enum)
+        $statusSlugs = $filter->getEffectiveStatusSlugs();
+        if (!empty($statusSlugs)) {
+            // Join statusType if not already joined
+            if (!in_array('st', $qb->getAllAliases())) {
+                $qb->leftJoin('t.statusType', 'st');
+            }
+            // Filter by statusType slug OR legacy enum status value
+            $qb->andWhere('(st.slug IN (:statusSlugs) OR (st IS NULL AND t.status IN (:statusSlugs)))')
+                ->setParameter('statusSlugs', $statusSlugs);
         }
 
         // Filter by priorities
@@ -208,9 +219,14 @@ class TaskRepository extends ServiceEntityRepository
 
             switch ($filter->dueFilter) {
                 case 'overdue':
+                    // Join statusType if not already joined
+                    if (!in_array('st', $qb->getAllAliases())) {
+                        $qb->leftJoin('t.statusType', 'st');
+                    }
                     $qb->andWhere('t.dueDate < :today')
-                        ->andWhere('t.status != :completedStatus')
+                        ->andWhere('(st.parentType != :closedType OR (st IS NULL AND t.status != :completedStatus))')
                         ->setParameter('today', $today)
+                        ->setParameter('closedType', TaskStatusType::PARENT_TYPE_CLOSED)
                         ->setParameter('completedStatus', TaskStatus::COMPLETED);
                     break;
 
@@ -307,11 +323,13 @@ class TaskRepository extends ServiceEntityRepository
         return (int) $this->createQueryBuilder('t')
             ->select('COUNT(t.id)')
             ->join('t.milestone', 'm')
+            ->leftJoin('t.statusType', 'st')
             ->where('m.project = :project')
             ->andWhere('t.dueDate < :today')
-            ->andWhere('t.status != :completed')
+            ->andWhere('(st.parentType != :closedType OR (st IS NULL AND t.status != :completed))')
             ->setParameter('project', $project)
             ->setParameter('today', new \DateTimeImmutable('today'))
+            ->setParameter('closedType', TaskStatusType::PARENT_TYPE_CLOSED)
             ->setParameter('completed', TaskStatus::COMPLETED)
             ->getQuery()
             ->getSingleScalarResult();
@@ -321,11 +339,13 @@ class TaskRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('t')
             ->join('t.milestone', 'm')
+            ->leftJoin('t.statusType', 'st')
             ->where('m.project = :project')
             ->andWhere('t.dueDate >= :today')
-            ->andWhere('t.status != :completed')
+            ->andWhere('(st.parentType != :closedType OR (st IS NULL AND t.status != :completed))')
             ->setParameter('project', $project)
             ->setParameter('today', new \DateTimeImmutable('today'))
+            ->setParameter('closedType', TaskStatusType::PARENT_TYPE_CLOSED)
             ->setParameter('completed', TaskStatus::COMPLETED)
             ->orderBy('t.dueDate', 'ASC')
             ->setMaxResults(1)
@@ -341,11 +361,13 @@ class TaskRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('t')
             ->join('t.assignees', 'a')
             ->join('t.milestone', 'm')
+            ->leftJoin('t.statusType', 'st')
             ->where('a.user = :user')
             ->andWhere('m.project = :project')
-            ->andWhere('t.status != :completed')
+            ->andWhere('(st.parentType != :closedType OR (st IS NULL AND t.status != :completed))')
             ->setParameter('user', $user)
             ->setParameter('project', $project)
+            ->setParameter('closedType', TaskStatusType::PARENT_TYPE_CLOSED)
             ->setParameter('completed', TaskStatus::COMPLETED)
             ->orderBy('t.dueDate', 'ASC')
             ->addOrderBy('t.priority', 'DESC')

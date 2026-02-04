@@ -2,14 +2,24 @@
 
 namespace App\DTO;
 
+use App\Entity\TaskStatusType;
 use App\Enum\TaskPriority;
 use App\Enum\TaskStatus;
 use Symfony\Component\HttpFoundation\Request;
 
 class TaskFilterDTO
 {
+    /**
+     * @param TaskStatusType[] $statuses Status types for filtering
+     * @param string[] $statusSlugs Status slugs for filtering (used when status types aren't loaded)
+     * @param TaskPriority[] $priorities
+     * @param string[] $assigneeIds
+     * @param string[] $milestoneIds
+     * @param string[] $projectIds
+     */
     public function __construct(
         public readonly array $statuses = [],
+        public readonly array $statusSlugs = [],
         public readonly array $priorities = [],
         public readonly array $assigneeIds = [],
         public readonly array $milestoneIds = [],
@@ -23,16 +33,11 @@ class TaskFilterDTO
 
     public static function fromRequest(Request $request): self
     {
-        $statuses = [];
+        // Parse status slugs from request
+        $statusSlugs = [];
         $statusParam = $request->query->get('status', '');
         if ($statusParam) {
-            $statusValues = explode(',', $statusParam);
-            foreach ($statusValues as $value) {
-                $status = TaskStatus::tryFrom($value);
-                if ($status) {
-                    $statuses[] = $status;
-                }
-            }
+            $statusSlugs = array_filter(array_map('trim', explode(',', $statusParam)));
         }
 
         $priorities = [];
@@ -77,7 +82,8 @@ class TaskFilterDTO
         $search = $request->query->get('search');
 
         return new self(
-            statuses: $statuses,
+            statuses: [],
+            statusSlugs: $statusSlugs,
             priorities: $priorities,
             assigneeIds: $assigneeIds,
             milestoneIds: $milestoneIds,
@@ -92,6 +98,7 @@ class TaskFilterDTO
     public function hasActiveFilters(): bool
     {
         return !empty($this->statuses)
+            || !empty($this->statusSlugs)
             || !empty($this->priorities)
             || !empty($this->assigneeIds)
             || !empty($this->milestoneIds)
@@ -103,7 +110,7 @@ class TaskFilterDTO
     public function getActiveFilterCount(): int
     {
         $count = 0;
-        if (!empty($this->statuses)) $count++;
+        if (!empty($this->statuses) || !empty($this->statusSlugs)) $count++;
         if (!empty($this->priorities)) $count++;
         if (!empty($this->assigneeIds)) $count++;
         if (!empty($this->milestoneIds)) $count++;
@@ -113,12 +120,26 @@ class TaskFilterDTO
         return $count;
     }
 
+    /**
+     * Get the effective status slugs (from either statuses or statusSlugs).
+     *
+     * @return string[]
+     */
+    public function getEffectiveStatusSlugs(): array
+    {
+        if (!empty($this->statuses)) {
+            return array_map(fn(TaskStatusType $s) => $s->getSlug(), $this->statuses);
+        }
+        return $this->statusSlugs;
+    }
+
     public function toQueryParams(): array
     {
         $params = [];
 
-        if (!empty($this->statuses)) {
-            $params['status'] = implode(',', array_map(fn($s) => $s->value, $this->statuses));
+        $statusSlugs = $this->getEffectiveStatusSlugs();
+        if (!empty($statusSlugs)) {
+            $params['status'] = implode(',', $statusSlugs);
         }
         if (!empty($this->priorities)) {
             $params['priority'] = implode(',', array_map(fn($p) => $p->value, $this->priorities));

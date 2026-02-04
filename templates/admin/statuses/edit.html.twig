@@ -1,0 +1,169 @@
+{% extends 'layout.html.twig' %}
+
+{% block title %}Edit {{ status.name }} - WorkFlow{% endblock %}
+
+{% set page_title = status.name %}
+
+{% block content %}
+<div class="status-edit-page space-y-6">
+    <nav class="status-edit-breadcrumb flex items-center gap-2 text-sm text-gray-500">
+        <a href="{{ path('app_settings') }}" class="hover:text-primary-600 transition-colors">Settings</a>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+        </svg>
+        <a href="{{ path('app_admin_statuses') }}" class="hover:text-primary-600 transition-colors">Task Statuses</a>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+        </svg>
+        <span class="text-gray-900 font-medium">{{ status.name }}</span>
+    </nav>
+
+    <div class="status-edit-content max-w-2xl mx-auto">
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-6 h-6 rounded-full" style="background-color: {{ status.color }};"></div>
+                        <div>
+                            <h1 class="text-xl font-semibold text-gray-900">Edit Status: {{ status.name }}</h1>
+                            <p class="mt-1 text-sm text-gray-500">
+                                {{ status.isOpen ? 'Open Status' : 'Closed Status' }}
+                                {% if status.isSystem %}<span class="ml-2 text-gray-400">(System Status)</span>{% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    {% if status.isSystem %}
+                    <span class="inline-flex items-center rounded-full bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-800">
+                        <svg class="mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                        </svg>
+                        System Status - Limited editing
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <form method="post" action="{{ path('app_admin_statuses_edit', {id: status.id}) }}" class="p-6 space-y-6">
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-700">Status Name</label>
+                    <input type="text" name="name" id="name" required
+                           value="{{ status.name }}"
+                           {% if status.isSystem %}readonly{% endif %}
+                           class="mt-1 block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm {% if status.isSystem %}bg-gray-50{% endif %}">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-3">Status Type</label>
+                    <div class="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
+                        <div class="w-3 h-3 rounded-full {{ status.isOpen ? 'bg-blue-400' : 'bg-green-400' }}"></div>
+                        <span class="text-sm text-gray-700">{{ status.isOpen ? 'Open (active/in-progress tasks)' : 'Closed (completed/done tasks)' }}</span>
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500">Status type cannot be changed after creation</p>
+                </div>
+
+                <div>
+                    <label for="color" class="block text-sm font-medium text-gray-700">Color</label>
+                    <div class="mt-1 flex items-center gap-3">
+                        <input type="color" name="color" id="color" value="{{ status.color }}"
+                               class="h-10 w-14 rounded border border-gray-300 cursor-pointer">
+                        <input type="text" id="color-hex" value="{{ status.color|upper }}" pattern="^#[0-9A-Fa-f]{6}$"
+                               class="block w-28 rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 font-mono text-sm focus:ring-2 focus:ring-inset focus:ring-primary-600">
+                        <div id="color-preview" class="w-8 h-8 rounded-full border border-gray-300" style="background-color: {{ status.color }};"></div>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
+                    <textarea name="description" id="description" rows="2"
+                              class="mt-1 block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm"
+                              placeholder="Optional description of when to use this status...">{{ status.description }}</textarea>
+                </div>
+
+                {% if taskCount > 0 %}
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div class="flex items-start">
+                        <svg class="w-5 h-5 text-blue-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                        </svg>
+                        <div class="ml-3">
+                            <p class="text-sm text-blue-700">
+                                <strong>{{ taskCount }}</strong> {{ taskCount == 1 ? 'task is' : 'tasks are' }} currently using this status.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                    <a href="{{ path('app_admin_statuses') }}" class="rounded-md bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+                        Cancel
+                    </a>
+                    <button type="submit" class="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500">
+                        Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        {% if not status.isSystem and taskCount > 0 %}
+        <div class="bg-white shadow rounded-lg mt-6">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-medium text-red-600">Delete Status</h2>
+                <p class="mt-1 text-sm text-gray-500">Permanently remove this status and reassign tasks</p>
+            </div>
+            <form method="post" action="{{ path('app_admin_statuses_delete', {id: status.id}) }}" class="p-6" onsubmit="return confirm('Are you sure you want to delete this status? {{ taskCount }} task(s) will be reassigned.');">
+                <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ status.id) }}">
+
+                <div class="mb-4">
+                    <label for="reassign_to" class="block text-sm font-medium text-gray-700">Reassign {{ taskCount }} task(s) to:</label>
+                    <select name="reassign_to" id="reassign_to" required
+                            class="mt-1 block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-red-600 sm:text-sm">
+                        <option value="">Select a status...</option>
+                        {% for option in reassignOptions %}
+                        <option value="{{ option.id }}">{{ option.name }} ({{ option.isOpen ? 'Open' : 'Closed' }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <button type="submit" class="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500">
+                    Delete Status
+                </button>
+            </form>
+        </div>
+        {% elseif not status.isSystem %}
+        <div class="bg-white shadow rounded-lg mt-6">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-medium text-red-600">Delete Status</h2>
+            </div>
+            <form method="post" action="{{ path('app_admin_statuses_delete', {id: status.id}) }}" class="p-6" onsubmit="return confirm('Are you sure you want to delete this status?');">
+                <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ status.id) }}">
+                <p class="text-sm text-gray-500 mb-4">No tasks are using this status. It can be safely deleted.</p>
+                <button type="submit" class="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500">
+                    Delete Status
+                </button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const colorPicker = document.getElementById('color');
+    const colorHex = document.getElementById('color-hex');
+    const colorPreview = document.getElementById('color-preview');
+
+    colorPicker.addEventListener('input', function() {
+        colorHex.value = this.value.toUpperCase();
+        colorPreview.style.backgroundColor = this.value;
+    });
+
+    colorHex.addEventListener('input', function() {
+        if (/^#[0-9A-Fa-f]{6}$/.test(this.value)) {
+            colorPicker.value = this.value;
+            colorPreview.style.backgroundColor = this.value;
+        }
+    });
+});
+</script>
+{% endblock %}

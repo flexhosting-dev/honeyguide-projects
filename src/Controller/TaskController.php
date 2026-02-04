@@ -22,6 +22,7 @@ use App\Service\HtmlSanitizer;
 use App\Service\NotificationService;
 use App\Service\PermissionChecker;
 use App\Service\PersonalProjectService;
+use App\Service\TaskStatusService;
 use App\Security\Voter\TaskVoter;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -45,6 +46,7 @@ class TaskController extends AbstractController
         private readonly NotificationService $notificationService,
         private readonly PermissionChecker $permissionChecker,
         private readonly PersonalProjectService $personalProjectService,
+        private readonly TaskStatusService $taskStatusService,
     ) {
     }
 
@@ -123,6 +125,10 @@ class TaskController extends AbstractController
         // Get user's personal project for default task creation
         $personalProject = $this->projectRepository->findPersonalProjectForUser($user);
 
+        // Get all status types for the frontend
+        $allStatuses = $this->taskStatusService->getAllStatuses();
+        $statusesForFrontend = $this->taskStatusService->getStatusesForFrontend();
+
         return $this->render('task/index.html.twig', [
             'page_title' => 'My Tasks',
             'tasks' => $tasks,
@@ -137,6 +143,8 @@ class TaskController extends AbstractController
             'personalProject' => $personalProject,
             'recent_projects' => $this->projectRepository->findRecentForUser($user),
             'favourite_projects' => $this->projectRepository->findFavouritesForUser($user),
+            'allStatuses' => $allStatuses,
+            'statusesJson' => json_encode($statusesForFrontend),
         ]);
     }
 
@@ -212,6 +220,10 @@ class TaskController extends AbstractController
 
         $milestones = array_values($milestoneMap);
 
+        // Get all status types for the frontend
+        $allStatuses = $this->taskStatusService->getAllStatuses();
+        $statusesForFrontend = $this->taskStatusService->getStatusesForFrontend();
+
         return $this->render('task/all_tasks.html.twig', [
             'page_title' => 'All Tasks',
             'tasks' => $tasks,
@@ -226,6 +238,8 @@ class TaskController extends AbstractController
             'isAdmin' => $isAdmin,
             'recent_projects' => $this->projectRepository->findRecentForUser($user),
             'favourite_projects' => $this->projectRepository->findFavouritesForUser($user),
+            'allStatuses' => $allStatuses,
+            'statusesJson' => json_encode($statusesForFrontend),
         ]);
     }
 
@@ -369,6 +383,7 @@ class TaskController extends AbstractController
             'canEdit' => $canEdit,
             'canComment' => $canComment,
             'taskAttachments' => $taskAttachments,
+            'allStatuses' => $this->taskStatusService->getAllStatuses(),
         ]);
     }
 
@@ -457,25 +472,39 @@ class TaskController extends AbstractController
             return $this->json(['error' => 'Status is required'], Response::HTTP_BAD_REQUEST);
         }
 
-        $newStatus = TaskStatus::tryFrom($newStatusValue);
-        if (!$newStatus) {
-            return $this->json(['error' => 'Invalid status'], Response::HTTP_BAD_REQUEST);
-        }
+        // Try to find the new status type by slug
+        $newStatusType = $this->taskStatusService->findBySlug($newStatusValue);
 
-        $oldStatus = $task->getStatus();
-        $task->setStatus($newStatus);
+        // Get old status info
+        $oldStatusLabel = $task->getEffectiveStatusLabel();
+
+        if ($newStatusType) {
+            // Use the new statusType system
+            $task->setStatusType($newStatusType);
+            $newStatusLabel = $newStatusType->getName();
+            $isCompleted = $newStatusType->isClosed();
+        } else {
+            // Fall back to enum for backwards compatibility
+            $newStatus = TaskStatus::tryFrom($newStatusValue);
+            if (!$newStatus) {
+                return $this->json(['error' => 'Invalid status'], Response::HTTP_BAD_REQUEST);
+            }
+            $task->setStatus($newStatus);
+            $newStatusLabel = $newStatus->label();
+            $isCompleted = $newStatus === TaskStatus::COMPLETED;
+        }
 
         $this->activityService->logTaskStatusChanged(
             $project,
             $user,
             $task->getId(),
             $task->getTitle(),
-            $oldStatus->label(),
-            $newStatus->label()
+            $oldStatusLabel,
+            $newStatusLabel
         );
 
         // Notify assignees of status change
-        $notifType = $newStatus === TaskStatus::COMPLETED
+        $notifType = $isCompleted
             ? NotificationType::TASK_COMPLETED
             : NotificationType::TASK_STATUS_CHANGED;
         foreach ($task->getAssignees() as $assignee) {
@@ -486,7 +515,7 @@ class TaskController extends AbstractController
                 'task',
                 $task->getId(),
                 $task->getTitle(),
-                ['oldStatus' => $oldStatus->label(), 'newStatus' => $newStatus->label()],
+                ['oldStatus' => $oldStatusLabel, 'newStatus' => $newStatusLabel],
             );
         }
 
@@ -494,8 +523,9 @@ class TaskController extends AbstractController
 
         return $this->json([
             'success' => true,
-            'status' => $newStatus->value,
-            'statusLabel' => $newStatus->label(),
+            'status' => $task->getEffectiveStatusValue(),
+            'statusLabel' => $task->getEffectiveStatusLabel(),
+            'statusColor' => $task->getEffectiveStatusColor(),
         ]);
     }
 
@@ -611,6 +641,7 @@ class TaskController extends AbstractController
             'canEdit' => $canEdit,
             'canComment' => $canComment,
             'taskAttachments' => $taskAttachments,
+            'allStatuses' => $this->taskStatusService->getAllStatuses(),
         ]);
     }
 
@@ -1498,6 +1529,15 @@ class TaskController extends AbstractController
         return $this->json([
             'success' => true,
             'deleted' => $deletedCount,
+        ]);
+    }
+
+    #[Route('/api/statuses', name: 'app_api_statuses', methods: ['GET'])]
+    public function getStatuses(): JsonResponse
+    {
+        return $this->json([
+            'success' => true,
+            'statuses' => $this->taskStatusService->getStatusesForFrontend(),
         ]);
     }
 

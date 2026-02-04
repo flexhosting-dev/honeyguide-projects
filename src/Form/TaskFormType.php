@@ -5,9 +5,11 @@ namespace App\Form;
 use App\Entity\Milestone;
 use App\Entity\Project;
 use App\Entity\Task;
+use App\Entity\TaskStatusType;
 use App\Entity\User;
 use App\Enum\TaskPriority;
 use App\Enum\TaskStatus;
+use App\Repository\TaskStatusTypeRepository;
 use App\Repository\UserRepository;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
@@ -62,14 +64,13 @@ class TaskFormType extends AbstractType
                     'rows' => 3,
                 ],
             ])
-            ->add('status', ChoiceType::class, [
+            ->add('statusType', EntityType::class, [
                 'label' => 'Status',
-                'choices' => [
-                    'To Do' => TaskStatus::TODO,
-                    'In Progress' => TaskStatus::IN_PROGRESS,
-                    'In Review' => TaskStatus::IN_REVIEW,
-                    'Completed' => TaskStatus::COMPLETED,
-                ],
+                'class' => TaskStatusType::class,
+                'choice_label' => 'name',
+                'choice_value' => fn(?TaskStatusType $status) => $status?->getId()?->toString(),
+                'group_by' => fn(TaskStatusType $status) => $status->isOpen() ? 'Open' : 'Closed',
+                'query_builder' => fn(TaskStatusTypeRepository $repo) => $repo->createQueryBuilder('s')->orderBy('s.sortOrder', 'ASC'),
                 'attr' => [
                     'class' => 'block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm sm:leading-6',
                 ],

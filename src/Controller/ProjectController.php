@@ -15,6 +15,7 @@ use App\Enum\Permission;
 use App\Service\ActivityService;
 use App\Service\HtmlSanitizer;
 use App\Service\PermissionChecker;
+use App\Service\TaskStatusService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -35,6 +36,7 @@ class ProjectController extends AbstractController
         private readonly ActivityService $activityService,
         private readonly HtmlSanitizer $htmlSanitizer,
         private readonly PermissionChecker $permissionChecker,
+        private readonly TaskStatusService $taskStatusService,
     ) {
     }
 
@@ -199,6 +201,9 @@ class ProjectController extends AbstractController
         $canManageMembers = $this->permissionChecker->hasPermission($user, Permission::PROJECT_MANAGE_MEMBERS, $project);
         $canEditMilestone = $this->permissionChecker->hasPermission($user, Permission::MILESTONE_EDIT, $project);
 
+        // Get all status types for the frontend
+        $allStatuses = $this->taskStatusService->getAllStatuses();
+
         return $this->render('project/show.html.twig', [
             'page_title' => $project->getName(),
             'project' => $project,
@@ -222,6 +227,7 @@ class ProjectController extends AbstractController
             'canCreateTask' => $canCreateTask,
             'canManageMembers' => $canManageMembers,
             'canEditMilestone' => $canEditMilestone,
+            'allStatuses' => $allStatuses,
         ]);
     }
 

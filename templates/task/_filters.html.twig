@@ -35,9 +35,16 @@
         {% if hasFilters %}
             {# Active filter pills shown inline when collapsed #}
             <div x-show="!open" class="flex flex-wrap items-center gap-2">
-                {% if filter.statuses|length > 0 %}
-                    {% for status in filter.statuses %}
-                        <span class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">{{ status.label }}</span>
+                {% if filter.statusSlugs|length > 0 %}
+                    {% for statusSlug in filter.statusSlugs %}
+                        {% for status in allStatuses|default([]) %}
+                            {% if status.slug == statusSlug %}
+                                <span class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
+                                    <span class="w-2 h-2 rounded-full" style="background-color: {{ status.color }};"></span>
+                                    {{ status.name }}
+                                </span>
+                            {% endif %}
+                        {% endfor %}
                     {% endfor %}
                 {% endif %}
                 {% if filter.priorities|length > 0 %}
@@ -112,14 +119,16 @@
                         </button>
                         <div x-show="open" x-transition @click.outside="open = false" class="absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
                             <div class="p-2 space-y-1">
-                                {% for status in ['todo', 'in_progress', 'in_review', 'completed'] %}
-                                    {% set statusLabels = {'todo': 'To Do', 'in_progress': 'In Progress', 'in_review': 'In Review', 'completed': 'Completed'} %}
+                                {% for status in allStatuses|default([]) %}
                                     <label class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer">
-                                        <input type="checkbox" name="status_{{ status }}" value="{{ status }}"
-                                               {% if status in filter.statuses|map(s => s.value) %}checked{% endif %}
+                                        <input type="checkbox" name="status_{{ status.slug }}" value="{{ status.slug }}"
+                                               {% if status.slug in filter.statusSlugs %}checked{% endif %}
                                                @change="updateCount($el)"
                                                class="rounded border-gray-300 text-primary-600 focus:ring-primary-500">
-                                        <span class="text-sm text-gray-700">{{ statusLabels[status] }}</span>
+                                        <span class="text-sm text-gray-700 flex items-center">
+                                            <span class="w-2 h-2 rounded-full mr-2" style="background-color: {{ status.color }};"></span>
+                                            {{ status.name }}
+                                        </span>
                                     </label>
                                 {% endfor %}
                             </div>
@@ -296,11 +305,16 @@
                 {% if filter.hasActiveFilters %}
                 <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-100">
                     <span class="text-xs text-gray-500">Active filters:</span>
-                    {% if filter.statuses|length > 0 %}
-                        {% for status in filter.statuses %}
-                            <span class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
-                                {{ status.label }}
-                            </span>
+                    {% if filter.statusSlugs|length > 0 %}
+                        {% for statusSlug in filter.statusSlugs %}
+                            {% for status in allStatuses|default([]) %}
+                                {% if status.slug == statusSlug %}
+                                    <span class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
+                                        <span class="w-2 h-2 rounded-full" style="background-color: {{ status.color }};"></span>
+                                        {{ status.name }}
+                                    </span>
+                                {% endif %}
+                            {% endfor %}
                         {% endfor %}
                     {% endif %}
                     {% if filter.priorities|length > 0 %}
