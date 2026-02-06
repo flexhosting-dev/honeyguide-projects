@@ -1000,9 +1000,7 @@ All errors should be user-friendly and actionable.
 - Timesheet reports
 
 ### Recurring Tasks
-- Daily/weekly/monthly task templates
-- Auto-create tasks on schedule
-- Useful for maintenance and routine work
+See Feature #10 below for full specification.
 
 ### Advanced Search
 - Full-text search across all tasks
@@ -1273,6 +1271,569 @@ POST   /settings/statuses/reorder # Reorder statuses
 
 ---
 
+## 10. Recurring Tasks
+
+**Priority:** Medium
+**Complexity:** Medium-High
+**Impact:** Automates routine work, reduces manual task creation for repetitive workflows
+
+### Overview
+
+Recurring tasks allow users to create task templates that automatically generate new task instances on a defined schedule. Each instance is a normal `Task` entity that can be edited, completed, or deleted independently, while maintaining a link back to its recurring template.
+
+### Core Concepts
+
+#### How It Works
+
+1. User creates a **Recurring Task Template** with task details + recurrence pattern
+2. A **scheduled command** runs daily and creates task instances ahead of time
+3. Each generated task is a normal `Task` with a reference to its template
+4. Tasks display a recurring badge (🔄) to indicate they're part of a series
+
+#### Two Creation Strategies
+
+| Strategy | Description | Pros | Cons |
+|----------|-------------|------|------|
+| **Create on Schedule** (Recommended) | Cron job creates instances X days ahead | Tasks visible in upcoming views, predictable | Requires scheduler |
+| **Create on Completion** | Next instance created when current is completed | Simple, no background jobs | If user forgets, next task never appears |
+
+**Recommendation:** Use scheduled creation with configurable "create ahead" days (default: 7 days).
+
+### Recurrence Patterns
+
+| Pattern | Examples |
+|---------|----------|
+| **Daily** | Every day, every 3 days, every weekday |
+| **Weekly** | Every Monday, every Mon/Wed/Fri, every 2 weeks on Tuesday |
+| **Monthly** | 15th of each month, last day of month, 2nd Tuesday of month |
+| **Yearly** | Every January 1st, last Friday of December |
+| **Custom** | Every 10 days, every 6 weeks |
+
+#### Pattern Configuration (Google Calendar Style)
+
+**Repeat every:** `[1-99]` `[day/week/month/year]`
+
+**Weekly options:**
+```
+Repeat on: [S] [M] [T] [W] [T] [F] [S]
+           ☐   ☑   ☐   ☑   ☐   ☑   ☐   ← Mon, Wed, Fri selected
+```
+
+**Monthly options:**
+```
+○ Day 15 of the month
+● The third Monday of the month
+○ The last day of the month
+```
+
+**Ends:**
+```
+○ Never
+○ On [date picker]
+○ After [number] occurrences
+```
+
+### Database Schema
+
+#### New Entity: RecurringTaskTemplate
+
+```php
+#[ORM\Entity(repositoryClass: RecurringTaskTemplateRepository::class)]
+#[ORM\Table(name: 'recurring_task_template')]
+class RecurringTaskTemplate
+{
+    #[ORM\Id]
+    #[ORM\Column(type: 'uuid')]
+    private UuidInterface $id;
+
+    // Task template fields
+    #[ORM\ManyToOne(targetEntity: Project::class)]
+    #[ORM\JoinColumn(nullable: false)]
+    private Project $project;
+
+    #[ORM\ManyToOne(targetEntity: Milestone::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?Milestone $milestone = null;
+
+    #[ORM\Column(length: 255)]
+    private string $title;
+
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $description = null;
+
+    #[ORM\ManyToOne(targetEntity: TaskStatusType::class)]
+    #[ORM\JoinColumn(nullable: false)]
+    private TaskStatusType $defaultStatus;
+
+    #[ORM\Column(type: 'string', enumType: TaskPriority::class)]
+    private TaskPriority $priority = TaskPriority::NONE;
+
+    #[ORM\ManyToMany(targetEntity: User::class)]
+    #[ORM\JoinTable(name: 'recurring_task_template_assignees')]
+    private Collection $defaultAssignees;
+
+    #[ORM\ManyToMany(targetEntity: Tag::class)]
+    private Collection $tags;
+
+    // Recurrence pattern
+    #[ORM\Column(length: 20)]
+    private string $frequency;  // 'daily', 'weekly', 'monthly', 'yearly'
+
+    #[ORM\Column]
+    private int $interval = 1;  // Every X days/weeks/months/years
+
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $daysOfWeek = null;  // [1,3,5] for Mon/Wed/Fri (ISO weekday numbers)
+
+    #[ORM\Column(nullable: true)]
+    private ?int $dayOfMonth = null;  // 1-31, or -1 for last day
+
+    #[ORM\Column(length: 20, nullable: true)]
+    private ?string $monthlyType = null;  // 'day_of_month' or 'day_of_week'
+
+    #[ORM\Column(nullable: true)]
+    private ?int $weekOfMonth = null;  // 1-5, or -1 for last (for "2nd Tuesday" type)
+
+    // Schedule bounds
+    #[ORM\Column(type: 'date_immutable')]
+    private \DateTimeImmutable $startDate;
+
+    #[ORM\Column(type: 'date_immutable', nullable: true)]
+    private ?\DateTimeImmutable $endDate = null;  // null = no end
+
+    #[ORM\Column(nullable: true)]
+    private ?int $maxOccurrences = null;  // Stop after X instances
+
+    #[ORM\Column]
+    private int $createAheadDays = 7;  // Create instance X days before due
+
+    // Tracking
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $lastCreatedAt = null;
+
+    #[ORM\Column]
+    private int $occurrenceCount = 0;
+
+    #[ORM\Column]
+    private bool $isActive = true;
+
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(nullable: false)]
+    private User $createdBy;
+
+    #[ORM\Column]
+    private \DateTimeImmutable $createdAt;
+
+    #[ORM\Column]
+    private \DateTimeImmutable $updatedAt;
+}
+```
+
+#### Task Entity Additions
+
+```php
+// Add to existing Task entity
+#[ORM\ManyToOne(targetEntity: RecurringTaskTemplate::class)]
+#[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+private ?RecurringTaskTemplate $recurringTemplate = null;
+
+#[ORM\Column(nullable: true)]
+private ?int $recurrenceIndex = null;  // Which occurrence (1st, 2nd, 3rd...)
+
+#[ORM\Column(type: 'date_immutable', nullable: true)]
+private ?\DateTimeImmutable $scheduledDate = null;  // Original scheduled date from pattern
+
+public function isRecurring(): bool
+{
+    return $this->recurringTemplate !== null;
+}
+```
+
+### Scheduled Task Creation
+
+#### Command
+
+```php
+// src/Command/CreateRecurringTasksCommand.php
+#[AsCommand(
+    name: 'app:create-recurring-tasks',
+    description: 'Creates upcoming instances of recurring tasks'
+)]
+class CreateRecurringTasksCommand extends Command
+{
+    protected function execute(InputInterface $input, OutputInterface $output): int
+    {
+        $today = new \DateTimeImmutable('today');
+        $templates = $this->templateRepo->findActive();
+        $created = 0;
+
+        foreach ($templates as $template) {
+            // Check if max occurrences reached
+            if ($template->getMaxOccurrences() &&
+                $template->getOccurrenceCount() >= $template->getMaxOccurrences()) {
+                continue;
+            }
+
+            // Check if past end date
+            if ($template->getEndDate() && $today > $template->getEndDate()) {
+                continue;
+            }
+
+            // Calculate next due dates within the create-ahead window
+            $windowEnd = $today->modify("+{$template->getCreateAheadDays()} days");
+            $nextDates = $this->recurrenceCalculator->getNextDates(
+                $template,
+                $template->getLastCreatedAt() ?? $template->getStartDate(),
+                $windowEnd
+            );
+
+            foreach ($nextDates as $dueDate) {
+                // Skip if task already exists for this date
+                if ($this->taskRepo->existsForTemplateAndDate($template, $dueDate)) {
+                    continue;
+                }
+
+                $task = $this->createTaskFromTemplate($template, $dueDate);
+                $this->entityManager->persist($task);
+
+                $template->setLastCreatedAt(new \DateTimeImmutable());
+                $template->incrementOccurrenceCount();
+                $created++;
+            }
+        }
+
+        $this->entityManager->flush();
+        $output->writeln("Created {$created} recurring task instances.");
+
+        return Command::SUCCESS;
+    }
+
+    private function createTaskFromTemplate(
+        RecurringTaskTemplate $template,
+        \DateTimeImmutable $dueDate
+    ): Task {
+        $task = new Task();
+        $task->setTitle($template->getTitle());
+        $task->setDescription($template->getDescription());
+        $task->setProject($template->getProject());
+        $task->setMilestone($template->getMilestone());
+        $task->setStatus($template->getDefaultStatus());
+        $task->setPriority($template->getPriority());
+        $task->setDueDate($dueDate);
+        $task->setRecurringTemplate($template);
+        $task->setRecurrenceIndex($template->getOccurrenceCount() + 1);
+        $task->setScheduledDate($dueDate);
+
+        foreach ($template->getDefaultAssignees() as $user) {
+            $task->addAssignee($user);
+        }
+
+        foreach ($template->getTags() as $tag) {
+            $task->addTag($tag);
+        }
+
+        return $task;
+    }
+}
+```
+
+#### Cron Configuration
+
+```bash
+# Run daily at 6 AM
+0 6 * * * cd /path/to/project && php bin/console app:create-recurring-tasks
+```
+
+Or using Symfony Scheduler (Symfony 6.3+):
+
+```php
+#[AsSchedule]
+class RecurringTaskSchedule implements ScheduleProviderInterface
+{
+    public function getSchedule(): Schedule
+    {
+        return (new Schedule())
+            ->add(RecurringMessage::cron('0 6 * * *', new CreateRecurringTasksMessage()));
+    }
+}
+```
+
+### UI Components
+
+#### Visual Differentiation in Task List
+
+Tasks from recurring templates display a recurring icon:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ ☐  Weekly team standup              🔄   To Do    Due: Mon 10   │
+│ ☐  Daily standup                    🔄   To Do    Due: Tue 11   │
+│ ☐  Fix login bug                          To Do    Due: Feb 12  │  ← normal
+│ ☐  Monthly security review          🔄   To Do    Due: Mar 1    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Legend:**
+- 🔄 = Recurring task instance (or use a repeat icon)
+- Hover tooltip: "Recurring: Every Monday"
+- Click icon to view series details
+
+#### Task Panel - Recurring Info Section
+
+When viewing a recurring task instance:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ Weekly Team Standup                              [...]  │
+├─────────────────────────────────────────────────────────┤
+│ 🔄 Recurring Task                                       │
+│    Every Monday                                         │
+│    Instance 12 of series                                │
+│                                                         │
+│    [View Series]  [Edit Series]  [Detach from Series]   │
+├─────────────────────────────────────────────────────────┤
+│ Status: To Do                                           │
+│ Due Date: Monday, February 10, 2026                     │
+│ ...                                                     │
+└─────────────────────────────────────────────────────────┘
+```
+
+#### Create Recurring Task Modal
+
+**Step 1: Task Details** (same as normal task creation)
+- Title, Description, Project, Milestone, Priority, Assignees, Tags
+
+**Step 2: Recurrence Pattern**
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ Recurrence Pattern                                      │
+├─────────────────────────────────────────────────────────┤
+│ Repeat every: [1 ▼] [week ▼]                            │
+│                                                         │
+│ Repeat on:                                              │
+│   [S] [M] [T] [W] [T] [F] [S]                           │
+│    ☐   ☑   ☐   ☐   ☐   ☐   ☐                           │
+│                                                         │
+│ Starts: [Feb 10, 2026    📅]                            │
+│                                                         │
+│ Ends:                                                   │
+│   ○ Never                                               │
+│   ○ On date: [____________📅]                           │
+│   ○ After [__] occurrences                              │
+│                                                         │
+│ Create tasks: [7 ▼] days ahead                          │
+├─────────────────────────────────────────────────────────┤
+│               [Cancel]  [Create Recurring Task]         │
+└─────────────────────────────────────────────────────────┘
+```
+
+#### Recurring Templates List
+
+**Location:** Project → Settings → Recurring Tasks, or dedicated tab
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Recurring Tasks                                        [+ New Template] │
+├─────────────────────────────────────────────────────────────────────────┤
+│ Title                    │ Pattern           │ Next Due  │ Status │ ⚙️  │
+├─────────────────────────────────────────────────────────────────────────┤
+│ Weekly team standup      │ Every Monday      │ Feb 17    │ Active │ ⚙️  │
+│ Daily standup            │ Every weekday     │ Feb 11    │ Active │ ⚙️  │
+│ Monthly security review  │ 1st of month      │ Mar 1     │ Active │ ⚙️  │
+│ Quarterly report         │ Every 3 months    │ Apr 1     │ Paused │ ⚙️  │
+└─────────────────────────────────────────────────────────────────────────┘
+
+⚙️ Menu: Edit, Pause/Resume, View Instances, Delete
+```
+
+### Behavior Specifications
+
+#### When User Completes an Instance
+
+1. Task marked as completed (normal behavior)
+2. No immediate action needed - next instance already created by scheduler
+3. If next instance doesn't exist yet, scheduler will create it on next run
+
+#### When User Edits an Instance
+
+| Field Changed | Behavior |
+|---------------|----------|
+| Title | Only this instance changes |
+| Description | Only this instance changes |
+| Due Date | Only this instance changes (task remains part of series) |
+| Status | Only this instance changes |
+| Assignees | Only this instance changes |
+
+**Key Behavior:** Editing any field (including due date) only affects that instance. The task remains linked to the recurring template and continues to show the recurring badge. The `scheduledDate` field preserves the original scheduled date from the pattern, while `dueDate` can be changed independently.
+
+This matches Google Calendar behavior: dragging an event to a different day reschedules that instance but keeps it part of the series.
+
+#### When User Edits the Template
+
+- Changes apply to **future instances only**
+- Already-created instances remain unchanged
+- Option to "Apply to all open instances" (bulk update)
+
+#### When User Deletes an Instance
+
+- Only that instance is deleted
+- Series continues, future instances unaffected
+- Instance marked as "skipped" in recurrence tracking (optional)
+
+#### When User Deletes the Template
+
+- Stop creating new instances
+- Existing instances remain as normal tasks
+- Existing instances lose recurring badge (template reference becomes null)
+
+#### When User Pauses the Template
+
+- Stop creating new instances temporarily
+- Resume later to continue from where it left off
+- Existing instances unaffected
+
+#### Detaching an Instance
+
+User can "detach" an instance from its series:
+- Task becomes a normal task
+- No longer shows recurring badge
+- Template occurrence count unchanged
+
+### Filtering & Grouping
+
+#### Filter Options
+
+```
+Recurring Tasks:
+  ○ All tasks
+  ○ Recurring only
+  ○ Non-recurring only
+  ○ From template: [Select template ▼]
+```
+
+#### Grouping Option
+
+In table view, add grouping option:
+- **Group by: Recurring Series** - Groups instances by their template
+
+### API Endpoints
+
+```
+# Templates
+GET    /api/projects/{id}/recurring-templates       # List templates
+POST   /api/projects/{id}/recurring-templates       # Create template
+GET    /api/recurring-templates/{id}                # Get template details
+PUT    /api/recurring-templates/{id}                # Update template
+DELETE /api/recurring-templates/{id}                # Delete template
+POST   /api/recurring-templates/{id}/pause          # Pause template
+POST   /api/recurring-templates/{id}/resume         # Resume template
+
+# Instance management
+GET    /api/recurring-templates/{id}/instances      # List instances
+POST   /api/tasks/{id}/detach-from-series           # Detach instance
+```
+
+### Implementation Phases
+
+1. **Entity & Migration**
+   - Create `RecurringTaskTemplate` entity
+   - Add recurring fields to `Task` entity
+   - Create migrations
+
+2. **Recurrence Calculator Service**
+   - Calculate next occurrence dates
+   - Handle all pattern types (daily, weekly, monthly, yearly)
+   - Edge cases: month end, leap years, timezone handling
+
+3. **Scheduled Command**
+   - Create recurring tasks command
+   - Cron/scheduler configuration
+   - Logging and error handling
+
+4. **Template CRUD UI**
+   - Create template form with recurrence pattern UI
+   - Template list page
+   - Edit/pause/delete functionality
+
+5. **Task List Integration**
+   - Recurring badge display
+   - Filter by recurring
+   - Group by series
+
+6. **Task Panel Integration**
+   - Show recurring info section
+   - View/edit series links
+   - Detach functionality
+
+7. **Notifications**
+   - Notify assignees when recurring instance is created
+   - Optional: Summary email of upcoming recurring tasks
+
+### Files Affected
+
+**Backend:**
+- New: `src/Entity/RecurringTaskTemplate.php`
+- New: `src/Repository/RecurringTaskTemplateRepository.php`
+- New: `src/Service/RecurrenceCalculatorService.php`
+- New: `src/Command/CreateRecurringTasksCommand.php`
+- New: `src/Controller/RecurringTaskController.php`
+- New: `src/Form/RecurringTaskTemplateType.php`
+- New: `migrations/VersionXXX.php`
+- Modified: `src/Entity/Task.php` - Add recurring fields
+- Modified: `src/Repository/TaskRepository.php` - Filter by recurring
+
+**Frontend:**
+- New: `templates/recurring/index.html.twig` - Template list
+- New: `templates/recurring/_form.html.twig` - Create/edit form
+- New: `assets/vue/components/RecurrencePatternEditor.js` - Pattern UI
+- Modified: `templates/task/_card.html.twig` - Recurring badge
+- Modified: `templates/task/_panel.html.twig` - Recurring info section
+- Modified: `assets/vue/components/TaskTable.js` - Recurring filter/group
+- Modified: `assets/vue/components/TaskRow.js` - Recurring badge
+
+### Edge Cases
+
+| Case | Handling |
+|------|----------|
+| Monthly on 31st | Falls back to last day of shorter months |
+| Leap year Feb 29 | Skip in non-leap years, or fall back to Feb 28 |
+| DST transitions | Use date-only scheduling, not time-specific |
+| Milestone deleted | Instances remain, new instances have no milestone |
+| Assignee deactivated | Remove from template, existing instances unchanged |
+| Project archived | Pause all templates in project |
+| Template end date passed | Mark as completed, stop checking |
+| Max occurrences reached | Mark as completed, stop checking |
+
+### Example Use Cases
+
+**Daily Standup:**
+- Frequency: Daily (weekdays only)
+- Days: Mon, Tue, Wed, Thu, Fri
+- Assignees: Entire team
+- Create ahead: 1 day
+
+**Weekly Report:**
+- Frequency: Weekly
+- Day: Friday
+- Assignees: Project manager
+- Create ahead: 3 days
+
+**Monthly Invoice Review:**
+- Frequency: Monthly
+- Type: Last business day of month
+- Assignees: Finance team
+- Create ahead: 7 days
+
+**Quarterly Security Audit:**
+- Frequency: Every 3 months
+- Day: 1st of month
+- Months: Jan, Apr, Jul, Oct
+- Assignees: Security team
+- Create ahead: 14 days
+
+---
+
 ## Notes
 
 - Features are listed roughly in order of suggested implementation priority
@@ -1282,4 +1843,4 @@ POST   /settings/statuses/reorder # Reorder statuses
 
 ---
 
-*Last updated: 4 February 2026*
+*Last updated: 6 February 2026*

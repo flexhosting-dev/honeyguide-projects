@@ -8,7 +8,7 @@
 
 {% include 'task/_task_page.html.twig' with {
     pageTitle: 'All Tasks',
-    pageDescription: isAdmin ? 'All tasks in the system.' : 'All tasks from your projects.',
+    pageDescription: isAdmin ? 'All tasks in the system (except private ones).' : 'All tasks from your projects.',
     formAction: 'app_task_all_tasks',
     tasks: tasks,
     tasksByStatus: tasksByStatus,

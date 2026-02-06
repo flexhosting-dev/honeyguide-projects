@@ -386,14 +386,17 @@ class TaskRepository extends ServiceEntityRepository
     public function findAllTasksFiltered(User $user, TaskFilterDTO $filter, bool $isAdmin = false): array
     {
         if ($isAdmin) {
-            // Admin can see all tasks (but still respects their hidden projects)
+            // Admin can see all tasks, but only their own personal project (not others')
             $qb = $this->createQueryBuilder('t')
                 ->join('t.milestone', 'm')
+                ->join('m.project', 'p')
+                ->andWhere('p.isPersonal = false OR p.owner = :user')
+                ->setParameter('user', $user)
                 ->orderBy('t.dueDate', 'ASC')
                 ->addOrderBy('t.priority', 'DESC');
         } else {
             // Regular user sees tasks from projects they are members of, own, or are public
-            // Use a subquery to find accessible project IDs to avoid join-based duplication
+            // Excludes other users' personal projects
             $projectRepo = $this->getEntityManager()->getRepository(Project::class);
             $accessibleProjects = $projectRepo->createQueryBuilder('ap')
                 ->select('ap.id')
@@ -401,6 +404,7 @@ class TaskRepository extends ServiceEntityRepository
                 ->where('ap.owner = :user')
                 ->orWhere('apm.user = :user')
                 ->orWhere('ap.isPublic = true')
+                ->andWhere('ap.isPersonal = false OR ap.owner = :user')
                 ->setParameter('user', $user)
                 ->distinct()
                 ->getQuery()
