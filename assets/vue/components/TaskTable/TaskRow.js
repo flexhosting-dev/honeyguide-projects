@@ -28,6 +28,10 @@ export default {
             type: Array,
             default: () => []
         },
+        members: {
+            type: Array,
+            default: () => []
+        },
         depth: {
             type: Number,
             default: 0
@@ -70,7 +74,7 @@ export default {
         }
     },
 
-    emits: ['click', 'select', 'toggle-expand', 'cell-click', 'save-edit', 'cancel-edit'],
+    emits: ['click', 'select', 'toggle-expand', 'cell-click', 'save-edit', 'cancel-edit', 'assignee-change'],
 
     setup(props, { emit }) {
         const visibleColumns = computed(() => {
@@ -166,6 +170,26 @@ export default {
         const handleSelectChange = (event) => {
             editValue.value = event.target.value;
             saveEdit();
+        };
+
+        // Get current assignee IDs for filtering available members
+        const currentAssigneeIds = computed(() => {
+            return new Set((props.task.assignees || []).map(a => a.user?.id || a.id));
+        });
+
+        // Available members to add (not already assigned)
+        const availableMembers = computed(() => {
+            return props.members.filter(m => !currentAssigneeIds.value.has(m.id));
+        });
+
+        // Add assignee
+        const addAssignee = (memberId) => {
+            emit('assignee-change', props.task.id, memberId, 'add');
+        };
+
+        // Remove assignee
+        const removeAssignee = (userId) => {
+            emit('assignee-change', props.task.id, userId, 'remove');
         };
 
         // Status styling
@@ -273,7 +297,10 @@ export default {
             cancelEdit,
             handleEditKeydown,
             handleSelectChange,
-            highlightedTitle
+            highlightedTitle,
+            availableMembers,
+            addAssignee,
+            removeAssignee
         };
     },
 
@@ -424,7 +451,60 @@ export default {
 
                 <!-- Assignees -->
                 <template v-else-if="column.key === 'assignees'">
-                    <div class="flex -space-x-1" @click="handleCellClick($event, 'assignees')">
+                    <!-- Edit mode -->
+                    <div v-if="editingField === 'assignees'" class="relative">
+                        <div class="flex flex-wrap items-center gap-1 p-1 bg-white border border-primary-500 rounded min-h-[32px]">
+                            <!-- Current assignees with remove button -->
+                            <span
+                                v-for="assignee in task.assignees"
+                                :key="assignee.id"
+                                class="inline-flex items-center gap-1 bg-gray-100 rounded-full pl-1 pr-0.5 py-0.5">
+                                <span class="inline-flex h-5 w-5 items-center justify-center rounded-full overflow-hidden">
+                                    <img
+                                        v-if="assignee.user?.avatar || assignee.avatar"
+                                        :src="assignee.user?.avatar || assignee.avatar"
+                                        :alt="assignee.user?.fullName || assignee.fullName"
+                                        class="w-full h-full object-cover"
+                                    />
+                                    <span v-else class="w-full h-full bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center">
+                                        <span class="text-xs font-medium text-white">
+                                            {{ (assignee.user?.firstName || assignee.firstName || '?').charAt(0).toUpperCase() }}
+                                        </span>
+                                    </span>
+                                </span>
+                                <span class="text-xs text-gray-700 max-w-[60px] truncate">{{ assignee.user?.firstName || assignee.firstName }}</span>
+                                <button
+                                    type="button"
+                                    @click.stop="removeAssignee(assignee.user?.id || assignee.id)"
+                                    class="p-0.5 text-gray-400 hover:text-red-500 rounded">
+                                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
+                                </button>
+                            </span>
+                            <!-- Add member dropdown -->
+                            <select
+                                v-if="availableMembers.length > 0"
+                                ref="inputRef"
+                                @change="addAssignee($event.target.value); $event.target.value = ''"
+                                class="text-xs border-0 bg-transparent focus:outline-none focus:ring-0 py-0 px-1 min-w-[80px]">
+                                <option value="">+ Add...</option>
+                                <option v-for="member in availableMembers" :key="member.id" :value="member.id">
+                                    {{ member.fullName }}
+                                </option>
+                            </select>
+                            <span v-else-if="task.assignees.length === 0" class="text-xs text-gray-400 px-1">No members</span>
+                            <!-- Done button -->
+                            <button
+                                type="button"
+                                @click.stop="cancelEdit"
+                                class="ml-auto px-2 py-0.5 text-xs text-primary-600 hover:text-primary-700 font-medium">
+                                Done
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Display mode -->
+                    <div v-else class="flex -space-x-1 cursor-pointer" @click="handleCellClick($event, 'assignees')">
                         <template v-if="task.assignees && task.assignees.length > 0">
                             <span
                                 v-for="(assignee, idx) in task.assignees.slice(0, 3)"
@@ -449,7 +529,7 @@ export default {
                                 <span class="text-xs font-medium text-gray-600">+{{ task.assignees.length - 3 }}</span>
                             </span>
                         </template>
-                        <span v-else class="text-gray-400">-</span>
+                        <span v-else class="text-gray-400 hover:text-primary-600">+ Add</span>
                     </div>
                 </template>
 

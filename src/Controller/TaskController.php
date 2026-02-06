@@ -1225,6 +1225,14 @@ class TaskController extends AbstractController
             }
         }
 
+        if (!empty($data['startDate'])) {
+            try {
+                $task->setStartDate(new \DateTimeImmutable($data['startDate']));
+            } catch (\Exception $e) {
+                // Ignore invalid date
+            }
+        }
+
         if (!empty($data['description'])) {
             $task->setDescription(trim($data['description']));
         }
@@ -1235,23 +1243,43 @@ class TaskController extends AbstractController
 
         $this->entityManager->persist($task);
 
-        // Auto-assign to current user if personal project
+        // Handle assignees
         $assigneesData = [];
-        if ($project->isPersonal()) {
-            $assignee = new TaskAssignee();
-            $assignee->setTask($task);
-            $assignee->setUser($user);
-            $assignee->setAssignedBy($user);
-            $this->entityManager->persist($assignee);
-            $task->addAssignee($assignee);
+        $basePath = $request->getBasePath();
+        $assigneeUserIds = $data['assignees'] ?? [];
 
-            $basePath = $request->getBasePath();
-            $assigneesData[] = [
-                'id' => $user->getId()->toString(),
-                'name' => $user->getFullName(),
-                'initials' => strtoupper(substr($user->getFirstName(), 0, 1) . substr($user->getLastName(), 0, 1)),
-                'avatar' => $user->getAvatar() ? $basePath . '/uploads/avatars/' . $user->getAvatar() : null,
-            ];
+        // If personal project and no assignees specified, auto-assign to current user
+        if ($project->isPersonal() && empty($assigneeUserIds)) {
+            $assigneeUserIds = [$user->getId()->toString()];
+        }
+
+        // Build set of project member user IDs for quick lookup
+        $projectMemberIds = [];
+        foreach ($project->getMembers() as $member) {
+            $projectMemberIds[$member->getUser()->getId()->toString()] = true;
+        }
+
+        foreach ($assigneeUserIds as $assigneeUserId) {
+            $assigneeUser = $this->userRepository->find($assigneeUserId);
+            if ($assigneeUser && isset($projectMemberIds[$assigneeUserId])) {
+                $assignee = new TaskAssignee();
+                $assignee->setTask($task);
+                $assignee->setUser($assigneeUser);
+                $assignee->setAssignedBy($user);
+                $this->entityManager->persist($assignee);
+                $task->addAssignee($assignee);
+
+                $assigneesData[] = [
+                    'id' => $assignee->getId()->toString(),
+                    'user' => [
+                        'id' => $assigneeUser->getId()->toString(),
+                        'firstName' => $assigneeUser->getFirstName(),
+                        'lastName' => $assigneeUser->getLastName(),
+                        'fullName' => $assigneeUser->getFullName(),
+                        'avatar' => $assigneeUser->getAvatar() ? $basePath . '/uploads/avatars/' . $assigneeUser->getAvatar() : null,
+                    ],
+                ];
+            }
         }
 
         $this->activityService->logTaskCreated(
@@ -1282,6 +1310,7 @@ class TaskController extends AbstractController
                     'name' => $milestone->getName(),
                 ],
                 'dueDate' => $task->getDueDate()?->format('Y-m-d'),
+                'startDate' => $task->getStartDate()?->format('Y-m-d'),
                 'position' => $task->getPosition(),
                 'projectName' => $project->getName(),
                 'assignees' => $assigneesData,

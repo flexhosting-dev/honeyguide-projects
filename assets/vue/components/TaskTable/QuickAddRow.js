@@ -52,16 +52,32 @@ export default {
             priority: props.defaultPriority,
             milestone: props.defaultMilestone,
             dueDate: '',
+            startDate: '',
             assignees: []
         });
 
         // Refs for focus management
         const titleInputRef = ref(null);
+        const selectedAssignee = ref('');
 
         // Watch for default changes (when group changes)
         watch(() => props.defaultStatus, (val) => { formData.value.status = val; });
         watch(() => props.defaultPriority, (val) => { formData.value.priority = val; });
         watch(() => props.defaultMilestone, (val) => { formData.value.milestone = val; });
+
+        // Available members (not already selected)
+        const availableMembers = computed(() => {
+            const selectedIds = new Set(formData.value.assignees);
+            return props.members.filter(m => !selectedIds.has(m.id));
+        });
+
+        // Add assignee from dropdown
+        const addAssignee = () => {
+            if (selectedAssignee.value && !formData.value.assignees.includes(selectedAssignee.value)) {
+                formData.value.assignees.push(selectedAssignee.value);
+            }
+            selectedAssignee.value = '';
+        };
 
         // Visible columns
         const visibleColumns = computed(() => {
@@ -101,7 +117,11 @@ export default {
             if (!formData.value.title.trim()) return;
             emit('save', { ...formData.value }, continueAdding);
             if (continueAdding) {
+                // Reset form for next task but keep status/priority/milestone defaults
                 formData.value.title = '';
+                formData.value.dueDate = '';
+                formData.value.startDate = '';
+                formData.value.assignees = [];
                 focusTitle();
             }
         };
@@ -122,7 +142,10 @@ export default {
             handleKeydown,
             save,
             cancel,
-            focus
+            focus,
+            selectedAssignee,
+            availableMembers,
+            addAssignee
         };
     },
 
@@ -204,9 +227,29 @@ export default {
                     </select>
                 </template>
 
-                <!-- Assignees - placeholder -->
+                <!-- Assignees -->
                 <template v-else-if="column.key === 'assignees'">
-                    <span class="text-gray-400 text-xs">-</span>
+                    <div class="flex items-center gap-1">
+                        <span
+                            v-for="assigneeId in formData.assignees"
+                            :key="assigneeId"
+                            class="inline-flex h-5 w-5 items-center justify-center rounded-full overflow-hidden bg-gradient-to-br from-emerald-400 to-cyan-500 ring-1 ring-white"
+                            :title="members.find(m => m.id === assigneeId)?.fullName">
+                            <span class="text-xs font-medium text-white">
+                                {{ (members.find(m => m.id === assigneeId)?.firstName || '?').charAt(0).toUpperCase() }}
+                            </span>
+                        </span>
+                        <select
+                            v-model="selectedAssignee"
+                            @change="addAssignee"
+                            :disabled="isCreating"
+                            class="text-xs border border-primary-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 py-0.5 px-1 bg-white min-w-[70px]">
+                            <option value="">+ Add</option>
+                            <option v-for="member in availableMembers" :key="member.id" :value="member.id">
+                                {{ member.fullName }}
+                            </option>
+                        </select>
+                    </div>
                 </template>
 
                 <!-- Tags - placeholder -->
@@ -214,9 +257,15 @@ export default {
                     <span class="text-gray-400 text-xs">-</span>
                 </template>
 
-                <!-- Start Date - placeholder -->
+                <!-- Start Date -->
                 <template v-else-if="column.key === 'startDate'">
-                    <span class="text-gray-400 text-xs">-</span>
+                    <input
+                        type="date"
+                        v-model="formData.startDate"
+                        :disabled="isCreating"
+                        @keydown="handleKeydown($event, 'startDate')"
+                        class="w-full text-xs border border-primary-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 py-1 px-1 bg-white"
+                    />
                 </template>
 
                 <!-- Subtasks - empty for new task -->

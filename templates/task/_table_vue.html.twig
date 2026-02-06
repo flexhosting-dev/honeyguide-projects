@@ -75,6 +75,7 @@
     data-vue-children-url-template="{{ path('app_task_children', {id: '__TASK_ID__'}) }}"
     data-vue-bulk-update-url="{{ path('app_task_bulk_update') }}"
     data-vue-bulk-delete-url="{{ path('app_task_bulk_delete') }}"
+    data-vue-assignees-url-template="{{ path('app_task_update_assignees', {id: '__TASK_ID__'}) }}"
 >
     {# Loading fallback shown before Vue mounts #}
     <div class="flex items-center justify-center py-12">

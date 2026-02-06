@@ -75,6 +75,10 @@ export default {
         bulkDeleteUrl: {
             type: String,
             default: ''
+        },
+        assigneesUrlTemplate: {
+            type: String,
+            default: ''
         }
     },
 
@@ -688,8 +692,8 @@ export default {
 
         // Cell click - start inline editing or open panel
         const handleCellClick = (task, columnKey, event) => {
-            // Editable fields: title, status, priority, dueDate, startDate, milestone
-            const editableFields = ['title', 'status', 'priority', 'dueDate', 'startDate', 'milestone'];
+            // Editable fields: title, status, priority, dueDate, startDate, milestone, assignees
+            const editableFields = ['title', 'status', 'priority', 'dueDate', 'startDate', 'milestone', 'assignees'];
 
             if (props.canEdit && editableFields.includes(columnKey)) {
                 event.stopPropagation();
@@ -858,6 +862,59 @@ export default {
             return isUpdating.value.has(taskId);
         };
 
+        // Handle assignee add/remove
+        const handleAssigneeChange = async (taskId, userId, action) => {
+            if (!props.assigneesUrlTemplate) {
+                console.warn('No assignees URL template configured');
+                return;
+            }
+
+            const task = tasks.value.find(t => t.id === taskId);
+            if (!task) return;
+
+            const url = props.assigneesUrlTemplate.replace('__TASK_ID__', taskId);
+
+            isUpdating.value.add(taskId);
+            isUpdating.value = new Set(isUpdating.value);
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({ action, userId })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'Failed to update assignees');
+                }
+
+                // Update local task assignees
+                task.assignees = data.assignees || [];
+
+                // Dispatch event for other components
+                document.dispatchEvent(new CustomEvent('task-assignees-updated', {
+                    detail: { taskId, assignees: task.assignees }
+                }));
+
+                if (typeof Toastr !== 'undefined') {
+                    Toastr.success('Task Updated', action === 'add' ? 'Assignee added' : 'Assignee removed');
+                }
+            } catch (error) {
+                console.error('Error updating assignees:', error);
+                if (typeof Toastr !== 'undefined') {
+                    Toastr.error('Update Failed', error.message || 'Could not update assignees');
+                }
+            } finally {
+                isUpdating.value.delete(taskId);
+                isUpdating.value = new Set(isUpdating.value);
+            }
+        };
+
         // Quick add state
         const quickAddGroupKey = ref(null);
         const quickAddRowRef = ref(null);
@@ -940,7 +997,9 @@ export default {
                         milestone: milestoneId,
                         status: formData.status || 'todo',
                         priority: formData.priority || 'none',
-                        dueDate: formData.dueDate || null
+                        dueDate: formData.dueDate || null,
+                        startDate: formData.startDate || null,
+                        assignees: formData.assignees || []
                     })
                 });
 
@@ -1167,9 +1226,13 @@ export default {
                 }
             }
 
-            // Escape to clear selection
-            if (event.key === 'Escape' && selectedIds.value.size > 0) {
-                clearSelection();
+            // Escape to cancel editing or clear selection
+            if (event.key === 'Escape') {
+                if (editingCell.value) {
+                    cancelEditing();
+                } else if (selectedIds.value.size > 0) {
+                    clearSelection();
+                }
             }
         };
 
@@ -1284,6 +1347,7 @@ export default {
             cancelEditing,
             isEditingCell,
             isTaskUpdating,
+            handleAssigneeChange,
             quickAddGroupKey,
             quickAddRowRef,
             quickAddDefaults,
@@ -1473,6 +1537,7 @@ export default {
                                 :selected="selectedIds.has(item.task.id)"
                                 :can-edit="canEdit"
                                 :milestones="milestones"
+                                :members="members"
                                 :depth="item.task.displayDepth || 0"
                                 :is-expanded="expandedIds.has(item.task.id)"
                                 :has-children="hasChildren(item.task.id)"
@@ -1489,6 +1554,7 @@ export default {
                                 @cell-click="handleCellClick"
                                 @save-edit="saveInlineEdit"
                                 @cancel-edit="cancelEditing"
+                                @assignee-change="handleAssigneeChange"
                             />
                         </template>
 
