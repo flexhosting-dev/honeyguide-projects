@@ -1,4 +1,4 @@
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
 
 export default {
     name: 'ContextMenu',
@@ -67,8 +67,10 @@ export default {
     setup(props, { emit }) {
         const menuRef = ref(null);
         const activeSubmenu = ref(null);
-        const menuPosition = ref({ dropDown: true }); // true = drop down, false = drop up
         const submenuPosition = ref({ left: true, dropDown: true }); // horizontal and vertical directions
+
+        // Adjusted position state (reactive)
+        const adjustedPos = ref({ x: 0, y: 0, ready: false, dropDown: true });
 
         // Is multi-select mode
         const isMultiSelect = computed(() => props.tasks.length > 1);
@@ -100,20 +102,23 @@ export default {
             return new Set((singleTask.value.assignees || []).map(a => a.user?.id || a.id));
         });
 
-        // Menu position adjusted for viewport boundaries
+        // Menu style using adjusted position
         const menuStyle = computed(() => {
-            const style = {
+            return {
                 position: 'fixed',
-                left: `${props.x}px`,
-                top: `${props.y}px`,
-                zIndex: 9999
+                left: `${adjustedPos.value.x}px`,
+                top: `${adjustedPos.value.y}px`,
+                zIndex: 9999,
+                visibility: adjustedPos.value.ready ? 'visible' : 'hidden',
+                transformOrigin: adjustedPos.value.dropDown ? 'top left' : 'bottom left'
             };
-
-            return style;
         });
 
-        // Adjust position after mount to stay within viewport
+        // Calculate and adjust position
         const adjustPosition = async () => {
+            // Reset ready state
+            adjustedPos.value.ready = false;
+
             await nextTick();
             if (!menuRef.value) return;
 
@@ -142,9 +147,11 @@ export default {
                     if (spaceBelow > spaceAbove) {
                         // More space below, align to bottom edge
                         adjustedY = viewportHeight - menuHeight - 10;
+                        shouldDropDown = true;
                     } else {
                         // More space above, align to top edge
                         adjustedY = 10;
+                        shouldDropDown = true;
                     }
                 }
             }
@@ -164,16 +171,13 @@ export default {
                 adjustedY = 10;
             }
 
-            // Update position
-            if (menuRef.value) {
-                menuRef.value.style.left = `${adjustedX}px`;
-                menuRef.value.style.top = `${adjustedY}px`;
-                // Set transform origin for animation based on drop direction
-                menuRef.value.style.transformOrigin = shouldDropDown ? 'top left' : 'bottom left';
-            }
-
-            // Store menu direction
-            menuPosition.value.dropDown = shouldDropDown;
+            // Update reactive position state
+            adjustedPos.value = {
+                x: adjustedX,
+                y: adjustedY,
+                ready: true,
+                dropDown: shouldDropDown
+            };
 
             // Determine submenu direction (horizontal)
             submenuPosition.value.left = adjustedX < viewportWidth / 2;
@@ -182,6 +186,24 @@ export default {
             const menuBottom = adjustedY + menuHeight;
             submenuPosition.value.dropDown = menuBottom < viewportHeight - 100;
         };
+
+        // Watch for visibility changes to recalculate position
+        watch(() => props.visible, async (newVisible) => {
+            if (newVisible) {
+                // Set initial position before measuring
+                adjustedPos.value = { x: props.x, y: props.y, ready: false, dropDown: true };
+                await nextTick();
+                adjustPosition();
+            }
+        });
+
+        // Also watch for position changes while visible
+        watch([() => props.x, () => props.y], () => {
+            if (props.visible) {
+                adjustedPos.value = { x: props.x, y: props.y, ready: false, dropDown: true };
+                nextTick(() => adjustPosition());
+            }
+        });
 
         // Handle click outside
         const handleClickOutside = (event) => {
@@ -274,7 +296,11 @@ export default {
 
         // Lifecycle
         onMounted(() => {
-            adjustPosition();
+            // Initial position calculation if already visible
+            if (props.visible) {
+                adjustedPos.value = { x: props.x, y: props.y, ready: false, dropDown: true };
+                nextTick(() => adjustPosition());
+            }
             document.addEventListener('click', handleClickOutside);
             document.addEventListener('keydown', handleKeydown);
             document.addEventListener('scroll', handleScroll, true);
@@ -290,7 +316,7 @@ export default {
             menuRef,
             menuStyle,
             activeSubmenu,
-            menuPosition,
+            adjustedPos,
             submenuPosition,
             isMultiSelect,
             singleTask,
