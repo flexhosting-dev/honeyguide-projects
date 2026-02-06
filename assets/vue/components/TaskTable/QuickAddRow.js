@@ -332,6 +332,12 @@ export default {
                         class="text-xs text-gray-400 hover:text-gray-600">
                         Cancel
                     </button>
+                    <!-- Keyboard hints (desktop only) -->
+                    <span class="hidden sm:inline-flex items-center gap-3 ml-4 text-xs text-gray-400">
+                        <span><kbd class="px-1.5 py-0.5 bg-gray-100 border border-gray-300 rounded text-[10px] font-mono">Enter</kbd> to save</span>
+                        <span><kbd class="px-1.5 py-0.5 bg-gray-100 border border-gray-300 rounded text-[10px] font-mono">Shift+Enter</kbd> to save &amp; add another</span>
+                        <span><kbd class="px-1.5 py-0.5 bg-gray-100 border border-gray-300 rounded text-[10px] font-mono">Esc</kbd> to cancel</span>
+                    </span>
                 </div>
             </td>
         </tr>
