@@ -4,11 +4,12 @@ import TaskRow from './TaskTable/TaskRow.js';
 import ColumnConfig from './TaskTable/ColumnConfig.js';
 import GroupRow from './TaskTable/GroupRow.js';
 import BulkActionBar from './TaskTable/BulkActionBar.js';
+import QuickAddRow from './TaskTable/QuickAddRow.js';
 
 export default {
     name: 'TaskTable',
 
-    components: { TableHeader, TaskRow, ColumnConfig, GroupRow, BulkActionBar },
+    components: { TableHeader, TaskRow, ColumnConfig, GroupRow, BulkActionBar, QuickAddRow },
 
     props: {
         initialTasks: {
@@ -859,29 +860,51 @@ export default {
 
         // Quick add state
         const quickAddGroupKey = ref(null);
-        const quickAddTitle = ref('');
-        const quickAddInputRef = ref(null);
+        const quickAddRowRef = ref(null);
         const isCreating = ref(false);
+
+        // Compute default values based on current group
+        const quickAddDefaults = computed(() => {
+            const defaults = {
+                status: 'todo',
+                priority: 'none',
+                milestone: props.milestones.length > 0 ? props.milestones[0].id : ''
+            };
+
+            if (groupBy.value === 'status' && quickAddGroupKey.value && quickAddGroupKey.value !== '__all__') {
+                defaults.status = quickAddGroupKey.value;
+            } else if (groupBy.value === 'priority' && quickAddGroupKey.value && quickAddGroupKey.value !== '__all__') {
+                defaults.priority = quickAddGroupKey.value;
+            } else if (groupBy.value === 'milestone' && quickAddGroupKey.value && quickAddGroupKey.value !== '__no_milestone__' && quickAddGroupKey.value !== '__all__') {
+                defaults.milestone = quickAddGroupKey.value;
+            }
+
+            return defaults;
+        });
 
         // Handle add task in group
         const handleAddTaskInGroup = async (groupKey) => {
+            // Expand the group if it's collapsed
+            if (collapsedGroups.value.has(groupKey)) {
+                collapsedGroups.value.delete(groupKey);
+                collapsedGroups.value = new Set(collapsedGroups.value);
+                saveGroupState();
+            }
             quickAddGroupKey.value = groupKey;
-            quickAddTitle.value = '';
             await nextTick();
-            if (quickAddInputRef.value) {
-                quickAddInputRef.value.focus();
+            if (quickAddRowRef.value && quickAddRowRef.value.focus) {
+                quickAddRowRef.value.focus();
             }
         };
 
         // Cancel quick add
         const cancelQuickAdd = () => {
             quickAddGroupKey.value = null;
-            quickAddTitle.value = '';
         };
 
-        // Save quick add task
-        const saveQuickAdd = async (continueAdding = false) => {
-            const title = quickAddTitle.value.trim();
+        // Save quick add task (receives formData from QuickAddRow component)
+        const saveQuickAdd = async (formData, continueAdding = false) => {
+            const title = formData.title?.trim();
             if (!title || isCreating.value) return;
 
             if (!props.createUrl) {
@@ -890,18 +913,8 @@ export default {
                 return;
             }
 
-            // Determine defaults based on group
-            let defaults = {};
-            if (groupBy.value === 'status' && quickAddGroupKey.value) {
-                defaults.status = quickAddGroupKey.value;
-            } else if (groupBy.value === 'priority' && quickAddGroupKey.value) {
-                defaults.priority = quickAddGroupKey.value;
-            } else if (groupBy.value === 'milestone' && quickAddGroupKey.value !== '__no_milestone__') {
-                defaults.milestone = quickAddGroupKey.value;
-            }
-
             // Need a milestone to create task
-            let milestoneId = defaults.milestone;
+            let milestoneId = formData.milestone;
             if (!milestoneId && props.milestones.length > 0) {
                 milestoneId = props.milestones[0].id;
             }
@@ -925,8 +938,9 @@ export default {
                     body: JSON.stringify({
                         title,
                         milestone: milestoneId,
-                        status: defaults.status || 'todo',
-                        priority: defaults.priority || 'none'
+                        status: formData.status || 'todo',
+                        priority: formData.priority || 'none',
+                        dueDate: formData.dueDate || null
                     })
                 });
 
@@ -946,13 +960,7 @@ export default {
                     Toastr.success('Task Created', `"${title}" created successfully`);
                 }
 
-                if (continueAdding) {
-                    quickAddTitle.value = '';
-                    await nextTick();
-                    if (quickAddInputRef.value) {
-                        quickAddInputRef.value.focus();
-                    }
-                } else {
+                if (!continueAdding) {
                     cancelQuickAdd();
                 }
             } catch (error) {
@@ -962,17 +970,6 @@ export default {
                 }
             } finally {
                 isCreating.value = false;
-            }
-        };
-
-        // Handle quick add keydown
-        const handleQuickAddKeydown = (event) => {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                saveQuickAdd(event.shiftKey); // Shift+Enter to continue adding
-            } else if (event.key === 'Escape') {
-                event.preventDefault();
-                cancelQuickAdd();
             }
         };
 
@@ -1288,12 +1285,11 @@ export default {
             isEditingCell,
             isTaskUpdating,
             quickAddGroupKey,
-            quickAddTitle,
-            quickAddInputRef,
+            quickAddRowRef,
+            quickAddDefaults,
             isCreating,
             cancelQuickAdd,
             saveQuickAdd,
-            handleQuickAddKeydown,
             selectedTaskCount,
             isBulkUpdating,
             clearSelection,
@@ -1309,6 +1305,7 @@ export default {
             basePath: props.basePath || window.BASE_PATH || '',
             canEdit: props.canEdit,
             milestones: props.milestones,
+            members: props.members,
             createUrl: props.createUrl
         };
     },
@@ -1418,43 +1415,21 @@ export default {
                     />
                     <tbody class="divide-y divide-gray-200 bg-white">
                         <!-- Quick Add Row at top (when no grouping) -->
-                        <tr v-if="groupBy === 'none' && quickAddGroupKey === '__all__'" class="bg-primary-50">
-                            <td :colspan="visibleColumnCount" class="px-3 py-2">
-                                <div class="flex items-center gap-3">
-                                    <span class="w-5"></span>
-                                    <input
-                                        ref="quickAddInputRef"
-                                        type="text"
-                                        v-model="quickAddTitle"
-                                        placeholder="Enter task title..."
-                                        :disabled="isCreating"
-                                        @keydown="handleQuickAddKeydown"
-                                        @blur="quickAddTitle.trim() ? null : cancelQuickAdd()"
-                                        class="flex-1 px-3 py-1.5 text-sm border border-primary-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                                    />
-                                    <button
-                                        type="button"
-                                        @click="saveQuickAdd(false)"
-                                        :disabled="!quickAddTitle.trim() || isCreating"
-                                        class="px-3 py-1.5 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed">
-                                        <span v-if="isCreating" class="flex items-center gap-1">
-                                            <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                                            </svg>
-                                        </span>
-                                        <span v-else>Add</span>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        @click="cancelQuickAdd"
-                                        class="px-2 py-1.5 text-sm text-gray-500 hover:text-gray-700">
-                                        Cancel
-                                    </button>
-                                    <span class="text-xs text-gray-400">Press Enter to save, Shift+Enter to continue adding</span>
-                                </div>
-                            </td>
-                        </tr>
+                        <QuickAddRow
+                            v-if="groupBy === 'none' && quickAddGroupKey === '__all__'"
+                            ref="quickAddRowRef"
+                            :columns="columns"
+                            :status-options="statusOptions"
+                            :priority-options="priorityOptions"
+                            :milestone-options="milestoneOptions"
+                            :members="members"
+                            :default-status="quickAddDefaults.status"
+                            :default-priority="quickAddDefaults.priority"
+                            :default-milestone="quickAddDefaults.milestone"
+                            :is-creating="isCreating"
+                            @save="saveQuickAdd"
+                            @cancel="cancelQuickAdd"
+                        />
 
                         <template v-for="(item, index) in displayItems" :key="item.type === 'group' ? 'g-' + item.groupKey : 't-' + item.task.id">
                             <!-- Group Header Row -->
@@ -1473,43 +1448,21 @@ export default {
                             />
 
                             <!-- Quick Add Row (after group header, when active) -->
-                            <tr v-if="item.type === 'group' && quickAddGroupKey === item.groupKey && !item.isCollapsed" class="bg-primary-50">
-                                <td :colspan="visibleColumnCount" class="px-3 py-2">
-                                    <div class="flex items-center gap-3">
-                                        <span class="w-5"></span>
-                                        <input
-                                            ref="quickAddInputRef"
-                                            type="text"
-                                            v-model="quickAddTitle"
-                                            placeholder="Enter task title..."
-                                            :disabled="isCreating"
-                                            @keydown="handleQuickAddKeydown"
-                                            @blur="quickAddTitle.trim() ? null : cancelQuickAdd()"
-                                            class="flex-1 px-3 py-1.5 text-sm border border-primary-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                                        />
-                                        <button
-                                            type="button"
-                                            @click="saveQuickAdd(false)"
-                                            :disabled="!quickAddTitle.trim() || isCreating"
-                                            class="px-3 py-1.5 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed">
-                                            <span v-if="isCreating" class="flex items-center gap-1">
-                                                <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                                                </svg>
-                                            </span>
-                                            <span v-else>Add</span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            @click="cancelQuickAdd"
-                                            class="px-2 py-1.5 text-sm text-gray-500 hover:text-gray-700">
-                                            Cancel
-                                        </button>
-                                        <span class="text-xs text-gray-400">Press Enter to save, Shift+Enter to continue adding</span>
-                                    </div>
-                                </td>
-                            </tr>
+                            <QuickAddRow
+                                v-if="item.type === 'group' && quickAddGroupKey === item.groupKey && !item.isCollapsed"
+                                ref="quickAddRowRef"
+                                :columns="columns"
+                                :status-options="statusOptions"
+                                :priority-options="priorityOptions"
+                                :milestone-options="milestoneOptions"
+                                :members="members"
+                                :default-status="quickAddDefaults.status"
+                                :default-priority="quickAddDefaults.priority"
+                                :default-milestone="quickAddDefaults.milestone"
+                                :is-creating="isCreating"
+                                @save="saveQuickAdd"
+                                @cancel="cancelQuickAdd"
+                            />
 
                             <!-- Task Row -->
                             <TaskRow

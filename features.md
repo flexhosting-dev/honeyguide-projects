@@ -606,6 +606,98 @@ Add a full-featured datatable view for tasks with spreadsheet-like capabilities:
 - Touch-friendly edit controls
 - Consider card view alternative on very small screens
 
+### Context Menu (Right-Click Actions)
+
+Add a right-click context menu for quick task actions without opening the task panel.
+
+#### Pros
+
+| Pro | Reason |
+|-----|--------|
+| **Faster workflow** | No need to open task panel for quick actions |
+| **Power user friendly** | Expected behavior in desktop apps (Excel, Jira, Asana) |
+| **Discoverability** | Shows available actions at a glance |
+| **Bulk efficiency** | Right-click on selection to act on multiple tasks |
+| **Reduces clicks** | Status change: 1 click vs open panel → find dropdown → select → close |
+
+#### Cons
+
+| Con | Mitigation |
+|-----|------------|
+| **Mobile unfriendly** | Long-press (500ms) triggers same menu |
+| **Discoverability paradox** | Add subtle hint on first use |
+| **Maintenance** | Share action handlers with inline edit and bulk actions |
+| **Accessibility** | Support keyboard trigger (Shift+F10 or context menu key) |
+
+#### Single Task Menu
+
+```
+┌─────────────────────────┐
+│ ✏️  Edit Task            │
+│ 🔗  Copy Link            │
+├─────────────────────────┤
+│ Status            ▶     │  → submenu with status options
+│ Priority          ▶     │  → submenu with priority options
+│ Assign to         ▶     │  → submenu with team members
+│ Set Due Date            │  → opens date picker
+│ Move to Milestone ▶     │  → submenu with milestones
+├─────────────────────────┤
+│ ➕  Add Subtask          │
+│ 📋  Duplicate            │
+├─────────────────────────┤
+│ 🗑️  Delete               │
+└─────────────────────────┘
+```
+
+#### Multi-Select Menu
+
+When multiple tasks are selected:
+
+```
+┌─────────────────────────┐
+│ 3 tasks selected        │  ← header showing count
+├─────────────────────────┤
+│ Set Status        ▶     │
+│ Set Priority      ▶     │
+│ Assign to         ▶     │
+│ Move to Milestone ▶     │
+├─────────────────────────┤
+│ 🗑️  Delete All          │
+└─────────────────────────┘
+```
+
+#### Implementation Details
+
+**Component:** `assets/vue/components/TaskTable/ContextMenu.js`
+
+**Triggers:**
+- Right-click (`@contextmenu.prevent`) on task row
+- Keyboard: Context menu key or Shift+F10 on focused row
+- Mobile: Long-press (500ms hold)
+
+**Positioning:**
+- Appears at cursor position
+- Flips up/left if near viewport edge
+- Z-index above all table elements
+
+**Closing:**
+- Click outside menu
+- Escape key
+- Action selected
+- Scroll
+
+**Submenus:**
+- Open on hover (desktop) or tap (mobile)
+- Show current value with checkmark
+- Optimistic update on selection
+
+#### Files Affected
+
+- New: `assets/vue/components/TaskTable/ContextMenu.js`
+- Modified: `assets/vue/components/TaskTable/TaskRow.js` - Add context menu trigger
+- Modified: `assets/vue/components/TaskTable.js` - Context menu state and handlers
+- Modified: `assets/css/task-table.css` - Context menu styling
+
 ---
 
 ## 6. User Notifications System
