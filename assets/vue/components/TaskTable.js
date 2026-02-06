@@ -1331,8 +1331,6 @@ export default {
         // Date picker popup state
         const datePickerPopup = ref({
             visible: false,
-            x: 0,
-            y: 0,
             task: null,
             value: ''
         });
@@ -1466,11 +1464,9 @@ export default {
         };
 
         const handleContextSetDueDate = (task) => {
-            // Show the date picker popup at the context menu position
+            // Open the native date picker directly
             datePickerPopup.value = {
                 visible: true,
-                x: contextMenu.value.x,
-                y: contextMenu.value.y,
                 task: task,
                 value: task.dueDate || ''
             };
@@ -2202,10 +2198,7 @@ export default {
             <!-- Date Picker Popup -->
             <DatePickerPopup
                 :visible="datePickerPopup.visible"
-                :x="datePickerPopup.x"
-                :y="datePickerPopup.y"
                 :value="datePickerPopup.value"
-                label="Due Date"
                 @close="hideDatePickerPopup"
                 @select="handleDatePickerSelect"
             />
