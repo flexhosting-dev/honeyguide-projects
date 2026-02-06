@@ -1934,6 +1934,409 @@ POST   /api/tasks/{id}/detach-from-series           # Detach instance
 
 ---
 
+## 11. Trash Bin (Soft Delete)
+
+**Priority:** High
+**Complexity:** Medium
+**Impact:** Prevents accidental data loss, enables recovery of deleted items
+
+### Overview
+
+Implement a soft delete system across all major entities. Instead of permanently removing records, items are moved to a trash bin where they can be restored or permanently deleted. A dedicated Trash page provides a unified view of all deleted items across modules.
+
+### Affected Modules
+
+| Module | Parent-Child Relationship |
+|--------|---------------------------|
+| **Projects** | Contains Milestones |
+| **Milestones** | Contains Tasks |
+| **Tasks** | Contains Subtasks, Checklists, Comments, Attachments |
+| **Subtasks** | Contains Checklists (if applicable) |
+| **Checklists** | Contains Checklist Items |
+| **Users** | Assigned to Tasks, owns Projects |
+
+### Core Mechanism
+
+#### Soft Delete Field
+
+Add a `deletedAt` nullable datetime column to each entity:
+
+```php
+#[ORM\Column(type: 'datetime_immutable', nullable: true)]
+private ?\DateTimeImmutable $deletedAt = null;
+
+public function isDeleted(): bool
+{
+    return $this->deletedAt !== null;
+}
+
+public function delete(): void
+{
+    $this->deletedAt = new \DateTimeImmutable();
+}
+
+public function restore(): void
+{
+    $this->deletedAt = null;
+}
+```
+
+#### Default Query Filtering
+
+All repositories exclude soft-deleted items by default:
+
+```php
+// TaskRepository.php
+public function findActive(Project $project): array
+{
+    return $this->createQueryBuilder('t')
+        ->where('t.deletedAt IS NULL')
+        ->andWhere('t.project = :project')
+        ->setParameter('project', $project)
+        ->getQuery()
+        ->getResult();
+}
+
+public function findTrashed(): array
+{
+    return $this->createQueryBuilder('t')
+        ->where('t.deletedAt IS NOT NULL')
+        ->orderBy('t.deletedAt', 'DESC')
+        ->getQuery()
+        ->getResult();
+}
+```
+
+### Parent-Child Deletion Behavior
+
+When deleting an item that has children, prompt the user with options:
+
+#### Delete Confirmation Dialog
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Delete Milestone: "Sprint 1"                                    │
+├─────────────────────────────────────────────────────────────────┤
+│ This milestone contains 12 tasks. What would you like to do     │
+│ with them?                                                      │
+│                                                                 │
+│   ○ Delete all tasks with the milestone                         │
+│     Tasks will be moved to trash and can be restored later.     │
+│                                                                 │
+│   ○ Move tasks to project root (no milestone)                   │
+│     Tasks will remain active but unassigned to any milestone.   │
+│                                                                 │
+├─────────────────────────────────────────────────────────────────┤
+│                              [Cancel]  [Delete Milestone]       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Hierarchy Rules
+
+| Deleting | Children | Options |
+|----------|----------|---------|
+| **Project** | Milestones, Tasks | Cascade delete all OR transfer to another project |
+| **Milestone** | Tasks | Cascade delete OR promote to project root (no milestone) |
+| **Task** | Subtasks, Checklists, Comments | Cascade delete OR promote subtasks to root tasks |
+| **Subtask** | Checklists | Always cascade (checklists go with subtask) |
+| **User** | Owned projects, assignments | Transfer ownership OR reassign, cannot delete if sole owner |
+
+### Trash Page UI
+
+**Location:** `/trash` (accessible from sidebar or user menu)
+
+#### Tab-Based Layout
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Trash                                                    [Empty Trash]  │
+├─────────────────────────────────────────────────────────────────────────┤
+│ [Projects (2)] [Milestones (5)] [Tasks (23)] [Subtasks (8)]             │
+│ [Checklists (3)] [Users (0)]                                            │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│ ┌─────────────────────────────────────────────────────────────────────┐ │
+│ │ ☐  Task Title                    │ Deleted      │ Deleted By │ ⟲   │ │
+│ ├─────────────────────────────────────────────────────────────────────┤ │
+│ │ ☐  Fix login validation bug      │ 2 hours ago  │ John Doe   │ [⟲] │ │
+│ │ ☐  Update dashboard layout       │ 1 day ago    │ Jane Smith │ [⟲] │ │
+│ │ ☐  API documentation             │ 3 days ago   │ John Doe   │ [⟲] │ │
+│ │ ☐  Old feature prototype         │ 7 days ago   │ Jane Smith │ [⟲] │ │
+│ └─────────────────────────────────────────────────────────────────────┘ │
+│                                                                         │
+│ Selected: 0  │  [Restore Selected]  [Delete Permanently]                │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Legend:
+[⟲] = Restore button
+```
+
+#### Features
+
+1. **Tabs for Each Module**
+   - Badge showing count of trashed items per module
+   - Only show tabs with items (or show all with 0 counts)
+
+2. **Item List**
+   - Checkbox for multi-select
+   - Item name/title with link to preview (read-only)
+   - Deletion timestamp (relative: "2 hours ago", "3 days ago")
+   - Deleted by (user who performed the deletion)
+   - Restore button per item
+
+3. **Bulk Actions**
+   - Restore Selected
+   - Delete Permanently (with confirmation)
+
+4. **Sorting**
+   - Default: Deletion date, newest first
+   - Options: Name, Deleted by, Deletion date
+
+5. **Search/Filter**
+   - Search by name within current tab
+   - Filter by date range
+   - Filter by "Deleted by" user
+
+### Restore Behavior
+
+#### Simple Restore
+
+When restoring an item with no parent dependencies:
+- Set `deletedAt = null`
+- Item reappears in its original location
+
+#### Restore with Missing Parent
+
+When the parent was also deleted or permanently removed:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Cannot Restore Task                                             │
+├─────────────────────────────────────────────────────────────────┤
+│ The milestone "Sprint 1" for this task has been deleted.        │
+│                                                                 │
+│ Choose a new location:                                          │
+│                                                                 │
+│   Project: [My Project        ▼]                                │
+│   Milestone: [No Milestone    ▼]  (or restore "Sprint 1" first) │
+│                                                                 │
+├─────────────────────────────────────────────────────────────────┤
+│                              [Cancel]  [Restore Task]           │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Cascade Restore
+
+Option to restore parent and all children together:
+- "Restore with children" button on parent items
+- Restores entire hierarchy at once
+
+### Permanent Deletion
+
+#### Single Item
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Permanently Delete Task?                                        │
+├─────────────────────────────────────────────────────────────────┤
+│ "Fix login validation bug" will be permanently deleted.         │
+│ This action cannot be undone.                                   │
+│                                                                 │
+│ This will also permanently delete:                              │
+│   • 3 subtasks                                                  │
+│   • 2 checklists                                                │
+│   • 8 comments                                                  │
+│   • 1 attachment                                                │
+│                                                                 │
+├─────────────────────────────────────────────────────────────────┤
+│                              [Cancel]  [Delete Permanently]     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Empty Trash
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Empty Trash?                                                    │
+├─────────────────────────────────────────────────────────────────┤
+│ All items in the trash will be permanently deleted.             │
+│ This action cannot be undone.                                   │
+│                                                                 │
+│ Current trash contents:                                         │
+│   • 2 projects                                                  │
+│   • 5 milestones                                                │
+│   • 23 tasks                                                    │
+│   • 8 subtasks                                                  │
+│   • 3 checklists                                                │
+│                                                                 │
+├─────────────────────────────────────────────────────────────────┤
+│                              [Cancel]  [Empty Trash]            │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Auto-Cleanup (Optional)
+
+Configurable automatic permanent deletion of old trash items:
+
+```php
+// Portal Settings
+'trash_retention_days' => 30,  // 0 = never auto-delete
+```
+
+#### Cleanup Command
+
+```php
+#[AsCommand(name: 'app:cleanup-trash')]
+class CleanupTrashCommand extends Command
+{
+    protected function execute(InputInterface $input, OutputInterface $output): int
+    {
+        $retentionDays = $this->settings->get('trash_retention_days');
+        if ($retentionDays <= 0) return Command::SUCCESS;
+
+        $cutoffDate = new \DateTimeImmutable("-{$retentionDays} days");
+
+        // Permanently delete items older than cutoff
+        $this->projectRepo->permanentlyDeleteOlderThan($cutoffDate);
+        $this->milestoneRepo->permanentlyDeleteOlderThan($cutoffDate);
+        $this->taskRepo->permanentlyDeleteOlderThan($cutoffDate);
+        // ... other entities
+
+        return Command::SUCCESS;
+    }
+}
+```
+
+### API Endpoints
+
+```
+# Trash listing
+GET    /trash                           # Trash page (HTML)
+GET    /api/trash/projects              # List trashed projects
+GET    /api/trash/milestones            # List trashed milestones
+GET    /api/trash/tasks                 # List trashed tasks
+GET    /api/trash/subtasks              # List trashed subtasks
+GET    /api/trash/checklists            # List trashed checklists
+GET    /api/trash/users                 # List deactivated users
+
+# Soft delete (existing endpoints, behavior changes)
+DELETE /api/projects/{id}               # Soft delete (moves to trash)
+DELETE /api/milestones/{id}             # Soft delete
+DELETE /api/tasks/{id}                  # Soft delete
+DELETE /api/tasks/{id}/subtasks/{sid}   # Soft delete subtask
+
+# Restore
+POST   /api/trash/projects/{id}/restore
+POST   /api/trash/milestones/{id}/restore
+POST   /api/trash/tasks/{id}/restore
+POST   /api/trash/subtasks/{id}/restore
+POST   /api/trash/checklists/{id}/restore
+
+# Permanent delete
+DELETE /api/trash/projects/{id}/permanent
+DELETE /api/trash/milestones/{id}/permanent
+DELETE /api/trash/tasks/{id}/permanent
+DELETE /api/trash/subtasks/{id}/permanent
+DELETE /api/trash/checklists/{id}/permanent
+
+# Bulk operations
+POST   /api/trash/restore               # Body: { type: 'tasks', ids: [...] }
+DELETE /api/trash/permanent             # Body: { type: 'tasks', ids: [...] }
+DELETE /api/trash/empty                 # Empty entire trash (admin only)
+```
+
+### Database Migration
+
+```php
+// For each entity (example: Task)
+public function up(Schema $schema): void
+{
+    $this->addSql('ALTER TABLE task ADD deleted_at DATETIME DEFAULT NULL');
+    $this->addSql('ALTER TABLE task ADD deleted_by_id BINARY(16) DEFAULT NULL');
+    $this->addSql('ALTER TABLE task ADD CONSTRAINT FK_TASK_DELETED_BY FOREIGN KEY (deleted_by_id) REFERENCES user (id) ON DELETE SET NULL');
+    $this->addSql('CREATE INDEX IDX_TASK_DELETED_AT ON task (deleted_at)');
+}
+```
+
+### Permissions
+
+| Action | Permission | Default Role |
+|--------|------------|--------------|
+| View own trash | (all users) | Everyone |
+| View all trash | `trash.view_all` | Admin |
+| Restore own items | (all users) | Everyone |
+| Restore any item | `trash.restore_any` | Admin |
+| Permanent delete own | `trash.permanent_delete` | Project Manager |
+| Permanent delete any | `trash.permanent_delete_any` | Admin |
+| Empty trash | `trash.empty` | Admin |
+| Configure retention | `settings.trash` | Portal Admin |
+
+### Implementation Phases
+
+1. **Entity Updates**
+   - Add `deletedAt`, `deletedBy` fields to all entities
+   - Create migration for all tables
+   - Add soft delete methods to entities
+
+2. **Repository Updates**
+   - Update all queries to filter `deletedAt IS NULL` by default
+   - Add `findTrashed()` methods
+   - Add permanent delete methods
+
+3. **Delete Behavior**
+   - Update delete endpoints to soft delete
+   - Add parent-child deletion dialog
+   - Implement cascade vs promote logic
+
+4. **Trash Page**
+   - Create trash controller and routes
+   - Build tabbed trash UI
+   - Implement restore functionality
+
+5. **Permanent Delete**
+   - Add permanent delete endpoints
+   - Build confirmation dialogs
+   - Implement empty trash feature
+
+6. **Auto-Cleanup**
+   - Create cleanup command
+   - Add portal setting for retention days
+   - Configure cron schedule
+
+### Files Affected
+
+**Backend:**
+- Modified: `src/Entity/Project.php` - Add soft delete fields
+- Modified: `src/Entity/Milestone.php` - Add soft delete fields
+- Modified: `src/Entity/Task.php` - Add soft delete fields
+- Modified: `src/Entity/Checklist.php` - Add soft delete fields
+- Modified: `src/Entity/User.php` - Add soft delete fields
+- Modified: `src/Repository/*.php` - Filter deleted, add trash queries
+- New: `src/Controller/TrashController.php`
+- New: `src/Service/TrashService.php` - Deletion logic, cascade handling
+- New: `src/Command/CleanupTrashCommand.php`
+- New: `migrations/VersionXXX.php`
+
+**Frontend:**
+- New: `templates/trash/index.html.twig` - Trash page
+- New: `assets/vue/components/TrashList.js` - Vue component for trash
+- New: `assets/vue/components/TrashTabs.js` - Tab navigation
+- Modified: `templates/components/confirm_dialog.html.twig` - Parent-child options
+- Modified: Various delete buttons - Use soft delete
+
+### Edge Cases
+
+| Case | Handling |
+|------|----------|
+| Restore task with deleted milestone | Prompt for new milestone or restore milestone first |
+| Restore subtask with deleted parent | Prompt to restore as root task or restore parent first |
+| Delete user who owns projects | Must transfer ownership first |
+| Circular restore dependency | Detect and prompt to restore entire chain |
+| Trash storage limits | Optional: Limit trash size per user/project |
+| Viewing deleted item | Read-only preview with "Restore" CTA |
+
+---
+
 ## Notes
 
 - Features are listed roughly in order of suggested implementation priority

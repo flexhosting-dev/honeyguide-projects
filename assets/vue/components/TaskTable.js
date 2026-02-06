@@ -6,7 +6,7 @@ import GroupRow from './TaskTable/GroupRow.js';
 import BulkActionBar from './TaskTable/BulkActionBar.js';
 import QuickAddRow from './TaskTable/QuickAddRow.js';
 import ContextMenu from './TaskTable/ContextMenu.js';
-import ConfirmDialog from '../ConfirmDialog.js';
+import ConfirmDialog from './ConfirmDialog.js';
 
 export default {
     name: 'TaskTable',
