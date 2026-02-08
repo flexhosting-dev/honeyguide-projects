@@ -51,4 +51,17 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
 
         return $qb->getQuery()->getResult();
     }
+
+    /**
+     * @return User[]
+     */
+    public function findPortalAdmins(): array
+    {
+        return $this->createQueryBuilder('u')
+            ->join('u.portalRole', 'r')
+            ->andWhere('r.slug IN (:slugs)')
+            ->setParameter('slugs', ['portal-super-admin', 'portal-admin'])
+            ->getQuery()
+            ->getResult();
+    }
 }

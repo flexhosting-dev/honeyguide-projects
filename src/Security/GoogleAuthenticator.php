@@ -3,6 +3,7 @@
 namespace App\Security;
 
 use App\Entity\User;
+use App\Service\RegistrationRequestService;
 use Doctrine\ORM\EntityManagerInterface;
 use KnpU\OAuth2ClientBundle\Client\ClientRegistry;
 use KnpU\OAuth2ClientBundle\Security\Authenticator\OAuth2Authenticator;
@@ -23,19 +24,16 @@ use Symfony\Component\Security\Http\EntryPoint\AuthenticationEntryPointInterface
 class GoogleAuthenticator extends OAuth2Authenticator implements AuthenticationEntryPointInterface
 {
     private bool $enabled;
-    private array $allowedDomains;
 
     public function __construct(
         private ClientRegistry $clientRegistry,
         private EntityManagerInterface $entityManager,
         private RouterInterface $router,
+        private RegistrationRequestService $registrationRequestService,
         #[Autowire('%env(bool:GOOGLE_AUTH_ENABLED)%')]
         bool $enabled = true,
-        #[Autowire('%env(GOOGLE_ALLOWED_DOMAINS)%')]
-        string $allowedDomains = '',
     ) {
         $this->enabled = $enabled;
-        $this->allowedDomains = array_filter(array_map('trim', explode(',', $allowedDomains)));
     }
 
     public function supports(Request $request): ?bool
@@ -60,18 +58,7 @@ class GoogleAuthenticator extends OAuth2Authenticator implements AuthenticationE
                 $email = $googleUser->getEmail();
                 $googleId = $googleUser->getId();
 
-                // Check domain restriction
-                if (!empty($this->allowedDomains)) {
-                    $emailDomain = substr(strrchr($email, '@'), 1);
-                    if (!in_array($emailDomain, $this->allowedDomains, true)) {
-                        $domainList = implode(', ', $this->allowedDomains);
-                        throw new CustomUserMessageAuthenticationException(
-                            "Access restricted to users from: {$domainList}"
-                        );
-                    }
-                }
-
-                // First, try to find user by Google ID
+                // First, try to find user by Google ID (existing users can always log in)
                 $existingUser = $this->entityManager->getRepository(User::class)->findOneBy(['googleId' => $googleId]);
 
                 if ($existingUser) {
@@ -86,6 +73,20 @@ class GoogleAuthenticator extends OAuth2Authenticator implements AuthenticationE
                     $existingUser->setGoogleId($googleId);
                     $this->entityManager->flush();
                     return $existingUser;
+                }
+
+                // Check domain restriction for new users
+                if (!$this->registrationRequestService->isDomainAllowed($email)) {
+                    $this->registrationRequestService->createGoogleRequest(
+                        $email,
+                        $googleUser->getFirstName() ?? '',
+                        $googleUser->getLastName() ?? '',
+                        $googleId,
+                    );
+
+                    throw new CustomUserMessageAuthenticationException(
+                        'Your access request has been submitted for review. You will be notified once an administrator approves your account.'
+                    );
                 }
 
                 // Create new user

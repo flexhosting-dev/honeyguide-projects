@@ -17,6 +17,7 @@ enum NotificationType: string
     case MILESTONE_DUE = 'milestone_due';
     case TASK_STATUS_CHANGED = 'task_status_changed';
     case ATTACHMENT_ADDED = 'attachment_added';
+    case REGISTRATION_REQUEST = 'registration_request';
 
     public function label(): string
     {
@@ -34,6 +35,7 @@ enum NotificationType: string
             self::MILESTONE_DUE => 'Milestone Due',
             self::TASK_STATUS_CHANGED => 'Task Status Changed',
             self::ATTACHMENT_ADDED => 'Attachment Added',
+            self::REGISTRATION_REQUEST => 'Registration Request',
         };
     }
 
@@ -49,6 +51,7 @@ enum NotificationType: string
             self::MILESTONE_DUE => 'flag',
             self::TASK_STATUS_CHANGED => 'arrow-path',
             self::ATTACHMENT_ADDED => 'paper-clip',
+            self::REGISTRATION_REQUEST => 'user-plus',
         };
     }
 
@@ -60,7 +63,7 @@ enum NotificationType: string
     public function defaultEmail(): bool
     {
         return match ($this) {
-            self::TASK_ASSIGNED, self::MENTIONED, self::PROJECT_INVITED => true,
+            self::TASK_ASSIGNED, self::MENTIONED, self::PROJECT_INVITED, self::REGISTRATION_REQUEST => true,
             default => false,
         };
     }
@@ -73,6 +76,7 @@ enum NotificationType: string
             self::COMMENT_ADDED, self::MENTIONED, self::COMMENT_REPLY => 'Comments',
             self::PROJECT_INVITED, self::PROJECT_REMOVED, self::MILESTONE_DUE => 'Projects',
             self::ATTACHMENT_ADDED => 'Tasks',
+            self::REGISTRATION_REQUEST => 'System',
         };
     }
 }

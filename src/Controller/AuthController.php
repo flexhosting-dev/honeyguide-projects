@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\ResetPasswordRequest;
 use App\Entity\User;
 use App\Repository\UserRepository;
+use App\Service\RegistrationRequestService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -31,6 +32,7 @@ class AuthController extends AbstractController
         private readonly UserRepository $userRepository,
         private readonly ResetPasswordHelperInterface $resetPasswordHelper,
         private readonly MailerInterface $mailer,
+        private readonly RegistrationRequestService $registrationRequestService,
     ) {
     }
 
@@ -60,6 +62,17 @@ class AuthController extends AbstractController
 
         if (strlen($password) < 8) {
             return $this->json(['error' => 'Password must be at least 8 characters'], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Check domain restriction
+        if (!$this->registrationRequestService->isDomainAllowed($email)) {
+            $passwordHash = $this->passwordHasher->hashPassword(new User(), $password);
+            $this->registrationRequestService->createManualRequest($email, $firstName, $lastName, $passwordHash);
+
+            return $this->json([
+                'message' => 'Your registration request has been submitted for review. You will be notified once an administrator approves your account.',
+                'status' => 'pending_approval',
+            ], Response::HTTP_ACCEPTED);
         }
 
         $user = new User();

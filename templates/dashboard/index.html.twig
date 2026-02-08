@@ -40,19 +40,19 @@
             </div>
         </div>
 
-        {# Completed Tasks #}
+        {# Due Today #}
         <div class="card-accent-purple rounded-lg px-5 py-5 shadow-soft">
             <div class="flex items-center">
                 <div class="flex-shrink-0">
                     <div class="rounded-lg bg-purple-100 p-3">
                         <svg class="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M11.35 3.836c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m8.9-4.414c.376.023.75.05 1.124.08 1.131.094 1.976 1.057 1.976 2.192V16.5A2.25 2.25 0 0 1 18 18.75h-2.25m-7.5-10.5H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V18.75m-7.5-10.5h6.375c.621 0 1.125.504 1.125 1.125v9.375m-8.25-3 1.5 1.5 3-3.75" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                         </svg>
                     </div>
                 </div>
                 <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-600">Completed</p>
-                    <p class="text-2xl font-bold text-gray-900">{{ stats.completedTasks }}</p>
+                    <p class="text-sm font-medium text-gray-600">Due Today</p>
+                    <p class="text-2xl font-bold {{ stats.tasksDueToday > 0 ? 'text-purple-600' : 'text-gray-900' }}">{{ stats.tasksDueToday }}</p>
                 </div>
             </div>
         </div>
@@ -74,6 +74,62 @@
             </div>
         </div>
     </div>
+
+    {# Tasks Due Today - Prominent Section #}
+    {% if tasksDueToday|length > 0 %}
+    <div class="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 shadow-soft rounded-xl overflow-hidden">
+        <div class="px-5 py-4 border-b border-orange-200 bg-orange-100/50">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <div class="rounded-lg bg-orange-200 p-2">
+                        <svg class="h-5 w-5 text-orange-700" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-base font-semibold text-orange-900">Due Today</h3>
+                    <span class="inline-flex items-center rounded-full bg-orange-200 px-2.5 py-0.5 text-xs font-medium text-orange-800">
+                        {{ tasksDueToday|length }} {{ tasksDueToday|length == 1 ? 'task' : 'tasks' }}
+                    </span>
+                </div>
+                <a href="{{ path('app_task_my_tasks') }}?filter=today" class="text-sm font-medium text-orange-700 hover:text-orange-600">View all</a>
+            </div>
+        </div>
+        <div class="p-5">
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {% for task in tasksDueToday %}
+                    <a href="{{ path('app_project_show', {'id': task.project.id}) }}?task={{ task.id }}"
+                       class="block bg-white rounded-lg p-4 shadow-sm border border-orange-100 hover:shadow-md hover:border-orange-300 transition-all">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium text-gray-900 truncate">{{ task.title }}</p>
+                                <p class="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                                    <svg class="w-3 h-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
+                                    </svg>
+                                    {{ task.project.name }}
+                                </p>
+                            </div>
+                            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium flex-shrink-0
+                                {% if task.priority.value == 'high' %}bg-red-100 text-red-700
+                                {% elseif task.priority.value == 'medium' %}bg-yellow-100 text-yellow-700
+                                {% else %}bg-gray-100 text-gray-600{% endif %}">
+                                {{ task.priority.label }}
+                            </span>
+                        </div>
+                        {% if task.statusType %}
+                            <div class="mt-2">
+                                <span class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium"
+                                      style="background-color: {{ task.statusType.color }}20; color: {{ task.statusType.color }};">
+                                    {{ task.statusType.name }}
+                                </span>
+                            </div>
+                        {% endif %}
+                    </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <div class="grid grid-cols-1 gap-8 lg:grid-cols-2">
         {# Upcoming Tasks #}

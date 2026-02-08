@@ -2488,4 +2488,114 @@ Example: `Website_Redesign_Export_2026-02-08.xlsx`
 
 ---
 
+## 13. Dashboard Enhancements
+
+**Priority:** Medium
+**Complexity:** Low-Medium
+**Impact:** Improves at-a-glance visibility of work status and team activity
+
+### Overview
+
+Enhance the dashboard with additional widgets, visualizations, and personalization options to provide users with a more comprehensive and actionable view of their work.
+
+### Current Dashboard Features
+
+- [x] Stats cards: Total Projects, Total Tasks, Due Today, Overdue
+- [x] Tasks Due Today section (prominent, with task cards)
+- [x] Upcoming Tasks (next 7 days)
+- [x] Recent Activity feed
+- [x] Tasks by Status breakdown
+
+### Quick Wins (Low Effort)
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **Tasks Due Today** | Prominent section showing tasks due today | ✅ Done |
+| **Task Completion Rate** | Percentage/progress bar (e.g., "73% completed this week") | Planned |
+| **Projects at Risk** | Highlight projects with overdue milestones or many overdue tasks | Planned |
+| **Workload Indicator** | Tasks by priority breakdown (high/medium/low) | Planned |
+
+### Charts & Visualizations
+
+| Feature | Description | Library |
+|---------|-------------|---------|
+| **Task Burndown Chart** | Weekly/monthly view of tasks completed vs created | Chart.js |
+| **Activity Sparkline** | Small chart showing team activity trends (7-30 days) | Chart.js |
+| **Status Distribution Chart** | Pie/donut chart for visual task status breakdown | Chart.js |
+
+### Team & Collaboration
+
+| Feature | Description |
+|---------|-------------|
+| **Team Activity Summary** | "Sarah completed 5 tasks, John added 3 comments today" |
+| **Mentions & Notifications Panel** | Unread mentions/comments requiring attention |
+| **Who's Working on What** | Team members active on which projects |
+
+### Time-Based Insights
+
+| Feature | Description |
+|---------|-------------|
+| **This Week Summary** | Tasks completed, comments made, milestones hit |
+| **Upcoming Milestones** | Next 3-5 milestones across all projects with countdown |
+| **Recently Completed** | Tasks completed in last 24-48 hours (celebrate wins) |
+
+### Personalization
+
+| Feature | Description |
+|---------|-------------|
+| **Pinned/Favorite Tasks** | Quick access to tasks user is actively working on |
+| **Custom Widgets** | Let users choose which dashboard cards to display |
+| **Project Health Overview** | Traffic light status for each active project |
+
+### Implementation Priority
+
+**Phase 1 - Quick Wins:**
+1. Task Completion Rate widget
+2. Upcoming Milestones section
+3. Workload Indicator (priority breakdown)
+
+**Phase 2 - Visualizations:**
+4. Status Distribution Chart
+5. Activity Sparkline
+6. Task Burndown Chart
+
+**Phase 3 - Personalization:**
+7. Custom widget toggle (localStorage)
+8. Pinned tasks
+9. Project health indicators
+
+### Permission Model (Verified)
+
+The dashboard correctly respects user roles and permissions:
+
+| Data | Permission Check |
+|------|------------------|
+| Projects | User is owner, member, OR project is public |
+| Tasks | User is an assignee |
+| Hidden Projects | Tasks from user's hidden projects excluded |
+| Activities | Only from projects user has access to |
+
+Relevant code locations:
+- `ProjectRepository::findByUser()` - Filters by ownership/membership/public
+- `TaskRepository::findTasksDueToday()` - Joins on assignees, excludes hidden
+- `TaskRepository::excludeHiddenProjects()` - Helper to filter hidden projects
+
+### Files Affected
+
+**Backend:**
+- Modified: `src/Controller/DashboardController.php` - Additional data queries
+- New: `src/Service/DashboardStatsService.php` - Aggregate calculations
+- Modified: `src/Repository/TaskRepository.php` - Completion rate, burndown queries
+- Modified: `src/Repository/MilestoneRepository.php` - Upcoming milestones query
+
+**Frontend:**
+- Modified: `templates/dashboard/index.html.twig` - New widgets
+- New: `assets/vue/components/Dashboard/CompletionRateWidget.js`
+- New: `assets/vue/components/Dashboard/StatusChart.js`
+- New: `assets/vue/components/Dashboard/ActivitySparkline.js`
+- New: `assets/vue/components/Dashboard/UpcomingMilestones.js`
+- Modified: `importmap.php` - Add Chart.js for visualizations
+
+---
+
 *Last updated: 8 February 2026*

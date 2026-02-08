@@ -123,6 +123,7 @@ class NotificationController extends AbstractController
         return match ($entityType) {
             'task' => $this->generateUrl('app_task_show', ['id' => $entityId]),
             'project' => $this->generateUrl('app_project_show', ['id' => $entityId]),
+            'registration_request' => $this->generateUrl('admin_users_index', ['tab' => 'pending']),
             default => null,
         };
     }

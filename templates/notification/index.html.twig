@@ -63,7 +63,15 @@
                     {% endif %}
                     {{ notification.type.label|lower }}
                     {% if notification.entityName %}
-                        {% set url = notification.entityType == 'task' ? path('app_task_show', {id: notification.entityId}) : (notification.entityType == 'project' ? path('app_project_show', {id: notification.entityId}) : null) %}
+                        {% if notification.entityType == 'task' %}
+                            {% set url = path('app_task_show', {id: notification.entityId}) %}
+                        {% elseif notification.entityType == 'project' %}
+                            {% set url = path('app_project_show', {id: notification.entityId}) %}
+                        {% elseif notification.entityType == 'registration_request' %}
+                            {% set url = path('admin_users_index', {tab: 'pending'}) %}
+                        {% else %}
+                            {% set url = null %}
+                        {% endif %}
                         {% if url %}
                             <a href="{{ url }}" class="font-medium text-primary-600 hover:text-primary-700">{{ notification.entityName }}</a>
                         {% else %}

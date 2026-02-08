@@ -30,7 +30,7 @@
 
                         <div class="relative flex flex-col items-center">
                             <div class="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-lg mb-4">
-                                <span class="text-3xl">🐦</span>
+                                <span class="text-3xl">🎯</span>
                             </div>
                             <h1 class="text-xl font-bold text-white text-center">Honeyguide Projects</h1>
                             <p class="text-primary-100 text-sm mt-1">Project Management</p>
@@ -41,7 +41,14 @@
                     <div class="px-4 py-3 border-b border-gray-100 bg-gray-50">
                         <div class="flex items-center justify-between text-xs">
                             <span class="text-gray-500">Version</span>
-                            <span class="font-medium text-gray-900">1.0.0</span>
+                            {% if can_edit %}
+                                <span class="editable-text font-medium text-gray-900 cursor-pointer hover:text-primary-600"
+                                      data-endpoint="{{ path('app_settings_about_version') }}"
+                                      data-field="version"
+                                      title="Click to edit">{{ app_version }}</span>
+                            {% else %}
+                                <span class="font-medium text-gray-900">{{ app_version }}</span>
+                            {% endif %}
                         </div>
                         <div class="flex items-center justify-between text-xs mt-1.5">
                             <span class="text-gray-500">Build</span>
@@ -76,6 +83,14 @@
                                     Tech Stack
                                 </a>
                             </li>
+                            <li>
+                                <a href="#section-changelog" class="about-nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-primary-600 transition-colors" data-section="section-changelog">
+                                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                                    </svg>
+                                    Changelog
+                                </a>
+                            </li>
                         </ul>
                     </nav>
                 </div>
@@ -91,23 +106,29 @@
         <div class="lg:flex-1 space-y-6">
             {# Overview Section #}
             <div id="section-overview" class="bg-white shadow rounded-xl overflow-hidden scroll-mt-20">
-                <div class="px-6 py-5 border-b border-gray-100">
-                    <h2 class="text-lg font-semibold text-gray-900">About Honeyguide Projects</h2>
+                <div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+                    {% if can_edit %}
+                        <h2 class="editable-text text-lg font-semibold text-gray-900 cursor-pointer hover:text-primary-600"
+                            data-endpoint="{{ path('app_settings_about_heading') }}"
+                            data-field="heading"
+                            title="Click to edit">{{ about_heading }}</h2>
+                        <span class="text-xs text-gray-400">Click to edit</span>
+                    {% else %}
+                        <h2 class="text-lg font-semibold text-gray-900">{{ about_heading }}</h2>
+                    {% endif %}
                 </div>
                 <div class="px-6 py-6">
-                    <div class="prose prose-sm text-gray-600 max-w-none">
-                        <p>
-                            Honeyguide Projects is a modern, intuitive project management platform designed to help teams
-                            collaborate effectively and deliver projects on time.
-                        </p>
-                        <p class="mt-4">
-                            Named after the honeyguide bird known for its remarkable ability to guide others to valuable
-                            resources, our platform guides your team toward successful project outcomes.
-                        </p>
-                        <p class="mt-4">
-                            With powerful features like Kanban boards, task hierarchies, milestone tracking, and real-time
-                            collaboration, Honeyguide Projects provides everything you need to manage projects of any size.
-                        </p>
+                    <div
+                        data-vue-component="RichTextEditor"
+                        data-vue-initial-content="{{ about_text|e('html_attr') }}"
+                        data-vue-save-endpoint="{{ path('app_settings_about_text') }}"
+                        data-vue-can-edit="{{ can_edit ? 'true' : 'false' }}"
+                        data-vue-show-attachments="false"
+                    >
+                        {# Fallback shown before Vue mounts #}
+                        <div class="prose prose-sm max-w-none text-gray-600">
+                            {{ about_text|raw }}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -243,6 +264,32 @@
                     </div>
                 </div>
             </div>
+
+            {# Changelog Section #}
+            <div id="section-changelog" class="bg-white shadow rounded-xl overflow-hidden scroll-mt-20">
+                <div class="px-6 py-5 border-b border-gray-100">
+                    <h2 class="text-lg font-semibold text-gray-900">Changelog</h2>
+                    <p class="mt-1 text-sm text-gray-500">Recent updates and improvements</p>
+                </div>
+                <div class="px-6 py-6">
+                    <div id="changelog-content" class="flow-root">
+                        {# Loading state #}
+                        <div id="changelog-loading" class="flex items-center justify-center py-8">
+                            <svg class="animate-spin h-6 w-6 text-primary-500" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                            <span class="ml-2 text-sm text-gray-500">Loading changelog...</span>
+                        </div>
+                        {# Changelogs will be loaded here #}
+                        <ul id="changelog-list" class="-mb-4 hidden"></ul>
+                        {# Empty state #}
+                        <div id="changelog-empty" class="hidden text-center py-8 text-gray-500 text-sm">
+                            No changelog entries yet.
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>{# End right column #}
     </div>{# End max-w-6xl container #}
 </div>{# End main container #}
@@ -257,7 +304,7 @@ function initAboutPage() {
     aboutNav.dataset.initialized = 'true';
 
     const navLinks = aboutNav.querySelectorAll('.about-nav-link');
-    const sections = ['section-overview', 'section-features', 'section-tech'];
+    const sections = ['section-overview', 'section-features', 'section-tech', 'section-changelog'];
 
     // Smooth scroll on click
     navLinks.forEach(link => {
@@ -312,8 +359,163 @@ function initAboutPage() {
     setActiveNavLink('section-overview');
 }
 
+// Inline text editing for editable elements
+function initEditableText() {
+    document.querySelectorAll('.editable-text').forEach(element => {
+        if (element.dataset.editableInitialized) return;
+        element.dataset.editableInitialized = 'true';
+
+        element.addEventListener('click', function() {
+            if (this.querySelector('input')) return; // Already editing
+
+            const currentValue = this.textContent.trim();
+            const endpoint = this.dataset.endpoint;
+            const originalClasses = this.className;
+
+            // Create input
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = currentValue;
+            input.className = 'bg-white border border-primary-300 rounded px-2 py-0.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500';
+            input.style.minWidth = '80px';
+            input.style.width = Math.max(100, currentValue.length * 8) + 'px';
+
+            // Replace content with input
+            this.textContent = '';
+            this.appendChild(input);
+            input.focus();
+            input.select();
+
+            const saveValue = async () => {
+                const newValue = input.value.trim();
+                if (!newValue) {
+                    this.textContent = currentValue;
+                    return;
+                }
+
+                if (newValue === currentValue) {
+                    this.textContent = currentValue;
+                    return;
+                }
+
+                try {
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        body: JSON.stringify({ value: newValue }),
+                    });
+
+                    if (response.ok) {
+                        this.textContent = newValue;
+                        if (typeof Toastr !== 'undefined') {
+                            Toastr.success('Saved', 'Updated successfully');
+                        }
+                    } else {
+                        const data = await response.json();
+                        this.textContent = currentValue;
+                        if (typeof Toastr !== 'undefined') {
+                            Toastr.error('Error', data.error || 'Failed to save');
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error saving:', error);
+                    this.textContent = currentValue;
+                    if (typeof Toastr !== 'undefined') {
+                        Toastr.error('Error', 'Failed to save');
+                    }
+                }
+            };
+
+            input.addEventListener('blur', saveValue);
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.blur();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    element.textContent = currentValue;
+                }
+            });
+        });
+    });
+}
+
+// Load changelogs asynchronously
+async function loadChangelogs() {
+    const loadingEl = document.getElementById('changelog-loading');
+    const listEl = document.getElementById('changelog-list');
+    const emptyEl = document.getElementById('changelog-empty');
+
+    if (!listEl || listEl.dataset.loaded) return;
+    listEl.dataset.loaded = 'true';
+
+    try {
+        const response = await fetch('{{ path('app_settings_changelogs') }}', {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        });
+
+        if (!response.ok) throw new Error('Failed to load changelogs');
+
+        const data = await response.json();
+        const changelogs = data.changelogs || [];
+
+        if (loadingEl) loadingEl.classList.add('hidden');
+
+        if (changelogs.length === 0) {
+            if (emptyEl) emptyEl.classList.remove('hidden');
+            return;
+        }
+
+        listEl.innerHTML = changelogs.map((changelog, index) => `
+            <li class="${index < changelogs.length - 1 ? 'pb-6' : ''}">
+                <div class="relative">
+                    <div class="flex items-start gap-4">
+                        <div class="flex-shrink-0">
+                            <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary-100 text-primary-600">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
+                                </svg>
+                            </span>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-primary-100 text-primary-800">v${changelog.version}</span>
+                                <span class="text-xs text-gray-500">${changelog.title}</span>
+                                <span class="text-xs text-gray-400">&bull;</span>
+                                <span class="text-xs text-gray-400">${changelog.releaseDate}</span>
+                            </div>
+                            <ul class="mt-2 text-sm text-gray-600 space-y-1">
+                                ${changelog.changes.map(change => `
+                                    <li class="flex items-start gap-2">
+                                        <svg class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+                                        </svg>
+                                        ${change}
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </li>
+        `).join('');
+
+        listEl.classList.remove('hidden');
+    } catch (error) {
+        console.error('Error loading changelogs:', error);
+        if (loadingEl) loadingEl.innerHTML = '<span class="text-sm text-red-500">Failed to load changelog</span>';
+    }
+}
+
 // Initialize on both DOMContentLoaded and Turbo navigation
 document.addEventListener('DOMContentLoaded', initAboutPage);
 document.addEventListener('turbo:load', initAboutPage);
+document.addEventListener('DOMContentLoaded', initEditableText);
+document.addEventListener('turbo:load', initEditableText);
+document.addEventListener('DOMContentLoaded', loadChangelogs);
+document.addEventListener('turbo:load', loadChangelogs);
 </script>
 {% endblock %}

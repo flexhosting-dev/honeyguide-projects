@@ -6,6 +6,7 @@ use App\Entity\User;
 use App\Form\RegistrationFormType;
 use App\Repository\UserRepository;
 use App\Service\PersonalProjectService;
+use App\Service\RegistrationRequestService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -44,7 +45,8 @@ class SecurityController extends AbstractController
         UserPasswordHasherInterface $passwordHasher,
         EntityManagerInterface $entityManager,
         UserRepository $userRepository,
-        PersonalProjectService $personalProjectService
+        PersonalProjectService $personalProjectService,
+        RegistrationRequestService $registrationRequestService,
     ): Response {
         if ($this->getUser()) {
             return $this->redirectToRoute('app_dashboard');
@@ -55,7 +57,24 @@ class SecurityController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            $email = $user->getEmail();
             $plainPassword = $form->get('plainPassword')->getData();
+
+            // Check domain restriction
+            if (!$registrationRequestService->isDomainAllowed($email)) {
+                $passwordHash = $passwordHasher->hashPassword($user, $plainPassword);
+                $registrationRequestService->createManualRequest(
+                    $email,
+                    $user->getFirstName(),
+                    $user->getLastName(),
+                    $passwordHash,
+                );
+
+                $this->addFlash('info', 'Your registration request has been submitted for review. You will be notified once an administrator approves your account.');
+
+                return $this->redirectToRoute('app_login');
+            }
+
             $user->setPassword($passwordHasher->hashPassword($user, $plainPassword));
             $user->setIsVerified(true);
 
