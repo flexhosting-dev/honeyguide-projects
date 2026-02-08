@@ -1,6 +1,6 @@
 # Honeyguide Projects - Project Management System
 
-A Zoho Projects clone built with Symfony 7, featuring project management, task tracking, Kanban boards, and team collaboration.
+A project management system built with Symfony 7, featuring project management, task tracking, Kanban boards, and team collaboration.
 
 ## Requirements
 
@@ -15,8 +15,8 @@ A Zoho Projects clone built with Symfony 7, featuring project management, task t
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/flexhosting-dev/ZohoClone.git
-cd ZohoClone
+git clone https://github.com/flexhosting-dev/honeyguide-projects.git
+cd honeyguide-projects
 ```
 
 ### 2. Install Dependencies
