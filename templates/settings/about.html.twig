@@ -1,0 +1,208 @@
+{% extends 'layout.html.twig' %}
+
+{% block title %}About - Honeyguide Projects{% endblock %}
+
+{% set page_title = 'About' %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    {# Back link #}
+    <div class="mb-6">
+        <a href="{{ path('app_settings') }}" class="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-primary-600 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+            </svg>
+            Back to Settings
+        </a>
+    </div>
+
+    {# Hero Section #}
+    <div class="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden mb-8">
+        <div class="bg-gradient-to-br from-primary-500 via-primary-600 to-indigo-700 px-8 py-12 text-center relative overflow-hidden">
+            {# Decorative elements #}
+            <div class="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+                <div class="absolute -top-20 -right-20 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+                <div class="absolute top-1/2 -left-10 w-40 h-40 bg-indigo-400/20 rounded-full blur-2xl"></div>
+                <div class="absolute -bottom-10 right-1/4 w-48 h-48 bg-white/5 rounded-full blur-3xl"></div>
+            </div>
+
+            <div class="relative">
+                <div class="inline-flex items-center justify-center w-20 h-20 bg-white/20 backdrop-blur-sm rounded-2xl mb-6 shadow-lg">
+                    <span class="text-4xl">🐦</span>
+                </div>
+                <h1 class="text-3xl font-bold text-white mb-2">Honeyguide Projects</h1>
+                <p class="text-primary-100 text-lg">Project Management Made Simple</p>
+            </div>
+        </div>
+
+        <div class="px-8 py-6 border-b border-gray-100">
+            <div class="flex items-center justify-center gap-8 text-sm">
+                <div class="text-center">
+                    <div class="font-semibold text-gray-900">Version</div>
+                    <div class="text-gray-500">1.0.0</div>
+                </div>
+                <div class="w-px h-8 bg-gray-200"></div>
+                <div class="text-center">
+                    <div class="font-semibold text-gray-900">Build</div>
+                    <div class="text-gray-500">{{ "now"|date("Y.m.d") }}</div>
+                </div>
+                <div class="w-px h-8 bg-gray-200"></div>
+                <div class="text-center">
+                    <div class="font-semibold text-gray-900">Framework</div>
+                    <div class="text-gray-500">Symfony 6.4</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# Description #}
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6 mb-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">About Honeyguide Projects</h2>
+        <div class="prose prose-sm text-gray-600 max-w-none">
+            <p>
+                Honeyguide Projects is a modern, intuitive project management platform designed to help teams
+                collaborate effectively and deliver projects on time. Named after the honeyguide bird known for
+                its remarkable ability to guide others to valuable resources, our platform guides your team
+                toward successful project outcomes.
+            </p>
+            <p class="mt-4">
+                With powerful features like Kanban boards, task hierarchies, milestone tracking, and real-time
+                collaboration, Honeyguide Projects provides everything you need to manage projects of any size.
+            </p>
+        </div>
+    </div>
+
+    {# Features Grid #}
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6 mb-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Key Features</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="flex items-start gap-3 p-3 rounded-lg bg-gray-50">
+                <div class="flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" />
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="font-medium text-gray-900 text-sm">Kanban Boards</h3>
+                    <p class="text-xs text-gray-500 mt-0.5">Visualize workflow with drag-and-drop boards</p>
+                </div>
+            </div>
+
+            <div class="flex items-start gap-3 p-3 rounded-lg bg-gray-50">
+                <div class="flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="font-medium text-gray-900 text-sm">Task Management</h3>
+                    <p class="text-xs text-gray-500 mt-0.5">Subtasks, checklists, and assignments</p>
+                </div>
+            </div>
+
+            <div class="flex items-start gap-3 p-3 rounded-lg bg-gray-50">
+                <div class="flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-violet-400 to-purple-500 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v1.5M3 21v-6m0 0 2.77-.693a9 9 0 0 1 6.208.682l.108.054a9 9 0 0 0 6.086.71l3.114-.732a48.524 48.524 0 0 1-.005-10.499l-3.11.732a9 9 0 0 1-6.085-.711l-.108-.054a9 9 0 0 0-6.208-.682L3 4.5M3 15V4.5" />
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="font-medium text-gray-900 text-sm">Milestones</h3>
+                    <p class="text-xs text-gray-500 mt-0.5">Track progress toward key deliverables</p>
+                </div>
+            </div>
+
+            <div class="flex items-start gap-3 p-3 rounded-lg bg-gray-50">
+                <div class="flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="font-medium text-gray-900 text-sm">Team Collaboration</h3>
+                    <p class="text-xs text-gray-500 mt-0.5">Comments, @mentions, and notifications</p>
+                </div>
+            </div>
+
+            <div class="flex items-start gap-3 p-3 rounded-lg bg-gray-50">
+                <div class="flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-rose-400 to-pink-500 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="font-medium text-gray-900 text-sm">Multiple Views</h3>
+                    <p class="text-xs text-gray-500 mt-0.5">Table, Kanban, and Gantt chart views</p>
+                </div>
+            </div>
+
+            <div class="flex items-start gap-3 p-3 rounded-lg bg-gray-50">
+                <div class="flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-teal-400 to-cyan-500 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="font-medium text-gray-900 text-sm">Customizable</h3>
+                    <p class="text-xs text-gray-500 mt-0.5">Custom statuses, roles, and permissions</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# Tech Stack #}
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6 mb-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Built With</h2>
+        <div class="flex flex-wrap gap-2">
+            <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+                <svg class="w-3.5 h-3.5 mr-1.5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 18c-4.418 0-8-3.582-8-8s3.582-8 8-8 8 3.582 8 8-3.582 8-8 8z"/>
+                </svg>
+                PHP 8.2+
+            </span>
+            <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-gray-900 text-white">
+                <svg class="w-3.5 h-3.5 mr-1.5" viewBox="0 0 24 24" fill="currentColor">
+                    <circle cx="12" cy="12" r="10"/>
+                </svg>
+                Symfony 6.4
+            </span>
+            <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                <svg class="w-3.5 h-3.5 mr-1.5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                </svg>
+                Vue.js 3
+            </span>
+            <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-cyan-100 text-cyan-700">
+                <svg class="w-3.5 h-3.5 mr-1.5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                </svg>
+                Tailwind CSS
+            </span>
+            <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                <svg class="w-3.5 h-3.5 mr-1.5" viewBox="0 0 24 24" fill="currentColor">
+                    <circle cx="12" cy="12" r="10"/>
+                </svg>
+                Alpine.js
+            </span>
+            <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+                <svg class="w-3.5 h-3.5 mr-1.5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+                </svg>
+                MySQL/MariaDB
+            </span>
+            <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+                <svg class="w-3.5 h-3.5 mr-1.5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5"/>
+                </svg>
+                Doctrine ORM
+            </span>
+        </div>
+    </div>
+
+    {# Footer #}
+    <div class="text-center py-6 text-sm text-gray-500">
+        <p>&copy; {{ "now"|date("Y") }} Honeyguide Projects. All rights reserved.</p>
+    </div>
+</div>
+{% endblock %}

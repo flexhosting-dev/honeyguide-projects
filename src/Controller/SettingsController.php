@@ -63,4 +63,12 @@ class SettingsController extends AbstractController
             'categories' => $categories,
         ]);
     }
+
+    #[Route('/about', name: 'app_settings_about', methods: ['GET'])]
+    public function about(): Response
+    {
+        return $this->render('settings/about.html.twig', [
+            'page_title' => 'About',
+        ]);
+    }
 }
