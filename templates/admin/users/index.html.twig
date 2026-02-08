@@ -21,9 +21,30 @@
         </div>
     </div>
 
+    <!-- Tabs -->
+    <div class="border-b border-gray-200">
+        <nav class="flex gap-4" aria-label="Tabs">
+            <a href="{{ path('admin_users_index', {tab: 'users'}) }}"
+               class="py-2 px-1 border-b-2 text-sm font-medium {{ tab == 'users' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
+                Active Users
+            </a>
+            <a href="{{ path('admin_users_index', {tab: 'pending'}) }}"
+               class="py-2 px-1 border-b-2 text-sm font-medium flex items-center gap-2 {{ tab == 'pending' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
+                Pending Requests
+                {% if pendingCount > 0 %}
+                <span class="inline-flex items-center justify-center rounded-full bg-amber-100 text-amber-800 text-xs font-medium px-2 py-0.5">
+                    {{ pendingCount }}
+                </span>
+                {% endif %}
+            </a>
+        </nav>
+    </div>
+
+    {% if tab == 'users' %}
     <!-- Search -->
     <div class="bg-white shadow rounded-lg p-4">
-        <form method="get" action="{{ path('app_admin_users') }}" class="flex flex-col sm:flex-row gap-3 sm:gap-4">
+        <form method="get" action="{{ path('admin_users_index') }}" class="flex flex-col sm:flex-row gap-3 sm:gap-4">
+            <input type="hidden" name="tab" value="users">
             <div class="flex-1">
                 <input type="text" name="search" value="{{ search }}"
                        placeholder="Search by name or email..."
@@ -34,7 +55,7 @@
                     Search
                 </button>
                 {% if search %}
-                <a href="{{ path('app_admin_users') }}" class="flex-1 sm:flex-none text-center rounded-md bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200">
+                <a href="{{ path('admin_users_index', {tab: 'users'}) }}" class="flex-1 sm:flex-none text-center rounded-md bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200">
                     Clear
                 </a>
                 {% endif %}
@@ -101,10 +122,10 @@
                         </td>
                         <td class="px-4 sm:px-6 py-4">
                             {% if app.user.isPortalSuperAdmin and user.id != app.user.id %}
-                            <form method="post" action="{{ path('app_admin_users_update_role', {id: user.id}) }}" class="inline-block">
+                            <form method="post" action="{{ path('admin_users_update_role', {id: user.id}) }}" class="inline-block">
                                 <select name="portal_role" onchange="this.form.submit()"
                                         class="block w-full min-w-[120px] rounded-md border-0 py-1 pl-2 pr-6 text-xs sm:text-sm text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-primary-600">
-                                    <option value="">No Role</option>
+                                    <option value="">Portal Member</option>
                                     {% for role in portalRoles %}
                                     <option value="{{ role.id }}" {% if user.portalRole and user.portalRole.id == role.id %}selected{% endif %}>
                                         {{ role.name }}
@@ -126,7 +147,7 @@
                             {{ user.createdAt|date('M j, Y') }}
                         </td>
                         <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <a href="{{ path('app_admin_users_show', {id: user.id}) }}" class="text-primary-600 hover:text-primary-900">View</a>
+                            <a href="{{ path('admin_users_show', {id: user.id}) }}" class="text-primary-600 hover:text-primary-900">View</a>
                         </td>
                     </tr>
                     {% else %}
@@ -148,5 +169,9 @@
     <p class="text-sm text-gray-500">
         Showing {{ users|length }} user{{ users|length != 1 ? 's' : '' }}
     </p>
+    {% else %}
+    <!-- Pending Requests Tab -->
+    {% include 'admin/users/_pending_requests.html.twig' %}
+    {% endif %}
 </div>
 {% endblock %}
