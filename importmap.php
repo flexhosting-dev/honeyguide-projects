@@ -85,4 +85,10 @@ return [
     'vue/components/TaskTable/TreeToggle' => [
         'path' => './assets/vue/components/TaskTable/TreeToggle.js',
     ],
+    'vue/components/GanttView' => [
+        'path' => './assets/vue/components/GanttView.js',
+    ],
+    'frappe-gantt' => [
+        'path' => './assets/vendor/frappe-gantt/index.js',
+    ],
 ];

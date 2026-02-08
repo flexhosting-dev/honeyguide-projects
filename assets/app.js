@@ -15,6 +15,7 @@ import RichTextEditor from 'vue/components/RichTextEditor';
 import SubtasksEditor from 'vue/components/SubtasksEditor';
 import QuickAddCard from 'vue/components/QuickAddCard';
 import TaskTable from 'vue/components/TaskTable';
+import GanttView from 'vue/components/GanttView';
 
 // Register Vue components
 const vueComponents = {
@@ -27,7 +28,8 @@ const vueComponents = {
     RichTextEditor,
     SubtasksEditor,
     QuickAddCard,
-    TaskTable
+    TaskTable,
+    GanttView
 };
 
 // Mount Vue components on page load and after Turbo navigations

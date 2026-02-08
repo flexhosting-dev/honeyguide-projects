@@ -1,0 +1,54 @@
+{#
+   Gantt View Component - Vue-powered Gantt chart view
+   Variables:
+   - tasks: Task[] (flat list of all tasks)
+   - milestones: list of Milestone entities
+   - storageKey: string (localStorage key for view persistence)
+#}
+
+{% set milestones = milestones|default([]) %}
+{% set basePath = app.request.basePath %}
+
+<div
+    data-vue-component="GanttView"
+    data-vue-initial-tasks='{{ tasks|map(task => {
+        id: task.id ~ '',
+        title: task.title|default(''),
+        status: { value: task.status ? task.status.value : 'todo', label: task.status ? task.status.label : 'To Do' },
+        priority: { value: task.priority ? task.priority.value : 'none', label: task.priority ? task.priority.label : 'None' },
+        milestoneId: task.milestone ? task.milestone.id ~ '' : null,
+        milestoneName: task.milestone ? task.milestone.name : null,
+        projectName: task.project ? task.project.name|default('') : '',
+        dueDate: task.dueDate ? task.dueDate|date('Y-m-d') : null,
+        startDate: task.startDate ? task.startDate|date('Y-m-d') : null,
+        position: task.position|default(0),
+        depth: task.depth|default(0),
+        parentId: task.parent ? task.parent.id ~ '' : null,
+        assignees: task.assignees|map(a => {
+            id: a.id ~ '',
+            user: a.user ? {
+                id: a.user.id ~ '',
+                fullName: a.user.fullName|default('Unknown'),
+                avatar: a.user.avatar ? basePath ~ '/uploads/avatars/' ~ a.user.avatar : null
+            } : null
+        })|filter(a => a.user is not null)
+    })|json_encode|e('html_attr') }}'
+    data-vue-milestones='{{ milestones|map(m => {
+        id: m.id ~ '',
+        name: m.name|default(''),
+        dueDate: m.dueDate ? m.dueDate|date('Y-m-d') : null,
+        projectId: m.project ? m.project.id ~ '' : null
+    })|json_encode|e('html_attr') }}'
+    data-vue-start-date-url-template="{{ path('app_task_update_start_date', {id: '__TASK_ID__'}) }}"
+    data-vue-due-date-url-template="{{ path('app_task_update_due_date', {id: '__TASK_ID__'}) }}"
+    data-vue-storage-key="{{ storageKey|default('gantt_view') }}"
+>
+    {# Loading fallback shown before Vue mounts #}
+    <div class="flex items-center justify-center py-12">
+        <svg class="animate-spin h-8 w-8 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span class="ml-3 text-gray-500">Loading Gantt chart...</span>
+    </div>
+</div>
