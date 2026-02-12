@@ -41,6 +41,7 @@
     })|json_encode|e('html_attr') }}'
     data-vue-start-date-url-template="{{ path('app_task_update_start_date', {id: '__TASK_ID__'}) }}"
     data-vue-due-date-url-template="{{ path('app_task_update_due_date', {id: '__TASK_ID__'}) }}"
+    data-vue-task-url-template="{{ path('app_task_show', {id: '__TASK_ID__'}) }}"
     data-vue-storage-key="{{ storageKey|default('gantt_view') }}"
 >
     {# Loading fallback shown before Vue mounts #}

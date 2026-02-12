@@ -24,6 +24,9 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 class AppFixtures extends Fixture implements DependentFixtureInterface
 {
+    /** @var array<string, int> Track task positions per project */
+    private array $projectTaskPositions = [];
+
     public function __construct(
         private UserPasswordHasherInterface $passwordHasher
     ) {}
@@ -153,6 +156,14 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $manager->persist($sam);
 
         // ============================================
+        // Create personal projects for all users
+        // ============================================
+        $allUsers = [$testUser, $adminUser, $sylvester, $max, $fatma, $namnyaki, $kateto, $lemuta, $glad, $daudi, $michael, $meleck, $sam];
+        foreach ($allUsers as $user) {
+            $this->createPersonalProject($manager, $user, $projectManager);
+        }
+
+        // ============================================
         // PROJECT A: Southern WMAs Portfolio
         // ============================================
         $projectA = new Project();
@@ -185,11 +196,11 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m1_1, 'Joint Livelihood initiative reports', 7);
         $this->createTarget($manager, $m1_1, '4 Meetings in each WMA with pastoralists, inclusion in AA and village committee', 8);
 
-        $this->createTask($manager, $m1_1, '1.1.1 MAT operational efficiency', 'MAT with a focus on achieving >80% Level 3 for operational efficiency, & filling training gaps to Field Officers.', TaskStatus::TODO, TaskPriority::HIGH, 0, $sylvester);
-        $this->createTask($manager, $m1_1, '1.1.2 AA leadership & GIA governance', 'Strengthen AA leadership, decision-making and compliance so Ruvuma 5 WMAs meet mandatory GIA standards and uphold transparent, accountable participatory governance.', TaskStatus::TODO, TaskPriority::HIGH, 1, $sylvester);
-        $this->createTask($manager, $m1_1, '1.1.3 Community-led protection & HWC', 'Developing and implementing community-led natural resource protection & HWC strategies that are cost-effective, data-driven, and show clear positive results on the ground.', TaskStatus::TODO, TaskPriority::HIGH, 2, $sylvester);
-        $this->createTask($manager, $m1_1, '1.1.4 Community livelihood programs', 'Delivering cost-effective, data-driven community livelihood programs with measurable social impact.', TaskStatus::TODO, TaskPriority::MEDIUM, 3, $sylvester);
-        $this->createTask($manager, $m1_1, '1.1.5 SMART engagement strategies', 'Implement SMART engagement strategies to raise awareness, strengthen collaboration, and foster pastoralist WMA ownership.', TaskStatus::TODO, TaskPriority::MEDIUM, 4, $sylvester);
+        $this->createTask($manager, $m1_1, '1.1.1 MAT operational efficiency', 'MAT with a focus on achieving >80% Level 3 for operational efficiency, & filling training gaps to Field Officers.', TaskStatus::TODO, TaskPriority::HIGH, $sylvester);
+        $this->createTask($manager, $m1_1, '1.1.2 AA leadership & GIA governance', 'Strengthen AA leadership, decision-making and compliance so Ruvuma 5 WMAs meet mandatory GIA standards and uphold transparent, accountable participatory governance.', TaskStatus::TODO, TaskPriority::HIGH, $sylvester);
+        $this->createTask($manager, $m1_1, '1.1.3 Community-led protection & HWC', 'Developing and implementing community-led natural resource protection & HWC strategies that are cost-effective, data-driven, and show clear positive results on the ground.', TaskStatus::TODO, TaskPriority::HIGH, $sylvester);
+        $this->createTask($manager, $m1_1, '1.1.4 Community livelihood programs', 'Delivering cost-effective, data-driven community livelihood programs with measurable social impact.', TaskStatus::TODO, TaskPriority::MEDIUM, $sylvester);
+        $this->createTask($manager, $m1_1, '1.1.5 SMART engagement strategies', 'Implement SMART engagement strategies to raise awareness, strengthen collaboration, and foster pastoralist WMA ownership.', TaskStatus::TODO, TaskPriority::MEDIUM, $sylvester);
 
         // --- Milestone 1.2: Liwale (Magingo WMA) ---
         $m1_2 = new Milestone();
@@ -205,11 +216,11 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m1_2, 'Customized SOPs and anti-poaching strategy documents, intelligence manual and data collection system. Construction of 1 Ranger Post and formal employment of 10 Rangers', 3);
         $this->createTarget($manager, $m1_2, 'Stakeholder engagement report, implemented communication strategy, and 3 awareness films', 4);
 
-        $this->createTask($manager, $m1_2, '1.2.1 MAT operational efficiency', 'MAT aiming for >80% Level 3 in operational efficiency, & filling training gaps of Field Officers.', TaskStatus::TODO, TaskPriority::HIGH, 0, $sylvester);
-        $this->createTask($manager, $m1_2, '1.2.2 Governance interventions & GIA', 'Implement targeted governance interventions & GIA actions to provide an enabling environment for governance best practices in daily WMA operations.', TaskStatus::TODO, TaskPriority::HIGH, 1, $sylvester);
-        $this->createTask($manager, $m1_2, '1.2.3 Community-led protection', 'Implementing community-led natural resource protection strategies that are cost-effective, data-driven, and show clear positive results on the ground.', TaskStatus::TODO, TaskPriority::HIGH, 2, $sylvester);
-        $this->createTask($manager, $m1_2, '1.2.4 Stakeholder engagement & comms', 'Customize and implement SMART stakeholder engagement and communications strategies to raise awareness, and enhance collaboration and ownership of WMA initiatives.', TaskStatus::TODO, TaskPriority::MEDIUM, 3, $sylvester);
-        $this->createTask($manager, $m1_2, '1.2.5 SEGA Actions in Liwale', 'Implementing SEGA Actions in Liwale WMA.', TaskStatus::TODO, TaskPriority::MEDIUM, 4, $sylvester);
+        $this->createTask($manager, $m1_2, '1.2.1 MAT operational efficiency', 'MAT aiming for >80% Level 3 in operational efficiency, & filling training gaps of Field Officers.', TaskStatus::TODO, TaskPriority::HIGH, $sylvester);
+        $this->createTask($manager, $m1_2, '1.2.2 Governance interventions & GIA', 'Implement targeted governance interventions & GIA actions to provide an enabling environment for governance best practices in daily WMA operations.', TaskStatus::TODO, TaskPriority::HIGH, $sylvester);
+        $this->createTask($manager, $m1_2, '1.2.3 Community-led protection', 'Implementing community-led natural resource protection strategies that are cost-effective, data-driven, and show clear positive results on the ground.', TaskStatus::TODO, TaskPriority::HIGH, $sylvester);
+        $this->createTask($manager, $m1_2, '1.2.4 Stakeholder engagement & comms', 'Customize and implement SMART stakeholder engagement and communications strategies to raise awareness, and enhance collaboration and ownership of WMA initiatives.', TaskStatus::TODO, TaskPriority::MEDIUM, $sylvester);
+        $this->createTask($manager, $m1_2, '1.2.5 SEGA Actions in Liwale', 'Implementing SEGA Actions in Liwale WMA.', TaskStatus::TODO, TaskPriority::MEDIUM, $sylvester);
 
         // --- Milestone 1.3: Ruaha WMAs ---
         $m1_3 = new Milestone();
@@ -227,11 +238,11 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m1_3, 'Reports on Protection and HWC initiatives for Waga and MBOMIPA WMAs', 5);
         $this->createTarget($manager, $m1_3, 'Livelihood initiatives reports', 6);
 
-        $this->createTask($manager, $m1_3, '1.3.1 MAT Mbomipa & Waga', 'MAT in Mbomipa and Waga WMAs, to reach 80% MAT level 3.', TaskStatus::TODO, TaskPriority::HIGH, 0, $sylvester);
-        $this->createTask($manager, $m1_3, '1.3.2 Governance & GIA interventions', 'Implement targeted governance and GIA interventions addressing SAGE findings.', TaskStatus::TODO, TaskPriority::HIGH, 1, $sylvester);
-        $this->createTask($manager, $m1_3, '1.3.3 Alternative financing models', 'Develop alternative financing and business models to ensure WMAs\' sustainability.', TaskStatus::TODO, TaskPriority::MEDIUM, 2, $sylvester);
-        $this->createTask($manager, $m1_3, '1.3.4 Protection & HWC strategies', 'Exploring cost-effective community-led natural resource protection & HWC strategies that are data-driven and show clear positive results on the ground.', TaskStatus::TODO, TaskPriority::HIGH, 3, $sylvester);
-        $this->createTask($manager, $m1_3, '1.3.5 Community livelihood programs', 'Implement community-led, cost-effective, data-driven livelihood programs showing social and behavioral benefits.', TaskStatus::TODO, TaskPriority::MEDIUM, 4, $sylvester);
+        $this->createTask($manager, $m1_3, '1.3.1 MAT Mbomipa & Waga', 'MAT in Mbomipa and Waga WMAs, to reach 80% MAT level 3.', TaskStatus::TODO, TaskPriority::HIGH, $sylvester);
+        $this->createTask($manager, $m1_3, '1.3.2 Governance & GIA interventions', 'Implement targeted governance and GIA interventions addressing SAGE findings.', TaskStatus::TODO, TaskPriority::HIGH, $sylvester);
+        $this->createTask($manager, $m1_3, '1.3.3 Alternative financing models', 'Develop alternative financing and business models to ensure WMAs\' sustainability.', TaskStatus::TODO, TaskPriority::MEDIUM, $sylvester);
+        $this->createTask($manager, $m1_3, '1.3.4 Protection & HWC strategies', 'Exploring cost-effective community-led natural resource protection & HWC strategies that are data-driven and show clear positive results on the ground.', TaskStatus::TODO, TaskPriority::HIGH, $sylvester);
+        $this->createTask($manager, $m1_3, '1.3.5 Community livelihood programs', 'Implement community-led, cost-effective, data-driven livelihood programs showing social and behavioral benefits.', TaskStatus::TODO, TaskPriority::MEDIUM, $sylvester);
 
         // --- Milestone 1.4: Ifinga ---
         $m1_4 = new Milestone();
@@ -247,8 +258,8 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m1_4, 'Professional staff in place', 3);
         $this->createTarget($manager, $m1_4, 'Governance reports', 4);
 
-        $this->createTask($manager, $m1_4, '1.4.1 WMA establishment support', 'Support Ifinga WMA communities and relevant stakeholders in the establishment of the WMA.', TaskStatus::TODO, TaskPriority::HIGH, 0, $sylvester);
-        $this->createTask($manager, $m1_4, '1.4.2 Basic governance & management training', 'Support WMA basic governance & management trainings.', TaskStatus::TODO, TaskPriority::HIGH, 1, $sylvester);
+        $this->createTask($manager, $m1_4, '1.4.1 WMA establishment support', 'Support Ifinga WMA communities and relevant stakeholders in the establishment of the WMA.', TaskStatus::TODO, TaskPriority::HIGH, $sylvester);
+        $this->createTask($manager, $m1_4, '1.4.2 Basic governance & management training', 'Support WMA basic governance & management trainings.', TaskStatus::TODO, TaskPriority::HIGH, $sylvester);
 
         // ============================================
         // PROJECT B: Northern WMAs Portfolio
@@ -279,7 +290,7 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m2_1, 'Basic governance status checklist (minimum standards restored)', 2);
         $this->createTarget($manager, $m2_1, 'Stakeholder engagement log (villages, AA, district, partners)', 3);
 
-        $this->createTask($manager, $m2_1, '2.1.1 Re-establish Burunge relationship', 'Re-establish a constructive working relationship with Burunge WMA.', TaskStatus::TODO, TaskPriority::HIGH, 0, $max);
+        $this->createTask($manager, $m2_1, '2.1.1 Re-establish Burunge relationship', 'Re-establish a constructive working relationship with Burunge WMA.', TaskStatus::TODO, TaskPriority::HIGH, $max);
 
         // --- Milestone 2.2: Makame ---
         $m2_2 = new Milestone();
@@ -296,9 +307,9 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m2_2, 'Learning centre improvement summary (with photos)', 4);
         $this->createTarget($manager, $m2_2, 'New livelihood initiative concept note(s)', 5);
 
-        $this->createTask($manager, $m2_2, '2.2.1 Sustainability indicators ≥90%', 'Achieve ≥90% on Makame sustainability indicators and update the Sustainability Plan and SP26 partnership accordingly.', TaskStatus::TODO, TaskPriority::HIGH, 0, $max);
-        $this->createTask($manager, $m2_2, '2.2.2 Carbon & community learning hub', 'Strengthen Makame as a carbon-and-community learning hub by improving the curriculum and learning centre infrastructure.', TaskStatus::TODO, TaskPriority::MEDIUM, 1, $max);
-        $this->createTask($manager, $m2_2, '2.2.3 Additional livelihood initiatives', 'Develop additional livelihood initiatives that increase Makame community benefits beyond health and education.', TaskStatus::TODO, TaskPriority::MEDIUM, 2, $max);
+        $this->createTask($manager, $m2_2, '2.2.1 Sustainability indicators ≥90%', 'Achieve ≥90% on Makame sustainability indicators and update the Sustainability Plan and SP26 partnership accordingly.', TaskStatus::TODO, TaskPriority::HIGH, $max);
+        $this->createTask($manager, $m2_2, '2.2.2 Carbon & community learning hub', 'Strengthen Makame as a carbon-and-community learning hub by improving the curriculum and learning centre infrastructure.', TaskStatus::TODO, TaskPriority::MEDIUM, $max);
+        $this->createTask($manager, $m2_2, '2.2.3 Additional livelihood initiatives', 'Develop additional livelihood initiatives that increase Makame community benefits beyond health and education.', TaskStatus::TODO, TaskPriority::MEDIUM, $max);
 
         // --- Milestone 2.3: Randilen ---
         $m2_3 = new Milestone();
@@ -316,9 +327,9 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m2_3, 'Livelihood initiatives summary sheet (existing + new) / strategy', 5);
         $this->createTarget($manager, $m2_3, 'Pastoralist engagement summary (meetings, agreements)', 6);
 
-        $this->createTask($manager, $m2_3, '2.3.1 Sustainability indicators ≥90%', 'Achieve ≥90% on Randilen sustainability indicators and update the Sustainability Plan and renewed partnership / focus on human resources and capacity.', TaskStatus::TODO, TaskPriority::HIGH, 0, $max);
-        $this->createTask($manager, $m2_3, '2.3.2 Photographic tourism learning hub', 'Position Randilen as a leading photographic tourism learning hub by improving curriculum, learning centre infrastructure, and implementing the tourism plan.', TaskStatus::TODO, TaskPriority::MEDIUM, 1, $max);
-        $this->createTask($manager, $m2_3, '2.3.3 Additional livelihood initiatives', 'Develop additional livelihood initiatives that increase Randilen community benefits beyond health and education.', TaskStatus::TODO, TaskPriority::MEDIUM, 2, $max);
+        $this->createTask($manager, $m2_3, '2.3.1 Sustainability indicators ≥90%', 'Achieve ≥90% on Randilen sustainability indicators and update the Sustainability Plan and renewed partnership / focus on human resources and capacity.', TaskStatus::TODO, TaskPriority::HIGH, $max);
+        $this->createTask($manager, $m2_3, '2.3.2 Photographic tourism learning hub', 'Position Randilen as a leading photographic tourism learning hub by improving curriculum, learning centre infrastructure, and implementing the tourism plan.', TaskStatus::TODO, TaskPriority::MEDIUM, $max);
+        $this->createTask($manager, $m2_3, '2.3.3 Additional livelihood initiatives', 'Develop additional livelihood initiatives that increase Randilen community benefits beyond health and education.', TaskStatus::TODO, TaskPriority::MEDIUM, $max);
 
         // --- Milestone 2.4: Makao WMA ---
         $m2_4 = new Milestone();
@@ -334,9 +345,9 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m2_4, 'Financial resilience snapshot (income vs core and protection costs)', 3);
         $this->createTarget($manager, $m2_4, 'Tools/equipment handover list (HWC and protection)', 4);
 
-        $this->createTask($manager, $m2_4, '2.4.1 Darwin programme completion', 'Finalise the Darwin-funded programme, delivering agreed habitat, governance, and livelihood improvements in Makao.', TaskStatus::TODO, TaskPriority::HIGH, 0, $max);
-        $this->createTask($manager, $m2_4, '2.4.2 Sustainability score ≥80%', 'Raise Makao\'s sustainability score to ≥80% by strengthening governance, management, and a cost-effective protection unit.', TaskStatus::TODO, TaskPriority::HIGH, 1, $max);
-        $this->createTask($manager, $m2_4, '2.4.3 Financial & community benefits plan', 'Establish a simple financial and community benefits plan that supports Makao\'s growth and resilience.', TaskStatus::TODO, TaskPriority::MEDIUM, 2, $max);
+        $this->createTask($manager, $m2_4, '2.4.1 Darwin programme completion', 'Finalise the Darwin-funded programme, delivering agreed habitat, governance, and livelihood improvements in Makao.', TaskStatus::TODO, TaskPriority::HIGH, $max);
+        $this->createTask($manager, $m2_4, '2.4.2 Sustainability score ≥80%', 'Raise Makao\'s sustainability score to ≥80% by strengthening governance, management, and a cost-effective protection unit.', TaskStatus::TODO, TaskPriority::HIGH, $max);
+        $this->createTask($manager, $m2_4, '2.4.3 Financial & community benefits plan', 'Establish a simple financial and community benefits plan that supports Makao\'s growth and resilience.', TaskStatus::TODO, TaskPriority::MEDIUM, $max);
 
         // --- Milestone 2.5: Uyumbu WMA ---
         $m2_5 = new Milestone();
@@ -355,9 +366,9 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m2_5, 'Carbon feasibility study', 6);
         $this->createTarget($manager, $m2_5, 'BEST', 7);
 
-        $this->createTask($manager, $m2_5, '2.5.1 Governance to MAT ≥75% L3', 'Strengthen Uyumbu governance to MAT ≥75% L3 through targeted capacity building (technical training, learning tour) and core management manuals, guidelines, and policies.', TaskStatus::TODO, TaskPriority::HIGH, 0, $max);
-        $this->createTask($manager, $m2_5, '2.5.2 Community trust & awareness', 'Rebuild community and stakeholder trust via a short awareness film, concise communication materials, and facilitated dialogue screenings.', TaskStatus::TODO, TaskPriority::MEDIUM, 1, $max);
-        $this->createTask($manager, $m2_5, '2.5.3 Protection, HWC & carbon feasibility', 'Pilot strategic protection and human–wildlife conflict operations and complete a carbon-business feasibility assessment to secure sustainable revenue streams, including a clear BEST.', TaskStatus::TODO, TaskPriority::HIGH, 2, $max);
+        $this->createTask($manager, $m2_5, '2.5.1 Governance to MAT ≥75% L3', 'Strengthen Uyumbu governance to MAT ≥75% L3 through targeted capacity building (technical training, learning tour) and core management manuals, guidelines, and policies.', TaskStatus::TODO, TaskPriority::HIGH, $max);
+        $this->createTask($manager, $m2_5, '2.5.2 Community trust & awareness', 'Rebuild community and stakeholder trust via a short awareness film, concise communication materials, and facilitated dialogue screenings.', TaskStatus::TODO, TaskPriority::MEDIUM, $max);
+        $this->createTask($manager, $m2_5, '2.5.3 Protection, HWC & carbon feasibility', 'Pilot strategic protection and human–wildlife conflict operations and complete a carbon-business feasibility assessment to secure sustainable revenue streams, including a clear BEST.', TaskStatus::TODO, TaskPriority::HIGH, $max);
 
         // --- Milestone 2.6: Other new WMAs ---
         $m2_6 = new Milestone();
@@ -374,8 +385,8 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m2_6, 'Partner engagement summary (CWMAC, others, roles)', 4);
         $this->createTarget($manager, $m2_6, '"Readiness for scaling" checklist per WMA', 5);
 
-        $this->createTask($manager, $m2_6, '2.6.1 Governance basics establishment', 'Establish governance basics (clarified roles, minuted decision-making meetings, short practical training) using a light-touch engagement model as time and resources allow.', TaskStatus::TODO, TaskPriority::MEDIUM, 0, $sam);
-        $this->createTask($manager, $m2_6, '2.6.2 Scalable livelihood models', 'Explore scalable livelihood models for Northern WMAs, including community banks and community training with SAWC.', TaskStatus::TODO, TaskPriority::MEDIUM, 1, $sam);
+        $this->createTask($manager, $m2_6, '2.6.1 Governance basics establishment', 'Establish governance basics (clarified roles, minuted decision-making meetings, short practical training) using a light-touch engagement model as time and resources allow.', TaskStatus::TODO, TaskPriority::MEDIUM, $sam);
+        $this->createTask($manager, $m2_6, '2.6.2 Scalable livelihood models', 'Explore scalable livelihood models for Northern WMAs, including community banks and community training with SAWC.', TaskStatus::TODO, TaskPriority::MEDIUM, $sam);
 
         // ============================================
         // PROJECT C: Technical Innovations (Honeyguide Lab)
@@ -411,12 +422,12 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m3_1, 'WMA leaders trained to use the Rapid Governance Monitoring Tool, governance reviews conducted', 4);
         $this->createTarget($manager, $m3_1, 'SAGE enhanced and expanded to support additional WMAs and partner programs', 5);
 
-        $this->createTask($manager, $m3_1, '3.1.1 Pilot & monitor GCBF Module', 'Pilot, Cascade, and Monitor the GCBF Module.', TaskStatus::TODO, TaskPriority::HIGH, 0, $fatma);
-        $this->createTask($manager, $m3_1, '3.1.2 Institutionalize governance docs & tools', 'Institutionalize and package all existing governance documents, GIA, tools, and methodologies for standardized use across WMAs.', TaskStatus::TODO, TaskPriority::HIGH, 1, $fatma);
-        $this->createTask($manager, $m3_1, '3.1.3 Rapid governance training for new leaders', 'Pilot and Support Rapid Governance Training for New WMA Leaders.', TaskStatus::TODO, TaskPriority::MEDIUM, 2, $fatma);
-        $this->createTask($manager, $m3_1, '3.1.4 Stakeholder engagement approach pilot', 'Pilot Testing and Learning from the Stakeholder Engagement & Communication Approach.', TaskStatus::TODO, TaskPriority::MEDIUM, 3, $fatma);
-        $this->createTask($manager, $m3_1, '3.1.5 Rapid Governance Monitoring Tool', 'Provide initial training and support for the WMA Rapid Governance Monitoring Tool for regular governance assessments.', TaskStatus::TODO, TaskPriority::MEDIUM, 4, $fatma);
-        $this->createTask($manager, $m3_1, '3.1.6 Enhance & scale SAGE', 'Enhance and scale SAGE for wider adoption across WMAs and partner programs beyond HGF\'s primary areas.', TaskStatus::TODO, TaskPriority::MEDIUM, 5, $fatma);
+        $this->createTask($manager, $m3_1, '3.1.1 Pilot & monitor GCBF Module', 'Pilot, Cascade, and Monitor the GCBF Module.', TaskStatus::TODO, TaskPriority::HIGH, $fatma);
+        $this->createTask($manager, $m3_1, '3.1.2 Institutionalize governance docs & tools', 'Institutionalize and package all existing governance documents, GIA, tools, and methodologies for standardized use across WMAs.', TaskStatus::TODO, TaskPriority::HIGH, $fatma);
+        $this->createTask($manager, $m3_1, '3.1.3 Rapid governance training for new leaders', 'Pilot and Support Rapid Governance Training for New WMA Leaders.', TaskStatus::TODO, TaskPriority::MEDIUM, $fatma);
+        $this->createTask($manager, $m3_1, '3.1.4 Stakeholder engagement approach pilot', 'Pilot Testing and Learning from the Stakeholder Engagement & Communication Approach.', TaskStatus::TODO, TaskPriority::MEDIUM, $fatma);
+        $this->createTask($manager, $m3_1, '3.1.5 Rapid Governance Monitoring Tool', 'Provide initial training and support for the WMA Rapid Governance Monitoring Tool for regular governance assessments.', TaskStatus::TODO, TaskPriority::MEDIUM, $fatma);
+        $this->createTask($manager, $m3_1, '3.1.6 Enhance & scale SAGE', 'Enhance and scale SAGE for wider adoption across WMAs and partner programs beyond HGF\'s primary areas.', TaskStatus::TODO, TaskPriority::MEDIUM, $fatma);
 
         // --- Milestone 3.2: Management ---
         $m3_2 = new Milestone();
@@ -432,11 +443,11 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m3_2, 'Packaging & publishing at least 5 additional Management Tools', 3);
         $this->createTarget($manager, $m3_2, 'Pilot leadership training program report', 4);
 
-        $this->createTask($manager, $m3_2, '3.2.1 FCG Monitoring tool', 'Develop FCG Monitoring tool and testing.', TaskStatus::TODO, TaskPriority::HIGH, 0, $namnyaki);
-        $this->createTask($manager, $m3_2, '3.2.2 QuickBooks lite setup for WMAs', 'Develop pre-customized Quickbook lite setup file for WMAs (to build uniformity across WMAs).', TaskStatus::TODO, TaskPriority::MEDIUM, 1, $namnyaki);
-        $this->createTask($manager, $m3_2, '3.2.3 Board Financial Oversight Handbook', 'Develop WMA Board Financial Oversight Handbook + Tools (Helps governance members challenge management constructively and make informed approvals).', TaskStatus::TODO, TaskPriority::MEDIUM, 2, $namnyaki);
-        $this->createTask($manager, $m3_2, '3.2.4 WMA Management Toolbox', 'Design and consolidate a comprehensive WMA Management Toolbox and publish at least five additional tools guided by sound financial and operational management of WMAs.', TaskStatus::TODO, TaskPriority::HIGH, 3, $namnyaki);
-        $this->createTask($manager, $m3_2, '3.2.5 Leadership Training Program pilot', 'Implement a pilot of the pre-designed WMA Management Leadership Training Program across selected WMAs.', TaskStatus::TODO, TaskPriority::MEDIUM, 4, $namnyaki);
+        $this->createTask($manager, $m3_2, '3.2.1 FCG Monitoring tool', 'Develop FCG Monitoring tool and testing.', TaskStatus::TODO, TaskPriority::HIGH, $namnyaki);
+        $this->createTask($manager, $m3_2, '3.2.2 QuickBooks lite setup for WMAs', 'Develop pre-customized Quickbook lite setup file for WMAs (to build uniformity across WMAs).', TaskStatus::TODO, TaskPriority::MEDIUM, $namnyaki);
+        $this->createTask($manager, $m3_2, '3.2.3 Board Financial Oversight Handbook', 'Develop WMA Board Financial Oversight Handbook + Tools (Helps governance members challenge management constructively and make informed approvals).', TaskStatus::TODO, TaskPriority::MEDIUM, $namnyaki);
+        $this->createTask($manager, $m3_2, '3.2.4 WMA Management Toolbox', 'Design and consolidate a comprehensive WMA Management Toolbox and publish at least five additional tools guided by sound financial and operational management of WMAs.', TaskStatus::TODO, TaskPriority::HIGH, $namnyaki);
+        $this->createTask($manager, $m3_2, '3.2.5 Leadership Training Program pilot', 'Implement a pilot of the pre-designed WMA Management Leadership Training Program across selected WMAs.', TaskStatus::TODO, TaskPriority::MEDIUM, $namnyaki);
 
         // --- Milestone 3.3: Protection ---
         $m3_3 = new Milestone();
@@ -451,10 +462,10 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m3_3, 'WMAs\' protection status monitored with quarterly reports', 2);
         $this->createTarget($manager, $m3_3, 'Quarterly-updated checklist of recommendation for WMA anti-poaching practices developed and shared', 3);
 
-        $this->createTask($manager, $m3_3, '3.3.1 Package protection docs & tools', 'Institutionalize and package all existing protection documents, tools, and methodologies for standardized use across WMAs.', TaskStatus::TODO, TaskPriority::HIGH, 0, $kateto);
-        $this->createTask($manager, $m3_3, '3.3.2 Low-cost protection strategies', 'Ensure all WMAs adopt and comply with low-cost, effective protection strategies and methodologies.', TaskStatus::TODO, TaskPriority::HIGH, 1, $kateto);
-        $this->createTask($manager, $m3_3, '3.3.3 Anti-poaching tools monitoring', 'Conduct regular assessments and monitoring of anti-poaching tools to ensure full functionality and effectiveness.', TaskStatus::TODO, TaskPriority::MEDIUM, 2, $kateto);
-        $this->createTask($manager, $m3_3, '3.3.4 Anti-poaching improvement checklist', 'Develop a checklist of recommendation for anti-poaching strategic improvement.', TaskStatus::TODO, TaskPriority::MEDIUM, 3, $kateto);
+        $this->createTask($manager, $m3_3, '3.3.1 Package protection docs & tools', 'Institutionalize and package all existing protection documents, tools, and methodologies for standardized use across WMAs.', TaskStatus::TODO, TaskPriority::HIGH, $kateto);
+        $this->createTask($manager, $m3_3, '3.3.2 Low-cost protection strategies', 'Ensure all WMAs adopt and comply with low-cost, effective protection strategies and methodologies.', TaskStatus::TODO, TaskPriority::HIGH, $kateto);
+        $this->createTask($manager, $m3_3, '3.3.3 Anti-poaching tools monitoring', 'Conduct regular assessments and monitoring of anti-poaching tools to ensure full functionality and effectiveness.', TaskStatus::TODO, TaskPriority::MEDIUM, $kateto);
+        $this->createTask($manager, $m3_3, '3.3.4 Anti-poaching improvement checklist', 'Develop a checklist of recommendation for anti-poaching strategic improvement.', TaskStatus::TODO, TaskPriority::MEDIUM, $kateto);
 
         // --- Milestone 3.4: HWC ---
         $m3_4 = new Milestone();
@@ -468,9 +479,9 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m3_4, 'HEC scaled up and engaged in at least 2 other countries with partners', 1);
         $this->createTarget($manager, $m3_4, 'HEC methods guide compiled and packaged for use', 2);
 
-        $this->createTask($manager, $m3_4, '3.4.1 HEC toolkit innovation', 'Drive toolkit innovation process by gathering insights through listening, creating designs, testing prototypes, validating scientifically, and scaling successful solutions.', TaskStatus::TODO, TaskPriority::HIGH, 0, $lemuta);
-        $this->createTask($manager, $m3_4, '3.4.2 HEC mitigation beyond WMAs', 'Explore HEC mitigation strategies beyond WMAs and outside the country.', TaskStatus::TODO, TaskPriority::MEDIUM, 1, $lemuta);
-        $this->createTask($manager, $m3_4, '3.4.3 Package HEC methodologies', 'Institutionalize and packaging available HEC methodologies.', TaskStatus::TODO, TaskPriority::MEDIUM, 2, $lemuta);
+        $this->createTask($manager, $m3_4, '3.4.1 HEC toolkit innovation', 'Drive toolkit innovation process by gathering insights through listening, creating designs, testing prototypes, validating scientifically, and scaling successful solutions.', TaskStatus::TODO, TaskPriority::HIGH, $lemuta);
+        $this->createTask($manager, $m3_4, '3.4.2 HEC mitigation beyond WMAs', 'Explore HEC mitigation strategies beyond WMAs and outside the country.', TaskStatus::TODO, TaskPriority::MEDIUM, $lemuta);
+        $this->createTask($manager, $m3_4, '3.4.3 Package HEC methodologies', 'Institutionalize and packaging available HEC methodologies.', TaskStatus::TODO, TaskPriority::MEDIUM, $lemuta);
 
         // --- Milestone 3.5: Livelihoods ---
         $m3_5 = new Milestone();
@@ -486,11 +497,11 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m3_5, 'Database (PDF and Excel) of 10+ livelihoods models studied and documented', 3);
         $this->createTarget($manager, $m3_5, 'Reports of at least 2 new conservation financing mechanisms developed', 4);
 
-        $this->createTask($manager, $m3_5, '3.5.1 Education & Health replication playbook', 'Document the Makame Education and Health models into a replication playbook framework while preparing Makame WMA to fully own these programs beyond Honeyguide\'s support.', TaskStatus::TODO, TaskPriority::HIGH, 0, $glad);
-        $this->createTask($manager, $m3_5, '3.5.2 Kamitei Education replication', 'Replicate the Kamitei Education program into Mbomipa, Waga and Ruvuma 5 WMAs, ensuring WMA ownership and financial contributions.', TaskStatus::TODO, TaskPriority::HIGH, 1, $glad);
-        $this->createTask($manager, $m3_5, '3.5.3 Agriculture & microcredit pilots', 'Explore and pilot Agriculture and microcredit initiatives that can be integrated into WMA livelihood portfolios and scaled as community-owned models.', TaskStatus::TODO, TaskPriority::MEDIUM, 2, $glad);
-        $this->createTask($manager, $m3_5, '3.5.4 Livelihood programs inventory', 'Build a detailed, research-backed inventory of at least 10 livelihood-improvement programs suitable for rural WMA communities.', TaskStatus::TODO, TaskPriority::MEDIUM, 3, $glad);
-        $this->createTask($manager, $m3_5, '3.5.5 New financing models (CTFs, etc.)', 'Co-design at least 2 new financing models (CTFs, HWC insurance, BD credits etc) for WMAs.', TaskStatus::TODO, TaskPriority::MEDIUM, 4, $glad);
+        $this->createTask($manager, $m3_5, '3.5.1 Education & Health replication playbook', 'Document the Makame Education and Health models into a replication playbook framework while preparing Makame WMA to fully own these programs beyond Honeyguide\'s support.', TaskStatus::TODO, TaskPriority::HIGH, $glad);
+        $this->createTask($manager, $m3_5, '3.5.2 Kamitei Education replication', 'Replicate the Kamitei Education program into Mbomipa, Waga and Ruvuma 5 WMAs, ensuring WMA ownership and financial contributions.', TaskStatus::TODO, TaskPriority::HIGH, $glad);
+        $this->createTask($manager, $m3_5, '3.5.3 Agriculture & microcredit pilots', 'Explore and pilot Agriculture and microcredit initiatives that can be integrated into WMA livelihood portfolios and scaled as community-owned models.', TaskStatus::TODO, TaskPriority::MEDIUM, $glad);
+        $this->createTask($manager, $m3_5, '3.5.4 Livelihood programs inventory', 'Build a detailed, research-backed inventory of at least 10 livelihood-improvement programs suitable for rural WMA communities.', TaskStatus::TODO, TaskPriority::MEDIUM, $glad);
+        $this->createTask($manager, $m3_5, '3.5.5 New financing models (CTFs, etc.)', 'Co-design at least 2 new financing models (CTFs, HWC insurance, BD credits etc) for WMAs.', TaskStatus::TODO, TaskPriority::MEDIUM, $glad);
 
         // --- Milestone 3.6: Honeyguide Learning Hub ---
         $m3_6 = new Milestone();
@@ -504,8 +515,8 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m3_6, 'Online self-paced learning courses', 1);
         $this->createTarget($manager, $m3_6, 'Monitoring tools to measure learning uptake and changes', 2);
 
-        $this->createTask($manager, $m3_6, '3.6.1 Knowledge repository', 'Research and development of a repository of tools, knowledge, and information, including videos, PDFs, and Google Docs.', TaskStatus::TODO, TaskPriority::MEDIUM, 0, null);
-        $this->createTask($manager, $m3_6, '3.6.2 Online courses & monitoring', 'Design online courses and sessions for both individual and group learning, incorporating monitoring mechanisms to track uptake and learning progress.', TaskStatus::TODO, TaskPriority::MEDIUM, 1, null);
+        $this->createTask($manager, $m3_6, '3.6.1 Knowledge repository', 'Research and development of a repository of tools, knowledge, and information, including videos, PDFs, and Google Docs.', TaskStatus::TODO, TaskPriority::MEDIUM, null);
+        $this->createTask($manager, $m3_6, '3.6.2 Online courses & monitoring', 'Design online courses and sessions for both individual and group learning, incorporating monitoring mechanisms to track uptake and learning progress.', TaskStatus::TODO, TaskPriority::MEDIUM, null);
 
         // ============================================
         // PROJECT D: Monitoring, Evaluation & Learning
@@ -541,11 +552,11 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m4_1, 'Quarterly presentation on project progress', 7);
         $this->createTarget($manager, $m4_1, 'Quarterly consolidation of organization program reports', 8);
 
-        $this->createTask($manager, $m4_1, '4.1.1 M&E tools & systems design', 'Design, Develop, and Implementation of M&E Tools and Systems.', TaskStatus::TODO, TaskPriority::HIGH, 0, $daudi);
-        $this->createTask($manager, $m4_1, '4.1.2 Program impacts & evaluation', 'Program Impacts and Evaluation.', TaskStatus::TODO, TaskPriority::HIGH, 1, $daudi);
-        $this->createTask($manager, $m4_1, '4.1.3 M&E capacity building', 'M&E Capacity Building for WMAs and partners (Training, Mentorship, and Coaching).', TaskStatus::TODO, TaskPriority::MEDIUM, 2, $daudi);
-        $this->createTask($manager, $m4_1, '4.1.4 Quarterly data quality & reports', 'Ensure accurate, consistent, quality data and reports quarterly.', TaskStatus::TODO, TaskPriority::HIGH, 3, $daudi);
-        $this->createTask($manager, $m4_1, '4.1.5 Ecological monitoring & evidence', 'Ecological Monitoring and Evidence Generation.', TaskStatus::TODO, TaskPriority::MEDIUM, 4, $daudi);
+        $this->createTask($manager, $m4_1, '4.1.1 M&E tools & systems design', 'Design, Develop, and Implementation of M&E Tools and Systems.', TaskStatus::TODO, TaskPriority::HIGH, $daudi);
+        $this->createTask($manager, $m4_1, '4.1.2 Program impacts & evaluation', 'Program Impacts and Evaluation.', TaskStatus::TODO, TaskPriority::HIGH, $daudi);
+        $this->createTask($manager, $m4_1, '4.1.3 M&E capacity building', 'M&E Capacity Building for WMAs and partners (Training, Mentorship, and Coaching).', TaskStatus::TODO, TaskPriority::MEDIUM, $daudi);
+        $this->createTask($manager, $m4_1, '4.1.4 Quarterly data quality & reports', 'Ensure accurate, consistent, quality data and reports quarterly.', TaskStatus::TODO, TaskPriority::HIGH, $daudi);
+        $this->createTask($manager, $m4_1, '4.1.5 Ecological monitoring & evidence', 'Ecological Monitoring and Evidence Generation.', TaskStatus::TODO, TaskPriority::MEDIUM, $daudi);
 
         // --- Milestone 4.2: GIS and Mapping ---
         $m4_2 = new Milestone();
@@ -561,8 +572,8 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m4_2, 'Story Maps to support Honeyguide communications', 3);
         $this->createTarget($manager, $m4_2, 'Consistent, professional-quality maps support communication, M&E, and reporting', 4);
 
-        $this->createTask($manager, $m4_2, '4.2.1 GIS maps & tools for project areas', 'Develop GIS maps and tools for all project areas to include all potential information for investment and protection.', TaskStatus::TODO, TaskPriority::HIGH, 0, $michael);
-        $this->createTask($manager, $m4_2, '4.2.2 Map making & navigation capacity', 'Establishing Capacity for Map Making and Navigation to Support Honeyguide Initiatives.', TaskStatus::TODO, TaskPriority::MEDIUM, 1, $michael);
+        $this->createTask($manager, $m4_2, '4.2.1 GIS maps & tools for project areas', 'Develop GIS maps and tools for all project areas to include all potential information for investment and protection.', TaskStatus::TODO, TaskPriority::HIGH, $michael);
+        $this->createTask($manager, $m4_2, '4.2.2 Map making & navigation capacity', 'Establishing Capacity for Map Making and Navigation to Support Honeyguide Initiatives.', TaskStatus::TODO, TaskPriority::MEDIUM, $michael);
 
         // ============================================
         // PROJECT E: Special Programs
@@ -591,9 +602,9 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m5_1, 'MR training center developed and approved', 1);
         $this->createTarget($manager, $m5_1, 'K9 medical plan and evacuation protocol in place with vaccination and treatment schedules', 2);
 
-        $this->createTask($manager, $m5_1, '5.1.1 Maintain 24/7 standby K9 unit', 'Maintaining a standby canine unit that is 24/7 ready to respond to all calls in our working areas.', TaskStatus::TODO, TaskPriority::HIGH, 0, $meleck);
-        $this->createTask($manager, $m5_1, '5.1.2 Strengthen K9 operations & reporting', 'Strengthening K9 unit operations and reporting.', TaskStatus::TODO, TaskPriority::HIGH, 1, $meleck);
-        $this->createTask($manager, $m5_1, '5.1.3 HGF-Kuru-Manyara collaboration', 'Strengthen collaboration between HGF, Kuru and Manyara Board of Trustee.', TaskStatus::TODO, TaskPriority::MEDIUM, 2, $meleck);
+        $this->createTask($manager, $m5_1, '5.1.1 Maintain 24/7 standby K9 unit', 'Maintaining a standby canine unit that is 24/7 ready to respond to all calls in our working areas.', TaskStatus::TODO, TaskPriority::HIGH, $meleck);
+        $this->createTask($manager, $m5_1, '5.1.2 Strengthen K9 operations & reporting', 'Strengthening K9 unit operations and reporting.', TaskStatus::TODO, TaskPriority::HIGH, $meleck);
+        $this->createTask($manager, $m5_1, '5.1.3 HGF-Kuru-Manyara collaboration', 'Strengthen collaboration between HGF, Kuru and Manyara Board of Trustee.', TaskStatus::TODO, TaskPriority::MEDIUM, $meleck);
 
         // --- Milestone 5.2: Rubondo Chimpanzee Habituation ---
         $m5_2 = new Milestone();
@@ -613,11 +624,11 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m5_2, '4-year action plan report developed and Reviewed MoU between HGF and TANAPA', 7);
         $this->createTarget($manager, $m5_2, 'New marketing materials for Rubondo chimp products', 8);
 
-        $this->createTask($manager, $m5_2, '5.2.1 Northern chimps habituation', 'Continued habituation of the northern chimps sub-group.', TaskStatus::TODO, TaskPriority::HIGH, 0, $meleck);
-        $this->createTask($manager, $m5_2, '5.2.2 Southern chimps mapping & monitoring', 'Start habituating the southern chimp subgroup through mapping and monitoring.', TaskStatus::TODO, TaskPriority::HIGH, 1, $meleck);
-        $this->createTask($manager, $m5_2, '5.2.3 Chimp tourism & tracker training', 'Strengthen chimpanzee tourism through habituation and tracker training.', TaskStatus::TODO, TaskPriority::MEDIUM, 2, $meleck);
-        $this->createTask($manager, $m5_2, '5.2.4 Marketing with TANAPA', 'Improve marketing and advertising of the Chimp product with TANAPA.', TaskStatus::TODO, TaskPriority::MEDIUM, 3, $meleck);
-        $this->createTask($manager, $m5_2, '5.2.5 New 4-year action plan', 'Develop a new 4-year action plan that includes a diversified fundraising strategy.', TaskStatus::TODO, TaskPriority::HIGH, 4, $meleck);
+        $this->createTask($manager, $m5_2, '5.2.1 Northern chimps habituation', 'Continued habituation of the northern chimps sub-group.', TaskStatus::TODO, TaskPriority::HIGH, $meleck);
+        $this->createTask($manager, $m5_2, '5.2.2 Southern chimps mapping & monitoring', 'Start habituating the southern chimp subgroup through mapping and monitoring.', TaskStatus::TODO, TaskPriority::HIGH, $meleck);
+        $this->createTask($manager, $m5_2, '5.2.3 Chimp tourism & tracker training', 'Strengthen chimpanzee tourism through habituation and tracker training.', TaskStatus::TODO, TaskPriority::MEDIUM, $meleck);
+        $this->createTask($manager, $m5_2, '5.2.4 Marketing with TANAPA', 'Improve marketing and advertising of the Chimp product with TANAPA.', TaskStatus::TODO, TaskPriority::MEDIUM, $meleck);
+        $this->createTask($manager, $m5_2, '5.2.5 New 4-year action plan', 'Develop a new 4-year action plan that includes a diversified fundraising strategy.', TaskStatus::TODO, TaskPriority::HIGH, $meleck);
 
         // ============================================
         // PROJECT F: Narrative Change & Strategic Influence
@@ -645,7 +656,7 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m6_1, '3 radio stations broadcasting at local level on WMA issues', 1);
         $this->createTarget($manager, $m6_1, '10 WMAs independently posting on social media', 2);
 
-        $this->createTask($manager, $m6_1, '6.1.1 National & local media awareness', 'National and local media and general public awareness.', TaskStatus::TODO, TaskPriority::HIGH, 0, null);
+        $this->createTask($manager, $m6_1, '6.1.1 National & local media awareness', 'National and local media and general public awareness.', TaskStatus::TODO, TaskPriority::HIGH, null);
 
         // --- Milestone 6.2: Stakeholder Perception ---
         $m6_2 = new Milestone();
@@ -657,7 +668,7 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $manager->persist($m6_2);
         $this->createTarget($manager, $m6_2, 'Benchmarking tool tested', 0);
 
-        $this->createTask($manager, $m6_2, '6.2.1 Narrative benchmark assessment', 'Stakeholder narrative benchmark assessment.', TaskStatus::TODO, TaskPriority::MEDIUM, 0, null);
+        $this->createTask($manager, $m6_2, '6.2.1 Narrative benchmark assessment', 'Stakeholder narrative benchmark assessment.', TaskStatus::TODO, TaskPriority::MEDIUM, null);
 
         // --- Milestone 6.3: Policy ---
         $m6_3 = new Milestone();
@@ -670,7 +681,7 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m6_3, '1x Plan and budget developed with clear roles of network team, clear goals, monitoring and outcomes developed and shared', 0);
         $this->createTarget($manager, $m6_3, '4x Quarterly Reports developed', 1);
 
-        $this->createTask($manager, $m6_3, '6.3.1 Policy network & facilitation', 'Policy network and facilitation.', TaskStatus::TODO, TaskPriority::MEDIUM, 0, null);
+        $this->createTask($manager, $m6_3, '6.3.1 Policy network & facilitation', 'Policy network and facilitation.', TaskStatus::TODO, TaskPriority::MEDIUM, null);
 
         // --- Milestone 6.4: Regional Networks ---
         $m6_4 = new Milestone();
@@ -683,7 +694,7 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m6_4, 'Attended BCC conference', 0);
         $this->createTarget($manager, $m6_4, 'Engaged in quarterly CLC network calls', 1);
 
-        $this->createTask($manager, $m6_4, '6.4.1 Regional CLC narrative', 'Regional narrative on CLC.', TaskStatus::TODO, TaskPriority::LOW, 0, null);
+        $this->createTask($manager, $m6_4, '6.4.1 Regional CLC narrative', 'Regional narrative on CLC.', TaskStatus::TODO, TaskPriority::LOW, null);
 
         // --- Milestone 6.5: Capacity Building ---
         $m6_5 = new Milestone();
@@ -695,7 +706,7 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $manager->persist($m6_5);
         $this->createTarget($manager, $m6_5, '2 key persons trained in advocacy and media', 0);
 
-        $this->createTask($manager, $m6_5, '6.5.1 Advocacy & media training', 'Training and equipment for advocacy and media teams.', TaskStatus::TODO, TaskPriority::MEDIUM, 0, null);
+        $this->createTask($manager, $m6_5, '6.5.1 Advocacy & media training', 'Training and equipment for advocacy and media teams.', TaskStatus::TODO, TaskPriority::MEDIUM, null);
 
         // ============================================
         // PROJECT G: Finance and Admin
@@ -726,12 +737,12 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m7_1, 'Transparent, competitive, and compliant procurement system operational', 4);
         $this->createTarget($manager, $m7_1, 'Stronger donor confidence due to improved accountability and compliance', 5);
 
-        $this->createTask($manager, $m7_1, '7.1.1 Finance & procurement manual awareness', 'Awareness of finance and procurement manual procedures and practices.', TaskStatus::TODO, TaskPriority::HIGH, 0, null);
-        $this->createTask($manager, $m7_1, '7.1.2 Internal audit & compliance', 'Strengthen internal audit and compliance mechanisms and follow up on Audit recommendations.', TaskStatus::TODO, TaskPriority::HIGH, 1, null);
-        $this->createTask($manager, $m7_1, '7.1.3 Donor-specific dashboards & automation', 'Enhance financial reporting by introducing donor-specific dashboards and automating report generation.', TaskStatus::TODO, TaskPriority::MEDIUM, 2, null);
-        $this->createTask($manager, $m7_1, '7.1.4 Long-term financial planning', 'Strategic long-term financial planning.', TaskStatus::TODO, TaskPriority::HIGH, 3, null);
-        $this->createTask($manager, $m7_1, '7.1.5 Budget & cashflow monitoring', 'Annual Budget and Cashflow development and monitoring.', TaskStatus::TODO, TaskPriority::HIGH, 4, null);
-        $this->createTask($manager, $m7_1, '7.1.6 e-Asset & e-Procurement rollout', 'Roll out e-Asset management (Asset lists, regular inventory, valuation, security, insurance) and improve e-procurement system within the finance system.', TaskStatus::TODO, TaskPriority::MEDIUM, 5, null);
+        $this->createTask($manager, $m7_1, '7.1.1 Finance & procurement manual awareness', 'Awareness of finance and procurement manual procedures and practices.', TaskStatus::TODO, TaskPriority::HIGH, null);
+        $this->createTask($manager, $m7_1, '7.1.2 Internal audit & compliance', 'Strengthen internal audit and compliance mechanisms and follow up on Audit recommendations.', TaskStatus::TODO, TaskPriority::HIGH, null);
+        $this->createTask($manager, $m7_1, '7.1.3 Donor-specific dashboards & automation', 'Enhance financial reporting by introducing donor-specific dashboards and automating report generation.', TaskStatus::TODO, TaskPriority::MEDIUM, null);
+        $this->createTask($manager, $m7_1, '7.1.4 Long-term financial planning', 'Strategic long-term financial planning.', TaskStatus::TODO, TaskPriority::HIGH, null);
+        $this->createTask($manager, $m7_1, '7.1.5 Budget & cashflow monitoring', 'Annual Budget and Cashflow development and monitoring.', TaskStatus::TODO, TaskPriority::HIGH, null);
+        $this->createTask($manager, $m7_1, '7.1.6 e-Asset & e-Procurement rollout', 'Roll out e-Asset management (Asset lists, regular inventory, valuation, security, insurance) and improve e-procurement system within the finance system.', TaskStatus::TODO, TaskPriority::MEDIUM, null);
 
         // --- Milestone 7.2: HR Management ---
         $m7_2 = new Milestone();
@@ -748,12 +759,12 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m7_2, '1 culture survey conducted; Recognition program launched; Engagement index improved by 15%', 4);
         $this->createTarget($manager, $m7_2, 'Data protection policy and registers developed; All staff trained on compliance', 5);
 
-        $this->createTask($manager, $m7_2, '7.2.1 Workforce planning & job evaluation', 'Workforce Planning, Compensation and Benefits – Develop job profiles, competency models, and conduct a comprehensive job evaluation to establish clear job grades.', TaskStatus::TODO, TaskPriority::HIGH, 0, null);
-        $this->createTask($manager, $m7_2, '7.2.2 Performance management improvement', 'Strengthen the performance management system and support employee development through training, mentorship, and cross-department exposure.', TaskStatus::TODO, TaskPriority::HIGH, 1, null);
-        $this->createTask($manager, $m7_2, '7.2.3 Staff training & development', 'Identify organization development priority and ensure implementation of staff development activities and measure its impact.', TaskStatus::TODO, TaskPriority::MEDIUM, 2, null);
-        $this->createTask($manager, $m7_2, '7.2.4 HRIS integration & consolidation', 'Automate all HR processes and consolidate different HR systems to one system.', TaskStatus::TODO, TaskPriority::MEDIUM, 3, null);
-        $this->createTask($manager, $m7_2, '7.2.5 Culture & engagement improvement', 'Launch engagement programs with surveys, accountability initiatives, recognition schemes, and a strong Employer Value Proposition.', TaskStatus::TODO, TaskPriority::MEDIUM, 4, null);
-        $this->createTask($manager, $m7_2, '7.2.6 HR compliance & data protection', 'Implement a personal data protection compliance program with policies, training, registers, and clear oversight roles.', TaskStatus::TODO, TaskPriority::MEDIUM, 5, null);
+        $this->createTask($manager, $m7_2, '7.2.1 Workforce planning & job evaluation', 'Workforce Planning, Compensation and Benefits – Develop job profiles, competency models, and conduct a comprehensive job evaluation to establish clear job grades.', TaskStatus::TODO, TaskPriority::HIGH, null);
+        $this->createTask($manager, $m7_2, '7.2.2 Performance management improvement', 'Strengthen the performance management system and support employee development through training, mentorship, and cross-department exposure.', TaskStatus::TODO, TaskPriority::HIGH, null);
+        $this->createTask($manager, $m7_2, '7.2.3 Staff training & development', 'Identify organization development priority and ensure implementation of staff development activities and measure its impact.', TaskStatus::TODO, TaskPriority::MEDIUM, null);
+        $this->createTask($manager, $m7_2, '7.2.4 HRIS integration & consolidation', 'Automate all HR processes and consolidate different HR systems to one system.', TaskStatus::TODO, TaskPriority::MEDIUM, null);
+        $this->createTask($manager, $m7_2, '7.2.5 Culture & engagement improvement', 'Launch engagement programs with surveys, accountability initiatives, recognition schemes, and a strong Employer Value Proposition.', TaskStatus::TODO, TaskPriority::MEDIUM, null);
+        $this->createTask($manager, $m7_2, '7.2.6 HR compliance & data protection', 'Implement a personal data protection compliance program with policies, training, registers, and clear oversight roles.', TaskStatus::TODO, TaskPriority::MEDIUM, null);
 
         // --- Milestone 7.3: IT ---
         $m7_3 = new Milestone();
@@ -768,10 +779,10 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m7_3, 'ICT infrastructure maintained at 95%+ uptime, with quarterly preventive maintenance and license renewals', 2);
         $this->createTarget($manager, $m7_3, 'Shared digital workspace for WMA resources established and actively used', 3);
 
-        $this->createTask($manager, $m7_3, '7.3.1 App development (Leave, Payroll, etc.)', 'App Development – Leave, Payroll, Performance, Assets, M&E, HGF Website, Honeyguide Learning.', TaskStatus::TODO, TaskPriority::HIGH, 0, null);
-        $this->createTask($manager, $m7_3, '7.3.2 Data protection & compliance', 'Establish strong data protection measures aligned with national and international standards.', TaskStatus::TODO, TaskPriority::HIGH, 1, null);
-        $this->createTask($manager, $m7_3, '7.3.3 Tech support & maintenance', 'Deliver regular IT support for internet, hardware, software, and maintain in-house web/mobile applications. Provide IT equipment and upgrade mobile internet infrastructure.', TaskStatus::TODO, TaskPriority::MEDIUM, 2, null);
-        $this->createTask($manager, $m7_3, '7.3.4 Collaboration & knowledge sharing', 'Create a shared digital workspace for WMA resources and support the Honeyguide Learning Initiative with platforms, tools, and knowledge-sharing systems.', TaskStatus::TODO, TaskPriority::MEDIUM, 3, null);
+        $this->createTask($manager, $m7_3, '7.3.1 App development (Leave, Payroll, etc.)', 'App Development – Leave, Payroll, Performance, Assets, M&E, HGF Website, Honeyguide Learning.', TaskStatus::TODO, TaskPriority::HIGH, null);
+        $this->createTask($manager, $m7_3, '7.3.2 Data protection & compliance', 'Establish strong data protection measures aligned with national and international standards.', TaskStatus::TODO, TaskPriority::HIGH, null);
+        $this->createTask($manager, $m7_3, '7.3.3 Tech support & maintenance', 'Deliver regular IT support for internet, hardware, software, and maintain in-house web/mobile applications. Provide IT equipment and upgrade mobile internet infrastructure.', TaskStatus::TODO, TaskPriority::MEDIUM, null);
+        $this->createTask($manager, $m7_3, '7.3.4 Collaboration & knowledge sharing', 'Create a shared digital workspace for WMA resources and support the Honeyguide Learning Initiative with platforms, tools, and knowledge-sharing systems.', TaskStatus::TODO, TaskPriority::MEDIUM, null);
 
         // --- Milestone 7.4: Asset and Risk Management ---
         $m7_4 = new Milestone();
@@ -784,8 +795,8 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m7_4, 'Digital Asset Management System (linked to finance system) operational, with quarterly automated reports and annual physical verification completed', 0);
         $this->createTarget($manager, $m7_4, 'Comprehensive Risk Management Framework finalized and implemented, with quarterly risk review reports and updated risk register', 1);
 
-        $this->createTask($manager, $m7_4, '7.4.1 Asset management system', 'Maintain and optimize asset management system for efficiency, accountability, and sustainability.', TaskStatus::TODO, TaskPriority::MEDIUM, 0, null);
-        $this->createTask($manager, $m7_4, '7.4.2 Risk management framework', 'Strengthen organizational risk management framework and implement monitoring processes for financial, cyber, and political risks.', TaskStatus::TODO, TaskPriority::MEDIUM, 1, null);
+        $this->createTask($manager, $m7_4, '7.4.1 Asset management system', 'Maintain and optimize asset management system for efficiency, accountability, and sustainability.', TaskStatus::TODO, TaskPriority::MEDIUM, null);
+        $this->createTask($manager, $m7_4, '7.4.2 Risk management framework', 'Strengthen organizational risk management framework and implement monitoring processes for financial, cyber, and political risks.', TaskStatus::TODO, TaskPriority::MEDIUM, null);
 
         // --- Milestone 7.5: Workshop ---
         $m7_5 = new Milestone();
@@ -802,11 +813,11 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m7_5, '100% of workshop staff trained and adhering to SOPs by year-end', 4);
         $this->createTarget($manager, $m7_5, 'Accurate reports submitted on time with actionable insights', 5);
 
-        $this->createTask($manager, $m7_5, '7.5.1 Fleet management & safety', 'Enhancing scheduled Workshop and vehicles by implementing a Fleet Management System, standardize Workshop Processes and Enhance Safety & Compliance Culture.', TaskStatus::TODO, TaskPriority::HIGH, 0, null);
-        $this->createTask($manager, $m7_5, '7.5.2 Zero lost-time injuries target', 'Achieve Zero Lost-Time Injuries in the workshop and for fleet operations.', TaskStatus::TODO, TaskPriority::HIGH, 1, null);
-        $this->createTask($manager, $m7_5, '7.5.3 Spare parts & lifecycle analysis', 'Analyze and consolidate spare part suppliers for bulk discounts and conduct a lifecycle cost analysis for each vehicle.', TaskStatus::TODO, TaskPriority::MEDIUM, 2, null);
-        $this->createTask($manager, $m7_5, '7.5.4 Fuel & maintenance metrics', 'Monitor and report on key metrics: Fuel Use, Maintenance Cost per Kilometer.', TaskStatus::TODO, TaskPriority::MEDIUM, 3, null);
-        $this->createTask($manager, $m7_5, '7.5.5 Quarterly workshop review', 'Perform quarterly internal review on workshop practices.', TaskStatus::TODO, TaskPriority::LOW, 4, null);
+        $this->createTask($manager, $m7_5, '7.5.1 Fleet management & safety', 'Enhancing scheduled Workshop and vehicles by implementing a Fleet Management System, standardize Workshop Processes and Enhance Safety & Compliance Culture.', TaskStatus::TODO, TaskPriority::HIGH, null);
+        $this->createTask($manager, $m7_5, '7.5.2 Zero lost-time injuries target', 'Achieve Zero Lost-Time Injuries in the workshop and for fleet operations.', TaskStatus::TODO, TaskPriority::HIGH, null);
+        $this->createTask($manager, $m7_5, '7.5.3 Spare parts & lifecycle analysis', 'Analyze and consolidate spare part suppliers for bulk discounts and conduct a lifecycle cost analysis for each vehicle.', TaskStatus::TODO, TaskPriority::MEDIUM, null);
+        $this->createTask($manager, $m7_5, '7.5.4 Fuel & maintenance metrics', 'Monitor and report on key metrics: Fuel Use, Maintenance Cost per Kilometer.', TaskStatus::TODO, TaskPriority::MEDIUM, null);
+        $this->createTask($manager, $m7_5, '7.5.5 Quarterly workshop review', 'Perform quarterly internal review on workshop practices.', TaskStatus::TODO, TaskPriority::LOW, null);
 
         // ============================================
         // PROJECT H: Communication and Fundraising
@@ -838,11 +849,11 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m8_1, 'MOUs and agreements with partners that include joint fundraising', 5);
         $this->createTarget($manager, $m8_1, 'Raised necessary funds to support Special Programs (K9 + Rubondo) - HWC Lab potential', 6);
 
-        $this->createTask($manager, $m8_1, '8.1.1 Top ten donor engagement', 'Strategically engage with our current top ten donors to encourage them to increase their contribution.', TaskStatus::TODO, TaskPriority::HIGH, 0, null);
-        $this->createTask($manager, $m8_1, '8.1.2 Broaden donor base', 'Broaden current donor base by actively pursuing potential donors that have an interest in Honeyguide priority areas.', TaskStatus::TODO, TaskPriority::HIGH, 1, null);
-        $this->createTask($manager, $m8_1, '8.1.3 Funding opportunities & proposals', 'Monitor and respond to active funding opportunities and calls for proposals for financial assistance.', TaskStatus::TODO, TaskPriority::HIGH, 2, null);
-        $this->createTask($manager, $m8_1, '8.1.4 Joint funding tools & agreements', 'Develop tools and agreements with key partners to streamline joint funding applications.', TaskStatus::TODO, TaskPriority::MEDIUM, 3, null);
-        $this->createTask($manager, $m8_1, '8.1.5 Special programs funding partners', 'Strategically search for funding partners that have an interest in any of the special programs.', TaskStatus::TODO, TaskPriority::MEDIUM, 4, null);
+        $this->createTask($manager, $m8_1, '8.1.1 Top ten donor engagement', 'Strategically engage with our current top ten donors to encourage them to increase their contribution.', TaskStatus::TODO, TaskPriority::HIGH, null);
+        $this->createTask($manager, $m8_1, '8.1.2 Broaden donor base', 'Broaden current donor base by actively pursuing potential donors that have an interest in Honeyguide priority areas.', TaskStatus::TODO, TaskPriority::HIGH, null);
+        $this->createTask($manager, $m8_1, '8.1.3 Funding opportunities & proposals', 'Monitor and respond to active funding opportunities and calls for proposals for financial assistance.', TaskStatus::TODO, TaskPriority::HIGH, null);
+        $this->createTask($manager, $m8_1, '8.1.4 Joint funding tools & agreements', 'Develop tools and agreements with key partners to streamline joint funding applications.', TaskStatus::TODO, TaskPriority::MEDIUM, null);
+        $this->createTask($manager, $m8_1, '8.1.5 Special programs funding partners', 'Strategically search for funding partners that have an interest in any of the special programs.', TaskStatus::TODO, TaskPriority::MEDIUM, null);
 
         // --- Milestone 8.2: Systems and Tool Development ---
         $m8_2 = new Milestone();
@@ -857,10 +868,10 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m8_2, 'Active online library with easy search and retrieve functions, HGF team trained', 2);
         $this->createTarget($manager, $m8_2, 'Monthly updating from WhatsApp groups and organizing photos on Smugmug', 3);
 
-        $this->createTask($manager, $m8_2, '8.2.1 Build comms tools capacity', 'Build capacity with new tools for comms.', TaskStatus::TODO, TaskPriority::MEDIUM, 0, null);
-        $this->createTask($manager, $m8_2, '8.2.2 Comms team data training', 'Training comms team and coaching on use and access of the data.', TaskStatus::TODO, TaskPriority::MEDIUM, 1, null);
-        $this->createTask($manager, $m8_2, '8.2.3 AI for communications', 'Design, test, and develop knowledge resource of AI for communications.', TaskStatus::TODO, TaskPriority::MEDIUM, 2, null);
-        $this->createTask($manager, $m8_2, '8.2.4 Communications App management', 'Manage and maintain the Honeyguide Communications App, training and coach Honeyguide team to participate and update activities in the app.', TaskStatus::TODO, TaskPriority::MEDIUM, 3, null);
+        $this->createTask($manager, $m8_2, '8.2.1 Build comms tools capacity', 'Build capacity with new tools for comms.', TaskStatus::TODO, TaskPriority::MEDIUM, null);
+        $this->createTask($manager, $m8_2, '8.2.2 Comms team data training', 'Training comms team and coaching on use and access of the data.', TaskStatus::TODO, TaskPriority::MEDIUM, null);
+        $this->createTask($manager, $m8_2, '8.2.3 AI for communications', 'Design, test, and develop knowledge resource of AI for communications.', TaskStatus::TODO, TaskPriority::MEDIUM, null);
+        $this->createTask($manager, $m8_2, '8.2.4 Communications App management', 'Manage and maintain the Honeyguide Communications App, training and coach Honeyguide team to participate and update activities in the app.', TaskStatus::TODO, TaskPriority::MEDIUM, null);
 
         // --- Milestone 8.3: Comms International ---
         $m8_3 = new Milestone();
@@ -879,11 +890,11 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m8_3, 'Website Redesign: Honeyguide Innovation section added', 6);
         $this->createTarget($manager, $m8_3, 'Communications Plan for 2026 created', 7);
 
-        $this->createTask($manager, $m8_3, '8.3.1 Thematic communication campaigns', 'Package and produce communication campaigns in the form of thematic areas, where each theme is supported by a data sheet and editorial (for blogs, newsletters, social media and webinars).', TaskStatus::TODO, TaskPriority::HIGH, 0, null);
-        $this->createTask($manager, $m8_3, '8.3.2 One-way communications (blogs, etc.)', 'Produce regular one-way communications (blogs, publications, newsletters, videos) and monitor views.', TaskStatus::TODO, TaskPriority::MEDIUM, 1, null);
-        $this->createTask($manager, $m8_3, '8.3.3 Two-way communications (webinars, etc.)', 'Produce material to support two-way communications (webinar, 1-1 meetings, presentations).', TaskStatus::TODO, TaskPriority::MEDIUM, 2, null);
-        $this->createTask($manager, $m8_3, '8.3.4 Website updates', 'Ongoing updates in the website with current information (introduction Honeyguide Innovation) and organizational development.', TaskStatus::TODO, TaskPriority::MEDIUM, 3, null);
-        $this->createTask($manager, $m8_3, '8.3.5 2026 Communications plan', 'Create a 2026 Communications plan.', TaskStatus::TODO, TaskPriority::HIGH, 4, null);
+        $this->createTask($manager, $m8_3, '8.3.1 Thematic communication campaigns', 'Package and produce communication campaigns in the form of thematic areas, where each theme is supported by a data sheet and editorial (for blogs, newsletters, social media and webinars).', TaskStatus::TODO, TaskPriority::HIGH, null);
+        $this->createTask($manager, $m8_3, '8.3.2 One-way communications (blogs, etc.)', 'Produce regular one-way communications (blogs, publications, newsletters, videos) and monitor views.', TaskStatus::TODO, TaskPriority::MEDIUM, null);
+        $this->createTask($manager, $m8_3, '8.3.3 Two-way communications (webinars, etc.)', 'Produce material to support two-way communications (webinar, 1-1 meetings, presentations).', TaskStatus::TODO, TaskPriority::MEDIUM, null);
+        $this->createTask($manager, $m8_3, '8.3.4 Website updates', 'Ongoing updates in the website with current information (introduction Honeyguide Innovation) and organizational development.', TaskStatus::TODO, TaskPriority::MEDIUM, null);
+        $this->createTask($manager, $m8_3, '8.3.5 2026 Communications plan', 'Create a 2026 Communications plan.', TaskStatus::TODO, TaskPriority::HIGH, null);
 
         // --- Milestone 8.4: Comms National ---
         $m8_4 = new Milestone();
@@ -898,10 +909,10 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m8_4, 'Posters designed and shared of Honeyguide work', 2);
         $this->createTarget($manager, $m8_4, 'Honeyguide is live in Swahili', 3);
 
-        $this->createTask($manager, $m8_4, '8.4.1 Swahili quarterly newsletter', 'Production of Newsletter (every quarter) in Swahili with project updates and organization news.', TaskStatus::TODO, TaskPriority::MEDIUM, 0, null);
-        $this->createTask($manager, $m8_4, '8.4.2 Swahili social media posts', 'Regular social media posts in Swahili.', TaskStatus::TODO, TaskPriority::MEDIUM, 1, null);
-        $this->createTask($manager, $m8_4, '8.4.3 Honeyguide awareness posters', 'Design and develop Honeyguide awareness posters (posters to show Honeyguide work and approach) and publications in Swahili.', TaskStatus::TODO, TaskPriority::LOW, 2, null);
-        $this->createTask($manager, $m8_4, '8.4.4 Swahili website', 'Design and develop Honeyguide Swahili website and publish.', TaskStatus::TODO, TaskPriority::MEDIUM, 3, null);
+        $this->createTask($manager, $m8_4, '8.4.1 Swahili quarterly newsletter', 'Production of Newsletter (every quarter) in Swahili with project updates and organization news.', TaskStatus::TODO, TaskPriority::MEDIUM, null);
+        $this->createTask($manager, $m8_4, '8.4.2 Swahili social media posts', 'Regular social media posts in Swahili.', TaskStatus::TODO, TaskPriority::MEDIUM, null);
+        $this->createTask($manager, $m8_4, '8.4.3 Honeyguide awareness posters', 'Design and develop Honeyguide awareness posters (posters to show Honeyguide work and approach) and publications in Swahili.', TaskStatus::TODO, TaskPriority::LOW, null);
+        $this->createTask($manager, $m8_4, '8.4.4 Swahili website', 'Design and develop Honeyguide Swahili website and publish.', TaskStatus::TODO, TaskPriority::MEDIUM, null);
 
         // ============================================
         // PROJECT I: Honeyguide Board Governance
@@ -930,10 +941,10 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTarget($manager, $m9_0, 'Revised constitution in place. Onboarding procedure in place for new members', 2);
         $this->createTarget($manager, $m9_0, 'Annual meeting dates communicated in January. 4 online board meetings held. 1 AGM held. Annual retreat of at least 2 days held', 3);
 
-        $this->createTask($manager, $m9_0, '9.1.1 Recruit diverse board members', 'Recruit additional board members that come from diverse backgrounds and support our board development plan.', TaskStatus::TODO, TaskPriority::HIGH, 0, null);
-        $this->createTask($manager, $m9_0, '9.1.2 Board training & onboarding', 'Provide the board with training materials and a training and onboarding process to build the capacity of the board members to understand their roles.', TaskStatus::TODO, TaskPriority::MEDIUM, 1, null);
-        $this->createTask($manager, $m9_0, '9.1.3 Board policies & procedures', 'Develop board guiding policies, procedures and systems that continue to aid the board\'s capability to perform their roles.', TaskStatus::TODO, TaskPriority::MEDIUM, 2, null);
-        $this->createTask($manager, $m9_0, '9.1.4 Board meetings & AGM management', 'Plan and manage all documentation and procedures for board meetings including the committees meetings, AGM and annual retreat.', TaskStatus::TODO, TaskPriority::HIGH, 3, null);
+        $this->createTask($manager, $m9_0, '9.1.1 Recruit diverse board members', 'Recruit additional board members that come from diverse backgrounds and support our board development plan.', TaskStatus::TODO, TaskPriority::HIGH, null);
+        $this->createTask($manager, $m9_0, '9.1.2 Board training & onboarding', 'Provide the board with training materials and a training and onboarding process to build the capacity of the board members to understand their roles.', TaskStatus::TODO, TaskPriority::MEDIUM, null);
+        $this->createTask($manager, $m9_0, '9.1.3 Board policies & procedures', 'Develop board guiding policies, procedures and systems that continue to aid the board\'s capability to perform their roles.', TaskStatus::TODO, TaskPriority::MEDIUM, null);
+        $this->createTask($manager, $m9_0, '9.1.4 Board meetings & AGM management', 'Plan and manage all documentation and procedures for board meetings including the committees meetings, AGM and annual retreat.', TaskStatus::TODO, TaskPriority::HIGH, null);
 
         // ============================================
         // TAGS
@@ -950,6 +961,89 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $this->createTag($manager, 'finance', '#84cc16', $adminUser);
         $this->createTag($manager, 'HR', '#d946ef', $adminUser);
         $this->createTag($manager, 'IT', '#6b7280', $adminUser);
+
+        // ============================================
+        // GANTT TEST DATA: Nested subtasks for testing
+        // ============================================
+        $ganttTestProject = new Project();
+        $ganttTestProject->setName('Gantt Test Project');
+        $ganttTestProject->setDescription('Project with nested tasks for testing Gantt chart display');
+        $ganttTestProject->setStatus(ProjectStatus::ACTIVE);
+        $ganttTestProject->setOwner($adminUser);
+        $ganttTestProject->setStartDate(new \DateTimeImmutable('2026-01-01'));
+        $ganttTestProject->setEndDate(new \DateTimeImmutable('2026-06-30'));
+        $manager->persist($ganttTestProject);
+
+        $this->addMember($manager, $ganttTestProject, $adminUser, $projectManager);
+        $this->addMember($manager, $ganttTestProject, $max, $projectMember);
+
+        $ganttMilestone = new Milestone();
+        $ganttMilestone->setProject($ganttTestProject);
+        $ganttMilestone->setName('Website Redesign');
+        $ganttMilestone->setDescription('Complete website redesign with nested task structure');
+        $ganttMilestone->setStatus(MilestoneStatus::OPEN);
+        $ganttMilestone->setDueDate(new \DateTimeImmutable('2026-06-30'));
+        $manager->persist($ganttMilestone);
+
+        // Level 0: Parent tasks (1, 2, 3, 4)
+        $planning = $this->createTask($manager, $ganttMilestone, '1 Planning Phase', 'Initial planning and requirements gathering', TaskStatus::COMPLETED, TaskPriority::HIGH, $adminUser, null, '2026-01-06', '2026-01-31');
+
+        // Level 1: Subtasks of Planning (1.1, 1.2, 1.3)
+        $requirements = $this->createTask($manager, $ganttMilestone, '1.1 Requirements Analysis', 'Gather and document requirements', TaskStatus::COMPLETED, TaskPriority::HIGH, $max, $planning, '2026-01-06', '2026-01-17');
+        $wireframes = $this->createTask($manager, $ganttMilestone, '1.2 Create Wireframes', 'Design wireframes for all pages', TaskStatus::COMPLETED, TaskPriority::MEDIUM, $max, $planning, '2026-01-13', '2026-01-24');
+        $techSpec = $this->createTask($manager, $ganttMilestone, '1.3 Technical Specification', 'Write technical specs', TaskStatus::COMPLETED, TaskPriority::HIGH, $adminUser, $planning, '2026-01-20', '2026-01-31');
+
+        // Level 2: Sub-subtasks of Requirements Analysis (1.1.1, 1.1.2, 1.1.3)
+        $this->createTask($manager, $ganttMilestone, '1.1.1 Stakeholder Interviews', 'Interview key stakeholders', TaskStatus::COMPLETED, TaskPriority::HIGH, $max, $requirements, '2026-01-06', '2026-01-10');
+        $this->createTask($manager, $ganttMilestone, '1.1.2 Document Current System', 'Document existing system', TaskStatus::COMPLETED, TaskPriority::MEDIUM, $max, $requirements, '2026-01-08', '2026-01-14');
+        $this->createTask($manager, $ganttMilestone, '1.1.3 Define User Stories', 'Create user stories', TaskStatus::COMPLETED, TaskPriority::HIGH, $adminUser, $requirements, '2026-01-13', '2026-01-17');
+
+        // Level 2: Sub-subtasks of Wireframes (1.2.1, 1.2.2, 1.2.3)
+        $this->createTask($manager, $ganttMilestone, '1.2.1 Homepage Wireframe', 'Design homepage layout', TaskStatus::COMPLETED, TaskPriority::HIGH, $max, $wireframes, '2026-01-13', '2026-01-17');
+        $this->createTask($manager, $ganttMilestone, '1.2.2 Dashboard Wireframe', 'Design dashboard layout', TaskStatus::COMPLETED, TaskPriority::HIGH, $max, $wireframes, '2026-01-15', '2026-01-20');
+        $this->createTask($manager, $ganttMilestone, '1.2.3 Mobile Wireframes', 'Design mobile responsive layouts', TaskStatus::COMPLETED, TaskPriority::MEDIUM, $max, $wireframes, '2026-01-20', '2026-01-24');
+
+        // Level 0: Another parent task (2)
+        $design = $this->createTask($manager, $ganttMilestone, '2 Design Phase', 'Visual design and prototyping', TaskStatus::IN_PROGRESS, TaskPriority::HIGH, $max, null, '2026-02-01', '2026-02-28');
+
+        // Level 1: Subtasks of Design (2.1, 2.2, 2.3)
+        $visualDesign = $this->createTask($manager, $ganttMilestone, '2.1 Visual Design', 'Create visual designs', TaskStatus::IN_PROGRESS, TaskPriority::HIGH, $max, $design, '2026-02-01', '2026-02-14');
+        $prototype = $this->createTask($manager, $ganttMilestone, '2.2 Interactive Prototype', 'Build clickable prototype', TaskStatus::TODO, TaskPriority::MEDIUM, $max, $design, '2026-02-10', '2026-02-21');
+        $this->createTask($manager, $ganttMilestone, '2.3 Design Review', 'Review and approve designs', TaskStatus::TODO, TaskPriority::HIGH, $adminUser, $design, '2026-02-22', '2026-02-28');
+
+        // Level 2: Sub-subtasks of Visual Design (2.1.1, 2.1.2, 2.1.3, 2.1.4)
+        $this->createTask($manager, $ganttMilestone, '2.1.1 Color Palette', 'Define color scheme', TaskStatus::COMPLETED, TaskPriority::MEDIUM, $max, $visualDesign, '2026-02-01', '2026-02-03');
+        $this->createTask($manager, $ganttMilestone, '2.1.2 Typography', 'Select fonts and type scale', TaskStatus::COMPLETED, TaskPriority::MEDIUM, $max, $visualDesign, '2026-02-03', '2026-02-05');
+        $iconDesign = $this->createTask($manager, $ganttMilestone, '2.1.3 Icon Design', 'Design custom icons', TaskStatus::IN_PROGRESS, TaskPriority::LOW, $max, $visualDesign, '2026-02-05', '2026-02-10');
+        $this->createTask($manager, $ganttMilestone, '2.1.4 Component Library', 'Build UI component library', TaskStatus::IN_PROGRESS, TaskPriority::HIGH, $max, $visualDesign, '2026-02-08', '2026-02-14');
+
+        // Level 3: Sub-sub-subtasks of Icon Design (2.1.3.1, 2.1.3.2, 2.1.3.3)
+        $this->createTask($manager, $ganttMilestone, '2.1.3.1 Navigation Icons', 'Design nav icons', TaskStatus::COMPLETED, TaskPriority::MEDIUM, $max, $iconDesign, '2026-02-05', '2026-02-07');
+        $this->createTask($manager, $ganttMilestone, '2.1.3.2 Action Icons', 'Design action icons', TaskStatus::IN_PROGRESS, TaskPriority::MEDIUM, $max, $iconDesign, '2026-02-07', '2026-02-09');
+        $this->createTask($manager, $ganttMilestone, '2.1.3.3 Status Icons', 'Design status indicators', TaskStatus::TODO, TaskPriority::LOW, $max, $iconDesign, '2026-02-09', '2026-02-10');
+
+        // Level 0: Development phase (3)
+        $development = $this->createTask($manager, $ganttMilestone, '3 Development Phase', 'Frontend and backend development', TaskStatus::TODO, TaskPriority::HIGH, $adminUser, null, '2026-03-01', '2026-05-31');
+
+        // Level 1: Subtasks of Development (3.1, 3.2, 3.3)
+        $frontend = $this->createTask($manager, $ganttMilestone, '3.1 Frontend Development', 'Build frontend components', TaskStatus::TODO, TaskPriority::HIGH, $max, $development, '2026-03-01', '2026-04-15');
+        $backend = $this->createTask($manager, $ganttMilestone, '3.2 Backend Development', 'Build API and services', TaskStatus::TODO, TaskPriority::HIGH, $adminUser, $development, '2026-03-15', '2026-05-15');
+        $this->createTask($manager, $ganttMilestone, '3.3 Integration Testing', 'Test frontend/backend integration', TaskStatus::TODO, TaskPriority::HIGH, $adminUser, $development, '2026-05-01', '2026-05-31');
+
+        // Level 2: Sub-subtasks of Frontend (3.1.1, 3.1.2, 3.1.3, 3.1.4)
+        $this->createTask($manager, $ganttMilestone, '3.1.1 Setup Build System', 'Configure webpack/vite', TaskStatus::TODO, TaskPriority::HIGH, $max, $frontend, '2026-03-01', '2026-03-05');
+        $this->createTask($manager, $ganttMilestone, '3.1.2 Implement Components', 'Build reusable components', TaskStatus::TODO, TaskPriority::HIGH, $max, $frontend, '2026-03-05', '2026-03-25');
+        $this->createTask($manager, $ganttMilestone, '3.1.3 Page Templates', 'Build page templates', TaskStatus::TODO, TaskPriority::MEDIUM, $max, $frontend, '2026-03-20', '2026-04-10');
+        $this->createTask($manager, $ganttMilestone, '3.1.4 Responsive Testing', 'Test on all devices', TaskStatus::TODO, TaskPriority::MEDIUM, $max, $frontend, '2026-04-08', '2026-04-15');
+
+        // Level 2: Sub-subtasks of Backend (3.2.1, 3.2.2, 3.2.3, 3.2.4)
+        $this->createTask($manager, $ganttMilestone, '3.2.1 Database Schema', 'Design and implement DB', TaskStatus::TODO, TaskPriority::HIGH, $adminUser, $backend, '2026-03-15', '2026-03-25');
+        $this->createTask($manager, $ganttMilestone, '3.2.2 API Endpoints', 'Build REST API', TaskStatus::TODO, TaskPriority::HIGH, $adminUser, $backend, '2026-03-22', '2026-04-20');
+        $this->createTask($manager, $ganttMilestone, '3.2.3 Authentication', 'Implement auth system', TaskStatus::TODO, TaskPriority::HIGH, $adminUser, $backend, '2026-04-15', '2026-05-01');
+        $this->createTask($manager, $ganttMilestone, '3.2.4 Performance Optimization', 'Optimize queries and caching', TaskStatus::TODO, TaskPriority::MEDIUM, $adminUser, $backend, '2026-05-01', '2026-05-15');
+
+        // Level 0: Launch phase (4)
+        $this->createTask($manager, $ganttMilestone, '4 Launch Phase', 'Deployment and go-live', TaskStatus::TODO, TaskPriority::HIGH, $adminUser, null, '2026-06-01', '2026-06-30');
 
         $manager->flush();
     }
@@ -976,9 +1070,18 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         string $description,
         TaskStatus $status,
         TaskPriority $priority,
-        int $position,
-        ?User $assignee
+        ?User $assignee,
+        ?Task $parent = null,
+        ?string $startDate = null,
+        ?string $dueDate = '2026-12-31'
     ): Task {
+        // Auto-increment position per project
+        $projectId = $milestone->getProject()->getId()->toString();
+        if (!isset($this->projectTaskPositions[$projectId])) {
+            $this->projectTaskPositions[$projectId] = 0;
+        }
+        $position = $this->projectTaskPositions[$projectId]++;
+
         $task = new Task();
         $task->setMilestone($milestone);
         $task->setTitle($title);
@@ -986,7 +1089,18 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $task->setStatus($status);
         $task->setPriority($priority);
         $task->setPosition($position);
-        $task->setDueDate(new \DateTimeImmutable('2026-12-31'));
+
+        if ($parent) {
+            $task->setParent($parent);
+        }
+
+        if ($startDate) {
+            $task->setStartDate(new \DateTimeImmutable($startDate));
+        }
+
+        if ($dueDate) {
+            $task->setDueDate(new \DateTimeImmutable($dueDate));
+        }
 
         $manager->persist($task);
 
@@ -1029,5 +1143,34 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $manager->persist($tag);
 
         return $tag;
+    }
+
+    private function createPersonalProject(
+        ObjectManager $manager,
+        User $user,
+        Role $managerRole
+    ): Project {
+        $project = new Project();
+        $project->setName($user->getFirstName() . "'s Personal Project");
+        $project->setOwner($user);
+        $project->setIsPublic(false);
+        $project->setIsPersonal(true);
+        $project->setDescription('Your personal workspace for tasks and projects.');
+        $manager->persist($project);
+
+        // Add owner as project manager
+        $member = new ProjectMember();
+        $member->setProject($project);
+        $member->setUser($user);
+        $member->setRole($managerRole);
+        $manager->persist($member);
+
+        // Create a default milestone
+        $milestone = new Milestone();
+        $milestone->setName('General');
+        $milestone->setProject($project);
+        $manager->persist($milestone);
+
+        return $project;
     }
 }

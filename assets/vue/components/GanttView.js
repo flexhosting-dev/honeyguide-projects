@@ -31,17 +31,40 @@ export default {
         storageKey: {
             type: String,
             default: 'gantt_view'
+        },
+        taskUrlTemplate: {
+            type: String,
+            default: '/tasks/__TASK_ID__'
         }
     },
 
     setup(props) {
         const tasks = ref(Array.isArray(props.initialTasks) ? [...props.initialTasks] : []);
         const ganttContainer = ref(null);
+        const taskListRef = ref(null);
         const currentViewMode = ref(props.viewMode);
         const ganttInstance = ref(null);
         const isUpdating = ref(false);
+        const isSyncingScroll = ref(false);
+        const hoveredTaskId = ref(null);
+        const taskSortMode = ref('start_date'); // 'start_date', 'position', 'title'
+        const showSortMenu = ref(false);
+        const collapsedTaskIds = ref(new Set());
+        const taskListWidth = ref(192); // Default w-48 = 192px
+        const isResizing = ref(false);
+        const minTaskListWidth = 120;
+        const maxTaskListWidth = 400;
 
         const viewModes = ['Day', 'Week', 'Month', 'Year'];
+        const sortOptions = [
+            { value: 'start_date', label: 'Start Date' },
+            { value: 'position', label: 'Position' },
+            { value: 'title', label: 'Title' }
+        ];
+
+        // Frappe Gantt dimensions
+        const GANTT_ROW_HEIGHT = 38; // bar_height (20) + padding (18)
+        const ganttHeaderHeight = ref(50); // Will be measured dynamically
 
         // Status colors for task bars
         const statusColors = {
@@ -61,7 +84,8 @@ export default {
 
         // Convert tasks to Frappe Gantt format
         const ganttTasks = computed(() => {
-            return tasks.value
+            const filtered = tasks.value
+                .map((task, index) => ({ ...task, _originalIndex: index }))
                 .filter(task => task.startDate || task.dueDate)
                 .map(task => {
                     // Default dates if missing
@@ -88,14 +112,69 @@ export default {
                         end: formatDate(endDate),
                         progress: progress,
                         dependencies: dependencies.join(', '),
-                        custom_class: `gantt-task-${task.status?.value || 'todo'} gantt-priority-${task.priority?.value || 'none'}`
+                        custom_class: `gantt-task-${task.status?.value || 'todo'} gantt-priority-${task.priority?.value || 'none'}`,
+                        _originalIndex: task._originalIndex,
+                        depth: task.depth || 0,
+                        parentId: task.parentId || null
                     };
                 });
+
+            // Apply sorting based on selected mode
+            const sorted = [...filtered];
+            switch (taskSortMode.value) {
+                case 'start_date':
+                    sorted.sort((a, b) => new Date(a.start) - new Date(b.start));
+                    break;
+                case 'title':
+                    sorted.sort((a, b) => a.name.localeCompare(b.name));
+                    break;
+                case 'position':
+                default:
+                    sorted.sort((a, b) => a._originalIndex - b._originalIndex);
+                    break;
+            }
+
+            return sorted;
         });
 
         // Tasks without dates (shown in sidebar)
         const unscheduledTasks = computed(() => {
             return tasks.value.filter(task => !task.startDate && !task.dueDate);
+        });
+
+        // Set of task IDs that have children
+        const tasksWithChildren = computed(() => {
+            const parentIds = new Set();
+            ganttTasks.value.forEach(task => {
+                if (task.parentId) {
+                    parentIds.add(task.parentId);
+                }
+            });
+            return parentIds;
+        });
+
+        // Check if a task or any of its ancestors is collapsed
+        function isTaskHidden(task, allTasks) {
+            if (!task.parentId) return false;
+
+            // Check if direct parent is collapsed
+            if (collapsedTaskIds.value.has(task.parentId)) {
+                return true;
+            }
+
+            // Check ancestors recursively
+            const parent = allTasks.find(t => t.id === task.parentId);
+            if (parent) {
+                return isTaskHidden(parent, allTasks);
+            }
+
+            return false;
+        }
+
+        // Visible tasks (filtering out children of collapsed tasks)
+        const visibleGanttTasks = computed(() => {
+            const allTasks = ganttTasks.value;
+            return allTasks.filter(task => !isTaskHidden(task, allTasks));
         });
 
         function formatDate(date) {
@@ -118,7 +197,7 @@ export default {
                 return;
             }
 
-            const ganttData = ganttTasks.value;
+            const ganttData = visibleGanttTasks.value;
 
             if (ganttData.length === 0) {
                 // Show empty state
@@ -132,6 +211,9 @@ export default {
             }
 
             try {
+                // Clean up previous scroll listeners
+                cleanupScrollSync();
+
                 ganttInstance.value = new window.Gantt(ganttContainer.value, ganttData, {
                     view_mode: currentViewMode.value,
                     date_format: 'YYYY-MM-DD',
@@ -162,7 +244,7 @@ export default {
                                     <div><span class="font-medium">Progress:</span> ${task.progress}%</div>
                                 </div>
                                 <div class="mt-3 pt-3 border-t">
-                                    <a href="/tasks/${task.id}"
+                                    <a href="${props.taskUrlTemplate.replace('__TASK_ID__', task.id)}"
                                        class="text-sm text-primary-600 hover:text-primary-800 font-medium">
                                         View Details →
                                     </a>
@@ -187,6 +269,13 @@ export default {
                         currentViewMode.value = mode;
                         saveViewPreference(mode);
                     }
+                });
+
+                // Setup scroll sync and reorder bars after Gantt is initialized
+                nextTick(() => {
+                    measureGanttHeaderHeight();
+                    setupScrollSync();
+                    reorderGanttBars();
                 });
             } catch (error) {
                 console.error('Failed to initialize Gantt chart:', error);
@@ -288,6 +377,238 @@ export default {
             }
         }
 
+        // Scroll synchronization between task list and Gantt chart
+        function syncScrollFromGantt(event) {
+            if (isSyncingScroll.value || !taskListRef.value) return;
+            isSyncingScroll.value = true;
+            taskListRef.value.scrollTop = event.target.scrollTop;
+            requestAnimationFrame(() => {
+                isSyncingScroll.value = false;
+            });
+        }
+
+        function syncScrollFromTaskList(event) {
+            if (isSyncingScroll.value || !ganttContainer.value) return;
+            const ganttScrollContainer = ganttContainer.value.querySelector('.gantt-container');
+            if (!ganttScrollContainer) return;
+            isSyncingScroll.value = true;
+            ganttScrollContainer.scrollTop = event.target.scrollTop;
+            requestAnimationFrame(() => {
+                isSyncingScroll.value = false;
+            });
+        }
+
+        function setupScrollSync() {
+            if (!ganttContainer.value) return;
+            const ganttScrollContainer = ganttContainer.value.querySelector('.gantt-container');
+            if (ganttScrollContainer) {
+                ganttScrollContainer.addEventListener('scroll', syncScrollFromGantt);
+            }
+        }
+
+        function cleanupScrollSync() {
+            if (!ganttContainer.value) return;
+            const ganttScrollContainer = ganttContainer.value.querySelector('.gantt-container');
+            if (ganttScrollContainer) {
+                ganttScrollContainer.removeEventListener('scroll', syncScrollFromGantt);
+            }
+        }
+
+        function handleTaskHover(taskId) {
+            hoveredTaskId.value = taskId;
+        }
+
+        function handleTaskLeave() {
+            hoveredTaskId.value = null;
+        }
+
+        function openTask(taskId) {
+            if (typeof window.openTaskPanel === 'function') {
+                window.openTaskPanel(taskId);
+            }
+        }
+
+        function changeTaskSort(mode) {
+            taskSortMode.value = mode;
+            showSortMenu.value = false;
+            saveSortPreference(mode);
+            // Reinitialize Gantt to reflect new order
+            nextTick(() => initGantt());
+        }
+
+        function saveSortPreference(mode) {
+            try {
+                localStorage.setItem(`${props.storageKey}_sortMode`, mode);
+            } catch (e) {}
+        }
+
+        function loadSortPreference() {
+            try {
+                const saved = localStorage.getItem(`${props.storageKey}_sortMode`);
+                if (saved && ['start_date', 'position', 'title'].includes(saved)) {
+                    taskSortMode.value = saved;
+                }
+            } catch (e) {}
+        }
+
+        function toggleSortMenu() {
+            showSortMenu.value = !showSortMenu.value;
+        }
+
+        function closeSortMenu() {
+            showSortMenu.value = false;
+        }
+
+        function toggleTaskCollapse(taskId) {
+            const newCollapsed = new Set(collapsedTaskIds.value);
+            if (newCollapsed.has(taskId)) {
+                newCollapsed.delete(taskId);
+            } else {
+                newCollapsed.add(taskId);
+            }
+            collapsedTaskIds.value = newCollapsed;
+            // Reinitialize Gantt to show/hide collapsed tasks
+            nextTick(() => initGantt());
+        }
+
+        function expandAllTasks() {
+            collapsedTaskIds.value = new Set();
+            nextTick(() => initGantt());
+        }
+
+        function collapseAllTasks() {
+            collapsedTaskIds.value = new Set(tasksWithChildren.value);
+            nextTick(() => initGantt());
+        }
+
+        // Resize functionality for left panel
+        function startResize(event) {
+            isResizing.value = true;
+            document.addEventListener('mousemove', handleResize);
+            document.addEventListener('mouseup', stopResize);
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+        }
+
+        function handleResize(event) {
+            if (!isResizing.value) return;
+            const container = ganttContainer.value?.closest('.flex.gap-0');
+            if (!container) return;
+            const containerRect = container.getBoundingClientRect();
+            let newWidth = event.clientX - containerRect.left;
+            newWidth = Math.max(minTaskListWidth, Math.min(maxTaskListWidth, newWidth));
+            taskListWidth.value = newWidth;
+        }
+
+        function stopResize() {
+            isResizing.value = false;
+            document.removeEventListener('mousemove', handleResize);
+            document.removeEventListener('mouseup', stopResize);
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            saveTaskListWidth();
+        }
+
+        function saveTaskListWidth() {
+            try {
+                localStorage.setItem(`${props.storageKey}_taskListWidth`, taskListWidth.value.toString());
+            } catch (e) {}
+        }
+
+        function loadTaskListWidth() {
+            try {
+                const saved = localStorage.getItem(`${props.storageKey}_taskListWidth`);
+                if (saved) {
+                    const width = parseInt(saved, 10);
+                    if (width >= minTaskListWidth && width <= maxTaskListWidth) {
+                        taskListWidth.value = width;
+                    }
+                }
+            } catch (e) {}
+        }
+
+        // Measure actual Gantt header height from rendered SVG
+        function measureGanttHeaderHeight() {
+            if (!ganttContainer.value) return;
+
+            const svg = ganttContainer.value.querySelector('svg.gantt');
+            if (!svg) return;
+
+            // Method 1: Find the first grid row to determine where content area starts
+            const firstGridRow = svg.querySelector('.grid .grid-row');
+            if (firstGridRow) {
+                const rowY = parseFloat(firstGridRow.getAttribute('y') || '0');
+                if (rowY > 0) {
+                    ganttHeaderHeight.value = rowY;
+                    return;
+                }
+            }
+
+            // Method 2: Find the first bar's Y position
+            const firstBar = svg.querySelector('.bar-wrapper .bar-group');
+            if (firstBar) {
+                const transform = firstBar.getAttribute('transform') || '';
+                const match = transform.match(/translate\(\s*[^,\s]+\s*,\s*([^)\s]+)\s*\)/);
+                if (match) {
+                    const barY = parseFloat(match[1]);
+                    // Bar Y is the top of the bar area. Subtract half of row height to get header end.
+                    // Actually, the row starts at barY - (padding/2) approximately
+                    // For alignment, use barY - padding to align with row top
+                    const measuredHeight = barY - 9; // padding/2 = 9
+                    if (measuredHeight > 0) {
+                        ganttHeaderHeight.value = measuredHeight;
+                    }
+                }
+            }
+        }
+
+        // Reorder Gantt bars to match our sort order
+        function reorderGanttBars() {
+            if (!ganttContainer.value || !ganttInstance.value) return;
+
+            // Skip reordering for start_date sort since Frappe Gantt already does this
+            if (taskSortMode.value === 'start_date') return;
+
+            const svg = ganttContainer.value.querySelector('svg.gantt');
+            if (!svg) return;
+
+            // Get our desired order (task IDs)
+            const desiredOrder = ganttTasks.value.map(t => t.id);
+
+            // Get all bar wrappers
+            const barWrappers = Array.from(svg.querySelectorAll('.bar-wrapper'));
+            if (barWrappers.length === 0) return;
+
+            // Create a map of task ID to current bar info
+            const barMap = new Map();
+            barWrappers.forEach(bar => {
+                const taskId = bar.getAttribute('data-id');
+                if (taskId) {
+                    barMap.set(taskId, bar);
+                }
+            });
+
+            // Frappe Gantt positioning: y = header_height + padding + index * row_height
+            const baseY = ganttHeaderHeight.value + 18;
+
+            desiredOrder.forEach((taskId, newIndex) => {
+                const bar = barMap.get(taskId);
+                if (bar) {
+                    const newY = baseY + (newIndex * GANTT_ROW_HEIGHT);
+                    // Find the bar-group inside and update its transform
+                    const barGroup = bar.querySelector('.bar-group');
+                    if (barGroup) {
+                        const currentTransform = barGroup.getAttribute('transform') || '';
+                        const match = currentTransform.match(/translate\(\s*([^,\s]+)\s*,\s*([^)\s]+)\s*\)/);
+                        if (match) {
+                            const x = match[1];
+                            barGroup.setAttribute('transform', `translate(${x}, ${newY})`);
+                        }
+                    }
+                }
+            });
+        }
+
         // Handle external task updates
         function handleTaskUpdate(event) {
             const { taskId, field, value, startDate, dueDate } = event.detail || {};
@@ -309,6 +630,8 @@ export default {
 
         onMounted(() => {
             loadViewPreference();
+            loadSortPreference();
+            loadTaskListWidth();
 
             // Wait for Gantt library to be available
             const checkGantt = () => {
@@ -326,6 +649,7 @@ export default {
 
         onUnmounted(() => {
             document.removeEventListener('task-updated', handleTaskUpdate);
+            cleanupScrollSync();
         });
 
         // Watch for task changes
@@ -337,18 +661,41 @@ export default {
         return {
             tasks,
             ganttContainer,
+            taskListRef,
             currentViewMode,
             viewModes,
             ganttTasks,
+            visibleGanttTasks,
             unscheduledTasks,
+            tasksWithChildren,
+            collapsedTaskIds,
             changeViewMode,
             scrollToToday,
-            isUpdating
+            isUpdating,
+            hoveredTaskId,
+            syncScrollFromTaskList,
+            handleTaskHover,
+            handleTaskLeave,
+            openTask,
+            GANTT_ROW_HEIGHT,
+            ganttHeaderHeight,
+            taskSortMode,
+            showSortMenu,
+            sortOptions,
+            changeTaskSort,
+            toggleSortMenu,
+            closeSortMenu,
+            toggleTaskCollapse,
+            expandAllTasks,
+            collapseAllTasks,
+            taskListWidth,
+            isResizing,
+            startResize
         };
     },
 
     template: `
-        <div class="gantt-view-container">
+        <div class="gantt-view-container" @click="closeSortMenu">
             <!-- Toolbar -->
             <div class="flex items-center justify-between mb-4 bg-white rounded-lg shadow-sm p-3">
                 <div class="flex items-center gap-2">
@@ -384,16 +731,166 @@ export default {
 
                     <!-- Task Count -->
                     <span class="text-sm text-gray-500">
-                        {{ ganttTasks.length }} task{{ ganttTasks.length !== 1 ? 's' : '' }} scheduled
+                        <template v-if="visibleGanttTasks.length < ganttTasks.length">
+                            {{ visibleGanttTasks.length }} of {{ ganttTasks.length }} tasks shown
+                        </template>
+                        <template v-else>
+                            {{ ganttTasks.length }} task{{ ganttTasks.length !== 1 ? 's' : '' }} scheduled
+                        </template>
                     </span>
                 </div>
             </div>
 
             <!-- Main Content -->
-            <div class="flex gap-4">
+            <div class="flex gap-0">
+                <!-- Left Task List Panel -->
+                <div
+                    v-if="visibleGanttTasks.length > 0"
+                    class="flex-shrink-0 bg-white rounded-l-lg shadow-sm border-r border-gray-200 flex flex-col relative"
+                    :style="{ width: taskListWidth + 'px' }"
+                >
+                    <!-- Task List Header (matches Gantt header height) -->
+                    <div
+                        class="flex items-center justify-between px-3 font-medium text-gray-700 text-sm border-b border-gray-200 bg-gray-50"
+                        :style="{ height: ganttHeaderHeight + 'px' }"
+                    >
+                        <span>Tasks</span>
+                        <div class="flex items-center gap-1">
+                            <!-- Expand/Collapse All Buttons -->
+                            <button
+                                v-if="tasksWithChildren.size > 0"
+                                @click.stop="expandAllTasks"
+                                class="p-1 rounded hover:bg-gray-200 transition-colors"
+                                title="Expand all"
+                            >
+                                <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+                                </svg>
+                            </button>
+                            <button
+                                v-if="tasksWithChildren.size > 0"
+                                @click.stop="collapseAllTasks"
+                                class="p-1 rounded hover:bg-gray-200 transition-colors"
+                                title="Collapse all"
+                            >
+                                <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
+                                </svg>
+                            </button>
+                            <!-- Sort Dropdown -->
+                            <div class="relative">
+                                <button
+                                    @click.stop="toggleSortMenu"
+                                    class="p-1 rounded hover:bg-gray-200 transition-colors"
+                                    title="Sort tasks"
+                                >
+                                    <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 7.5L7.5 3m0 0L12 7.5M7.5 3v13.5m13.5 0L16.5 21m0 0L12 16.5m4.5 4.5V7.5" />
+                                    </svg>
+                                </button>
+                                <!-- Dropdown Menu -->
+                                <div
+                                    v-if="showSortMenu"
+                                    class="absolute right-0 top-full mt-1 w-36 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50"
+                                    @click.stop
+                                >
+                                    <button
+                                        v-for="option in sortOptions"
+                                        :key="option.value"
+                                        @click="changeTaskSort(option.value)"
+                                        class="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100 flex items-center justify-between"
+                                        :class="taskSortMode === option.value ? 'text-primary-600 bg-primary-50' : 'text-gray-700'"
+                                    >
+                                        {{ option.label }}
+                                        <svg v-if="taskSortMode === option.value" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Task List (scrollable, synced with Gantt) -->
+                    <div
+                        ref="taskListRef"
+                        class="flex-1 overflow-y-auto overflow-x-hidden"
+                        @scroll="syncScrollFromTaskList"
+                    >
+                        <div
+                            v-for="(task, index) in visibleGanttTasks"
+                            :key="task.id"
+                            class="flex items-center border-b border-gray-100 cursor-pointer transition-colors"
+                            :class="[
+                                hoveredTaskId === task.id ? 'bg-primary-50' : 'hover:bg-gray-50'
+                            ]"
+                            :style="{
+                                height: GANTT_ROW_HEIGHT + 'px',
+                                paddingLeft: (8 + task.depth * 14) + 'px',
+                                paddingRight: '8px'
+                            }"
+                            @mouseenter="handleTaskHover(task.id)"
+                            @mouseleave="handleTaskLeave"
+                            @click="openTask(task.id)"
+                        >
+                            <!-- Expand/Collapse toggle for tasks with children -->
+                            <button
+                                v-if="tasksWithChildren.has(task.id)"
+                                @click.stop="toggleTaskCollapse(task.id)"
+                                class="flex-shrink-0 w-4 h-4 mr-1 flex items-center justify-center rounded hover:bg-gray-200 transition-colors"
+                            >
+                                <svg
+                                    class="w-3 h-3 text-gray-500 transition-transform"
+                                    :class="collapsedTaskIds.has(task.id) ? '' : 'rotate-90'"
+                                    fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
+                                >
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                                </svg>
+                            </button>
+                            <!-- Spacer for tasks without children (to align with those that have toggle) -->
+                            <span v-else-if="tasksWithChildren.size > 0" class="flex-shrink-0 w-4 mr-1"></span>
+                            <!-- Tree indent indicator for nested tasks -->
+                            <span
+                                v-if="task.depth > 0"
+                                class="flex-shrink-0 mr-1 text-gray-300"
+                            >
+                                <svg class="w-3 h-3" viewBox="0 0 12 12" fill="none">
+                                    <path d="M3 1v6h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </span>
+                            <!-- Status indicator dot -->
+                            <span
+                                class="w-2 h-2 rounded-full mr-1.5 flex-shrink-0"
+                                :style="{
+                                    backgroundColor: task.custom_class.includes('completed') ? '#22c55e' :
+                                        task.custom_class.includes('in_review') ? '#eab308' :
+                                        task.custom_class.includes('in_progress') ? '#3b82f6' : '#6b7280'
+                                }"
+                            ></span>
+                            <!-- Task name -->
+                            <span
+                                class="text-sm truncate"
+                                :class="task.depth === 0 ? 'text-gray-900 font-medium' : 'text-gray-700'"
+                                :title="task.name"
+                            >
+                                {{ task.name }}
+                            </span>
+                        </div>
+                    </div>
+                    <!-- Resize Handle -->
+                    <div
+                        class="absolute top-0 right-0 w-1 h-full cursor-col-resize group"
+                        @mousedown.prevent="startResize"
+                    >
+                        <div
+                            class="absolute top-0 right-0 w-1 h-full transition-colors"
+                            :class="isResizing ? 'bg-primary-500' : 'bg-transparent group-hover:bg-gray-300'"
+                        ></div>
+                    </div>
+                </div>
+
                 <!-- Gantt Chart -->
-                <div class="flex-1 bg-white rounded-lg shadow-sm overflow-hidden">
-                    <div v-if="ganttTasks.length === 0" class="flex flex-col items-center justify-center py-16 text-gray-500">
+                <div class="flex-1 bg-white shadow-sm overflow-hidden" :class="visibleGanttTasks.length > 0 ? 'rounded-r-lg' : 'rounded-lg'">
+                    <div v-if="visibleGanttTasks.length === 0" class="flex flex-col items-center justify-center py-16 text-gray-500">
                         <svg class="w-16 h-16 mb-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5m-9-6h.008v.008H12v-.008zM12 15h.008v.008H12V15zm0 2.25h.008v.008H12v-.008zM9.75 15h.008v.008H9.75V15zm0 2.25h.008v.008H9.75v-.008zM7.5 15h.008v.008H7.5V15zm0 2.25h.008v.008H7.5v-.008zm6.75-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V15zm0 2.25h.008v.008h-.008v-.008zm2.25-4.5h.008v.008H16.5v-.008zm0 2.25h.008v.008H16.5V15z" />
                         </svg>
@@ -404,7 +901,7 @@ export default {
                 </div>
 
                 <!-- Unscheduled Tasks Sidebar -->
-                <div v-if="unscheduledTasks.length > 0" class="w-64 flex-shrink-0">
+                <div v-if="unscheduledTasks.length > 0" class="w-64 flex-shrink-0 ml-4">
                     <div class="bg-white rounded-lg shadow-sm p-4">
                         <h3 class="font-medium text-gray-900 mb-3 flex items-center">
                             <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -417,7 +914,7 @@ export default {
                                 v-for="task in unscheduledTasks"
                                 :key="task.id"
                                 class="p-2 rounded border border-gray-200 hover:border-primary-300 hover:bg-primary-50 cursor-pointer transition-colors"
-                                @click="$emit('task-click', task.id)"
+                                @click="openTask(task.id)"
                             >
                                 <div class="text-sm font-medium text-gray-900 truncate">{{ task.title }}</div>
                                 <div class="flex items-center gap-2 mt-1">
