@@ -419,7 +419,13 @@ export default {
             }
             if (props.dragState.isDropTarget) {
                 if (props.dragState.isValid) {
-                    classes.push(props.dragState.dropPosition === 'before' ? 'drag-over-before' : 'drag-over-after');
+                    if (props.dragState.dropPosition === 'before') {
+                        classes.push('drag-over-before');
+                    } else if (props.dragState.dropPosition === 'after') {
+                        classes.push('drag-over-after');
+                    } else if (props.dragState.dropPosition === 'child') {
+                        classes.push('drag-over-child');
+                    }
                 } else {
                     classes.push('drag-invalid');
                 }

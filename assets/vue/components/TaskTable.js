@@ -99,6 +99,10 @@ export default {
         subtaskReorderUrlTemplate: {
             type: String,
             default: ''
+        },
+        changeParentUrlTemplate: {
+            type: String,
+            default: ''
         }
     },
 
@@ -709,9 +713,12 @@ export default {
             draggedTaskId: null,
             draggedTask: null,
             dropTargetId: null,
-            dropPosition: null, // 'before' | 'after'
+            dropPosition: null, // 'before' | 'after' | 'child'
             isValid: true
         });
+
+        // Maximum depth for task hierarchy (0-indexed: 0 = root, 1 = child, 2 = grandchild)
+        const MAX_DEPTH = 2;
 
         // Reorder mode for mobile (toggle between normal and reorder mode)
         const reorderMode = ref(false);
@@ -830,6 +837,33 @@ export default {
             return false;
         };
 
+        // Get task depth from either the depth property or by calculating from parent chain
+        const getTaskDepth = (task) => {
+            if (typeof task.depth === 'number') return task.depth;
+            let depth = 0;
+            let currentId = task.parentId;
+            while (currentId) {
+                depth++;
+                const parent = tasks.value.find(t => t.id === currentId);
+                if (!parent) break;
+                currentId = parent.parentId;
+            }
+            return depth;
+        };
+
+        // Get maximum subtree depth of a task
+        const getMaxSubtreeDepth = (task) => {
+            let maxDepth = 0;
+            const findMax = (parentId, currentDepth) => {
+                tasks.value.filter(t => t.parentId === parentId).forEach(child => {
+                    maxDepth = Math.max(maxDepth, currentDepth);
+                    findMax(child.id, currentDepth + 1);
+                });
+            };
+            findMax(task.id, 1);
+            return maxDepth;
+        };
+
         // Validate if a drop is allowed
         const validateDrop = (draggedTask, targetTask, position) => {
             if (!draggedTask || !targetTask) return false;
@@ -840,7 +874,23 @@ export default {
             // Can't drop on own descendants
             if (isDescendantOf(targetTask.id, draggedTask.id)) return false;
 
-            // For subtasks: can only reorder among siblings (same parent)
+            // Validation for 'child' position (making dragged task a child of target)
+            if (position === 'child') {
+                // Check if target task can have children (not at max depth)
+                const targetDepth = getTaskDepth(targetTask);
+                if (targetDepth >= MAX_DEPTH) return false;
+
+                // Check if dragged task's subtree would exceed depth limit
+                const draggedSubtreeDepth = getMaxSubtreeDepth(draggedTask);
+                if (targetDepth + 1 + draggedSubtreeDepth > MAX_DEPTH) return false;
+
+                // Must be in same milestone
+                if (draggedTask.milestoneId !== targetTask.milestoneId) return false;
+
+                return true;
+            }
+
+            // For before/after: For subtasks, can only reorder among siblings (same parent)
             if (draggedTask.parentId) {
                 if (targetTask.parentId !== draggedTask.parentId) return false;
             }
@@ -896,21 +946,31 @@ export default {
             event.preventDefault();
 
             const draggedTask = dragState.value.draggedTask;
-            const isValid = validateDrop(draggedTask, task, null);
 
-            // Determine drop position based on mouse position
+            // Determine drop position based on mouse position (3-zone detection)
             const row = event.target.closest('tr');
             if (row) {
                 const rect = row.getBoundingClientRect();
-                const midY = rect.top + rect.height / 2;
-                const position = event.clientY < midY ? 'before' : 'after';
+                const relativeY = event.clientY - rect.top;
+                const height = rect.height;
+
+                let position;
+                if (relativeY < height * 0.25) {
+                    position = 'before';      // Top 25%
+                } else if (relativeY > height * 0.75) {
+                    position = 'after';       // Bottom 25%
+                } else {
+                    position = 'child';       // Middle 50%
+                }
+
+                const isValid = validateDrop(draggedTask, task, position);
 
                 dragState.value.dropTargetId = task.id;
                 dragState.value.dropPosition = position;
                 dragState.value.isValid = isValid;
-            }
 
-            event.dataTransfer.dropEffect = isValid ? 'move' : 'none';
+                event.dataTransfer.dropEffect = isValid ? 'move' : 'none';
+            }
         };
 
         // Handle drag leave
@@ -938,6 +998,76 @@ export default {
             };
         };
 
+        // Change task parent via API
+        const changeTaskParent = async (taskId, newParentId, position) => {
+            if (!props.changeParentUrlTemplate) {
+                console.warn('No change parent URL template configured');
+                return false;
+            }
+
+            const url = props.changeParentUrlTemplate.replace('__TASK_ID__', taskId);
+
+            try {
+                const response = await fetch(url, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({ parentId: newParentId, position })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'Failed to change parent');
+                }
+
+                // Update local task state
+                const task = tasks.value.find(t => t.id === taskId);
+                if (task && data.task) {
+                    task.parentId = data.task.parentId;
+                    task.depth = data.task.depth;
+                    task.position = data.task.position;
+                }
+
+                // Update old parent's subtask count
+                if (data.oldParentId) {
+                    const oldParent = tasks.value.find(t => t.id === data.oldParentId);
+                    if (oldParent) {
+                        const remainingChildren = tasks.value.filter(t => t.parentId === data.oldParentId);
+                        oldParent.subtaskCount = remainingChildren.length;
+                        oldParent.completedSubtaskCount = remainingChildren.filter(
+                            t => (t.status?.value || t.status) === 'completed'
+                        ).length;
+                    }
+                }
+
+                // Update new parent's subtask count
+                if (newParentId) {
+                    const newParent = tasks.value.find(t => t.id === newParentId);
+                    if (newParent) {
+                        const newChildren = tasks.value.filter(t => t.parentId === newParentId);
+                        newParent.subtaskCount = newChildren.length;
+                        newParent.completedSubtaskCount = newChildren.filter(
+                            t => (t.status?.value || t.status) === 'completed'
+                        ).length;
+                    }
+                }
+
+                // Force reactivity update
+                tasks.value = [...tasks.value];
+
+                return true;
+            } catch (error) {
+                console.error('Error changing parent:', error);
+                if (typeof Toastr !== 'undefined') {
+                    Toastr.error('Move Failed', error.message || 'Could not move task');
+                }
+                return false;
+            }
+        };
+
         // Handle drop
         const handleDrop = async (targetTask, event) => {
             event.preventDefault();
@@ -950,7 +1080,28 @@ export default {
                 return;
             }
 
-            // Calculate new order
+            // Handle 'child' drop position - change parent
+            if (dropPosition === 'child') {
+                try {
+                    const success = await changeTaskParent(draggedTask.id, targetTask.id, null);
+                    if (success) {
+                        // Expand target to show the new child
+                        if (!expandedIds.value.has(targetTask.id)) {
+                            expandedIds.value.add(targetTask.id);
+                            expandedIds.value = new Set(expandedIds.value);
+                            saveExpandedState();
+                        }
+                        if (typeof Toastr !== 'undefined') {
+                            Toastr.success('Task Moved', 'Task is now a subtask');
+                        }
+                    }
+                } finally {
+                    handleDragEnd();
+                }
+                return;
+            }
+
+            // Handle 'before'/'after' - reorder among siblings
             const isSubtask = !!draggedTask.parentId;
             const parentId = isSubtask ? draggedTask.parentId : null;
 
@@ -2156,8 +2307,80 @@ export default {
             return (task.depth || 0) < 2;
         };
 
+        // Get siblings of a task (tasks with same parent)
+        const getSiblingsOf = (task) => {
+            return tasks.value
+                .filter(t => t.parentId === task.parentId)
+                .sort((a, b) => (a.position || 0) - (b.position || 0));
+        };
+
+        // Check if task can be promoted (has a parent)
+        const canPromoteTask = (task) => {
+            return !!task.parentId;
+        };
+
+        // Check if task can be demoted (has a sibling above and depth limit not exceeded)
+        const canDemoteTask = (task) => {
+            // Already at max depth for becoming a child
+            const taskDepth = getTaskDepth(task);
+            if (taskDepth >= MAX_DEPTH) return false;
+
+            // Check if there's a sibling above
+            const siblings = getSiblingsOf(task);
+            const taskIndex = siblings.findIndex(t => t.id === task.id);
+            if (taskIndex <= 0) return false; // No sibling above
+
+            // Check if demoting would exceed depth limit (considering task's subtree)
+            const siblingAbove = siblings[taskIndex - 1];
+            const siblingDepth = getTaskDepth(siblingAbove);
+            const draggedSubtreeDepth = getMaxSubtreeDepth(task);
+            if (siblingDepth + 1 + draggedSubtreeDepth > MAX_DEPTH) return false;
+
+            return true;
+        };
+
+        // Handle promote (move task up one level in hierarchy)
+        const handlePromote = async (task) => {
+            if (!task.parentId) return;
+
+            const parent = tasks.value.find(t => t.id === task.parentId);
+            const newParentId = parent?.parentId || null; // Grandparent or root
+
+            // Position after the old parent among new siblings
+            const newPosition = parent ? (parent.position || 0) + 0.5 : null;
+
+            const success = await changeTaskParent(task.id, newParentId, newPosition);
+            if (success) {
+                if (typeof Toastr !== 'undefined') {
+                    Toastr.success('Task Promoted', 'Task moved up one level');
+                }
+            }
+        };
+
+        // Handle demote (make task a child of the sibling above)
+        const handleDemote = async (task) => {
+            const siblings = getSiblingsOf(task);
+            const taskIndex = siblings.findIndex(t => t.id === task.id);
+            if (taskIndex <= 0) return; // No sibling above
+
+            const siblingAbove = siblings[taskIndex - 1];
+
+            const success = await changeTaskParent(task.id, siblingAbove.id, null);
+            if (success) {
+                // Expand the new parent to show the task
+                if (!expandedIds.value.has(siblingAbove.id)) {
+                    expandedIds.value.add(siblingAbove.id);
+                    expandedIds.value = new Set(expandedIds.value);
+                    saveExpandedState();
+                }
+                if (typeof Toastr !== 'undefined') {
+                    Toastr.success('Task Demoted', 'Task is now a subtask');
+                }
+            }
+        };
+
         // Global keyboard shortcuts
-        const handleGlobalKeydown = (event) => {
+        const handleGlobalKeydown = async (event) => {
             // Ctrl/Cmd + F to focus search
             if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
                 // Only if not already in an input
@@ -2190,6 +2413,36 @@ export default {
                         event.preventDefault();
                         const rect = focusedRow.getBoundingClientRect();
                         showContextMenu(task, { clientX: rect.left + 50, clientY: rect.bottom });
+                    }
+                }
+            }
+
+            // Tab key for indent/outdent (promote/demote)
+            if (event.key === 'Tab' && props.canEdit) {
+                // Only if a single task row is focused and not editing
+                if (editingCell.value) return;
+                if (document.activeElement?.tagName === 'INPUT' ||
+                    document.activeElement?.tagName === 'TEXTAREA' ||
+                    document.activeElement?.tagName === 'SELECT') return;
+
+                const focusedRow = document.activeElement?.closest('tr[data-task-id]');
+                if (focusedRow) {
+                    const taskId = focusedRow.getAttribute('data-task-id');
+                    const task = tasks.value.find(t => t.id === taskId);
+                    if (task) {
+                        if (event.shiftKey) {
+                            // Shift+Tab = Promote (outdent)
+                            if (canPromoteTask(task)) {
+                                event.preventDefault();
+                                await handlePromote(task);
+                            }
+                        } else {
+                            // Tab = Demote (indent)
+                            if (canDemoteTask(task)) {
+                                event.preventDefault();
+                                await handleDemote(task);
+                            }
+                        }
                     }
                 }
             }
@@ -2382,6 +2635,11 @@ export default {
             handleContextDuplicate,
             handleContextDelete,
             canAddSubtaskTo,
+            // Promote/demote
+            canPromoteTask,
+            canDemoteTask,
+            handlePromote,
+            handleDemote,
             // Subtask quick add
             subtaskQuickAddParentId,
             subtaskQuickAddRef,
@@ -2743,6 +3001,8 @@ export default {
                 :can-edit="canEdit"
                 :can-add-subtask="contextMenu.tasks.length === 1 && canAddSubtaskTo(contextMenu.tasks[0])"
                 :can-duplicate="contextMenu.tasks.length === 1"
+                :can-promote="contextMenu.tasks.length === 1 && canPromoteTask(contextMenu.tasks[0])"
+                :can-demote="contextMenu.tasks.length === 1 && canDemoteTask(contextMenu.tasks[0])"
                 @close="hideContextMenu"
                 @edit="handleContextEdit"
                 @copy-link="handleContextCopyLink"
@@ -2756,6 +3016,8 @@ export default {
                 @add-below="handleContextAddBelow"
                 @duplicate="handleContextDuplicate"
                 @delete="handleContextDelete"
+                @promote="handlePromote"
+                @demote="handleDemote"
             />
 
             <!-- Column Context Menu -->

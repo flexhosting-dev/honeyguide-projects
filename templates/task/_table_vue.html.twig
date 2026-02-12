@@ -80,6 +80,7 @@
     data-vue-subtask-url-template="{{ path('app_task_create_subtask', {id: '__TASK_ID__'}) }}"
     data-vue-reorder-url="{{ path('app_task_reorder') }}"
     data-vue-subtask-reorder-url-template="{{ path('app_task_subtasks_reorder', {id: '__TASK_ID__'}) }}"
+    data-vue-change-parent-url-template="{{ path('app_task_change_parent', {id: '__TASK_ID__'}) }}"
 >
     {# Loading fallback shown before Vue mounts #}
     <div class="flex items-center justify-center py-12">
@@ -230,6 +231,11 @@
 
 .task-table-row.drag-over-after {
     box-shadow: inset 0 -2px 0 0 #3b82f6;
+}
+
+.task-table-row.drag-over-child {
+    background-color: rgba(59, 130, 246, 0.1);
+    box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.5);
 }
 
 .task-table-row.drag-invalid {

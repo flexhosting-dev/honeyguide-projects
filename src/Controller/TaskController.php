@@ -1151,6 +1151,157 @@ class TaskController extends AbstractController
         return $this->json(['success' => true]);
     }
 
+    #[Route('/tasks/{id}/parent', name: 'app_task_change_parent', methods: ['PATCH'])]
+    public function changeParent(Request $request, Task $task): JsonResponse
+    {
+        $project = $task->getProject();
+        $this->denyAccessUnlessGranted('PROJECT_EDIT', $project);
+
+        /** @var User $user */
+        $user = $this->getUser();
+
+        $data = json_decode($request->getContent(), true);
+        $newParentId = $data['parentId'] ?? null;
+        $position = $data['position'] ?? null;
+
+        $oldParent = $task->getParent();
+        $newParent = null;
+
+        // Validate and get new parent if provided
+        if ($newParentId !== null) {
+            $newParent = $this->taskRepository->find($newParentId);
+            if (!$newParent) {
+                return $this->json(['error' => 'Parent task not found'], Response::HTTP_BAD_REQUEST);
+            }
+
+            // Can't be own parent
+            if ($newParent->getId()->toString() === $task->getId()->toString()) {
+                return $this->json(['error' => 'Task cannot be its own parent'], Response::HTTP_BAD_REQUEST);
+            }
+
+            // Can't create circular reference
+            if ($this->isDescendantOf($newParent, $task)) {
+                return $this->json(['error' => 'Cannot move task under its own descendant'], Response::HTTP_BAD_REQUEST);
+            }
+
+            // Must be in same milestone
+            if ($newParent->getMilestone()?->getId()->toString() !== $task->getMilestone()?->getId()->toString()) {
+                return $this->json(['error' => 'Task and parent must be in the same milestone'], Response::HTTP_BAD_REQUEST);
+            }
+
+            // Check depth limit (max depth is 2, meaning 3 levels total: root -> child -> grandchild)
+            $newParentDepth = $newParent->getDepth();
+            $maxSubtreeDepth = $this->getMaxSubtreeDepth($task);
+            if ($newParentDepth + 1 + $maxSubtreeDepth > 2) {
+                return $this->json(['error' => 'Maximum nesting depth exceeded'], Response::HTTP_BAD_REQUEST);
+            }
+        }
+
+        // Update parent
+        $task->setParent($newParent);
+
+        // Update position among new siblings
+        if ($position !== null) {
+            $task->setPosition((float) $position);
+        } else {
+            // Set position to end of new siblings
+            $newSiblings = $newParent
+                ? $newParent->getSubtasks()
+                : $this->taskRepository->findBy(['milestone' => $task->getMilestone(), 'parent' => null]);
+
+            $maxPosition = 0;
+            foreach ($newSiblings as $sibling) {
+                if ($sibling->getId()->toString() !== $task->getId()->toString()) {
+                    $maxPosition = max($maxPosition, $sibling->getPosition() ?? 0);
+                }
+            }
+            $task->setPosition($maxPosition + 1);
+        }
+
+        // Update subtask counts for old and new parents
+        if ($oldParent) {
+            // Old parent loses this task
+            $remainingChildren = $this->taskRepository->findBy(['parent' => $oldParent]);
+            $subtaskCount = count(array_filter($remainingChildren, fn($t) => $t->getId()->toString() !== $task->getId()->toString()));
+            // Note: subtaskCount is computed dynamically via getSubtasks(), so no explicit update needed
+        }
+
+        $this->entityManager->flush();
+
+        // Return updated task data
+        $basePath = $request->getBasePath();
+        $assigneesData = [];
+        foreach ($task->getAssignees() as $assignee) {
+            $assigneeUser = $assignee->getUser();
+            $assigneesData[] = [
+                'id' => $assignee->getId()->toString(),
+                'user' => [
+                    'id' => $assigneeUser->getId()->toString(),
+                    'firstName' => $assigneeUser->getFirstName(),
+                    'lastName' => $assigneeUser->getLastName(),
+                    'fullName' => $assigneeUser->getFullName(),
+                    'avatar' => $assigneeUser->getAvatar() ? $basePath . '/uploads/avatars/' . $assigneeUser->getAvatar() : null,
+                ],
+            ];
+        }
+
+        return $this->json([
+            'success' => true,
+            'task' => [
+                'id' => $task->getId()->toString(),
+                'title' => $task->getTitle(),
+                'parentId' => $newParent ? $newParent->getId()->toString() : null,
+                'depth' => $task->getDepth(),
+                'position' => $task->getPosition(),
+                'status' => [
+                    'value' => $task->getStatus()->value,
+                    'label' => $task->getStatus()->label(),
+                ],
+                'priority' => [
+                    'value' => $task->getPriority()->value,
+                    'label' => $task->getPriority()->label(),
+                ],
+                'milestoneId' => $task->getMilestone() ? $task->getMilestone()->getId()->toString() : null,
+                'dueDate' => $task->getDueDate()?->format('Y-m-d'),
+                'startDate' => $task->getStartDate()?->format('Y-m-d'),
+                'assignees' => $assigneesData,
+                'subtaskCount' => $task->getSubtasks()->count(),
+                'completedSubtaskCount' => $task->getSubtasks()->filter(
+                    fn($s) => $s->getStatus()->value === 'completed'
+                )->count(),
+            ],
+            'oldParentId' => $oldParent ? $oldParent->getId()->toString() : null,
+        ]);
+    }
+
+    /**
+     * Check if a task is a descendant of another task
+     */
+    private function isDescendantOf(Task $task, Task $potentialAncestor): bool
+    {
+        $current = $task;
+        while ($current !== null) {
+            if ($current->getId()->toString() === $potentialAncestor->getId()->toString()) {
+                return true;
+            }
+            $current = $current->getParent();
+        }
+        return false;
+    }
+
+    /**
+     * Get the maximum depth of a task's subtree
+     */
+    private function getMaxSubtreeDepth(Task $task): int
+    {
+        $maxDepth = 0;
+        foreach ($task->getSubtasks() as $subtask) {
+            $subtaskDepth = 1 + $this->getMaxSubtreeDepth($subtask);
+            $maxDepth = max($maxDepth, $subtaskDepth);
+        }
+        return $maxDepth;
+    }
+
     #[Route('/projects/{projectId}/tasks/create-panel', name: 'app_task_create_panel', methods: ['GET'])]
     public function createPanel(string $projectId): Response
     {

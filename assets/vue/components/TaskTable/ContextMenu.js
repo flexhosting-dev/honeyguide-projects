@@ -47,6 +47,14 @@ export default {
         canDuplicate: {
             type: Boolean,
             default: true
+        },
+        canPromote: {
+            type: Boolean,
+            default: false
+        },
+        canDemote: {
+            type: Boolean,
+            default: false
         }
     },
 
@@ -63,7 +71,9 @@ export default {
         'add-above',
         'add-below',
         'duplicate',
-        'delete'
+        'delete',
+        'promote',
+        'demote'
     ],
 
     setup(props, { emit }) {
@@ -306,6 +316,16 @@ export default {
             emit('close');
         };
 
+        const handlePromote = () => {
+            emit('promote', singleTask.value);
+            emit('close');
+        };
+
+        const handleDemote = () => {
+            emit('demote', singleTask.value);
+            emit('close');
+        };
+
         // Lifecycle
         onMounted(() => {
             // Initial position calculation if already visible
@@ -350,7 +370,9 @@ export default {
             handleAddAbove,
             handleAddBelow,
             handleDuplicate,
-            handleDelete
+            handleDelete,
+            handlePromote,
+            handleDemote
         };
     },
 
@@ -644,6 +666,32 @@ export default {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                     </svg>
                     Add Subtask
+                </button>
+
+                <!-- Promote to Parent Level (for subtasks only) -->
+                <button
+                    v-if="canEdit && !isMultiSelect && canPromote"
+                    type="button"
+                    @click="handlePromote"
+                    class="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    role="menuitem">
+                    <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 12H6M6 12l4-4m-4 4l4 4"/>
+                    </svg>
+                    Promote to Parent Level
+                </button>
+
+                <!-- Make Subtask of Above (demote) -->
+                <button
+                    v-if="canEdit && !isMultiSelect && canDemote"
+                    type="button"
+                    @click="handleDemote"
+                    class="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    role="menuitem">
+                    <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 12h12m0 0l-4-4m4 4l-4 4"/>
+                    </svg>
+                    Make Subtask of Above
                 </button>
 
                 <!-- Duplicate (single task only) -->
