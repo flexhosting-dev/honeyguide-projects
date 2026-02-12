@@ -1237,9 +1237,23 @@ class TaskController extends AbstractController
             $task->setDescription(trim($data['description']));
         }
 
-        // Set position to end of list
-        $maxPosition = $this->taskRepository->findMaxPositionInMilestone($milestone);
-        $task->setPosition($maxPosition + 1);
+        // Handle parent task (for adding sibling tasks with same parent)
+        $parentTask = null;
+        if (!empty($data['parentId'])) {
+            $parentTask = $this->taskRepository->find($data['parentId']);
+            if ($parentTask && $parentTask->getProject()->getId()->toString() === $project->getId()->toString()) {
+                $task->setParent($parentTask);
+                // Note: depth is computed automatically via getDepth() based on parent chain
+            }
+        }
+
+        // Set position - use provided position for insert above/below, otherwise end of list
+        if (isset($data['position']) && is_numeric($data['position'])) {
+            $task->setPosition((float) $data['position']);
+        } else {
+            $maxPosition = $this->taskRepository->findMaxPositionInMilestone($milestone);
+            $task->setPosition($maxPosition + 1);
+        }
 
         $this->entityManager->persist($task);
 
@@ -1320,9 +1334,9 @@ class TaskController extends AbstractController
                 'completedChecklistCount' => 0,
                 'subtaskCount' => 0,
                 'completedSubtaskCount' => 0,
-                'parentId' => null,
-                'parentChain' => null,
-                'depth' => 0,
+                'parentId' => $parentTask ? $parentTask->getId()->toString() : null,
+                'parentChain' => $parentTask ? $parentTask->getTitle() : null,
+                'depth' => $task->getDepth(),
             ],
         ]);
     }
