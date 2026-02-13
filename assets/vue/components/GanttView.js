@@ -1037,61 +1037,6 @@ export default {
             nextTick(() => initGantt());
         }
 
-        async function handleContextAssignTo(taskList, userId) {
-            if (!props.assigneeUrlTemplate) return;
-
-            for (const task of taskList) {
-                try {
-                    const url = props.assigneeUrlTemplate.replace('__TASK_ID__', task.id);
-                    const response = await fetch(url, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest'
-                        },
-                        body: JSON.stringify({ action: 'add', userId })
-                    });
-
-                    if (response.ok) {
-                        // Update local state - add assignee if not present
-                        const taskIndex = tasks.value.findIndex(t => t.id === task.id);
-                        if (taskIndex !== -1) {
-                            const member = props.members.find(m => m.id === userId);
-                            if (member) {
-                                const assignees = tasks.value[taskIndex].assignees || [];
-                                const exists = assignees.some(a => (a.user?.id || a.id) === userId);
-                                if (!exists) {
-                                    tasks.value[taskIndex].assignees = [...assignees, { user: member }];
-                                }
-                            }
-                        }
-
-                        // Dispatch event for other components
-                        document.dispatchEvent(new CustomEvent('task-updated', {
-                            detail: {
-                                taskId: task.id,
-                                field: 'assignee',
-                                value: userId
-                            }
-                        }));
-                    }
-                } catch (error) {
-                    console.error('Failed to assign user:', error);
-                }
-            }
-
-            if (window.Toastr) {
-                window.Toastr.success('Assignee updated');
-            }
-        }
-
-        // Milestone options computed from props
-        const milestoneOptions = computed(() => {
-            return props.milestones.map(m => ({
-                value: m.id,
-                label: m.name
-            }));
-        });
 
         onMounted(() => {
             loadViewPreference();
@@ -1171,8 +1116,6 @@ export default {
             handleContextCopyLink,
             handleContextSetStatus,
             handleContextSetPriority,
-            handleContextAssignTo,
-            milestoneOptions,
             statusOptions: computedStatusOptions,
             priorityOptions
         };
@@ -1475,8 +1418,8 @@ export default {
                 :tasks="contextMenu.tasks"
                 :status-options="statusOptions"
                 :priority-options="priorityOptions"
-                :milestone-options="milestoneOptions"
-                :members="$props.members"
+                :milestone-options="[]"
+                :members="[]"
                 :can-edit="$props.canEdit"
                 :can-add-subtask="false"
                 :can-duplicate="false"
@@ -1487,7 +1430,6 @@ export default {
                 @copy-link="handleContextCopyLink"
                 @set-status="handleContextSetStatus"
                 @set-priority="handleContextSetPriority"
-                @assign-to="handleContextAssignTo"
             />
         </div>
     `
