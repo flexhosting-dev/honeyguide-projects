@@ -1,7 +1,12 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
+import ContextMenu from './TaskTable/ContextMenu.js';
 
 export default {
     name: 'GanttView',
+
+    components: {
+        ContextMenu
+    },
 
     props: {
         initialTasks: {
@@ -24,6 +29,18 @@ export default {
             type: String,
             default: ''
         },
+        statusUrlTemplate: {
+            type: String,
+            default: ''
+        },
+        priorityUrlTemplate: {
+            type: String,
+            default: ''
+        },
+        assigneeUrlTemplate: {
+            type: String,
+            default: ''
+        },
         viewMode: {
             type: String,
             default: 'Week' // Day, Week, Month, Year
@@ -35,6 +52,14 @@ export default {
         taskUrlTemplate: {
             type: String,
             default: '/tasks/__TASK_ID__'
+        },
+        members: {
+            type: Array,
+            default: () => []
+        },
+        canEdit: {
+            type: Boolean,
+            default: false
         }
     },
 
@@ -57,12 +82,50 @@ export default {
         const isMobile = ref(window.innerWidth < 768);
         const mobileTaskListWidth = 120; // Fixed narrower width for mobile
 
+        // Context menu state
+        const contextMenu = ref({
+            visible: false,
+            x: 0,
+            y: 0,
+            tasks: []
+        });
+
+        // Long press timer for mobile context menu
+        let longPressTimer = null;
+        const longPressDelay = 500;
+
         const viewModes = ['Day', 'Week', 'Month', 'Year'];
         const sortOptions = [
             { value: 'start_date', label: 'Start Date' },
             { value: 'position', label: 'Position' },
             { value: 'title', label: 'Title' }
         ];
+
+        // Status and priority configs (same as TaskTable)
+        const statusConfig = [
+            { value: 'todo', label: 'To Do', color: '#6b7280' },
+            { value: 'in_progress', label: 'In Progress', color: '#3b82f6' },
+            { value: 'in_review', label: 'In Review', color: '#eab308' },
+            { value: 'completed', label: 'Completed', color: '#22c55e' }
+        ];
+
+        const priorityConfig = [
+            { value: 'high', label: 'High', color: '#ef4444' },
+            { value: 'medium', label: 'Medium', color: '#eab308' },
+            { value: 'low', label: 'Low', color: '#3b82f6' },
+            { value: 'none', label: 'None', color: '#6b7280' }
+        ];
+
+        // Computed options for ContextMenu
+        const statusOptions = computed(() => statusConfig.map(s => ({
+            value: s.value,
+            label: s.label
+        })));
+
+        const priorityOptions = computed(() => priorityConfig.map(p => ({
+            value: p.value,
+            label: p.label
+        })));
 
         // Frappe Gantt dimensions
         const GANTT_ROW_HEIGHT = 38; // bar_height (20) + padding (18)
@@ -747,6 +810,230 @@ export default {
             isMobile.value = window.innerWidth < 768;
         }
 
+        // Context menu functions
+        function showContextMenu(task, event) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            // Get the original task data (not the Gantt-formatted one)
+            const originalTask = tasks.value.find(t => t.id === task.id);
+            if (!originalTask) return;
+
+            contextMenu.value = {
+                visible: true,
+                x: event.clientX,
+                y: event.clientY,
+                tasks: [originalTask]
+            };
+        }
+
+        function hideContextMenu() {
+            contextMenu.value.visible = false;
+        }
+
+        function handleTaskContextMenu(task, event) {
+            showContextMenu(task, event);
+        }
+
+        // Long press handlers for mobile
+        function handleTouchStart(task, event) {
+            longPressTimer = setTimeout(() => {
+                // Create a synthetic event with touch coordinates
+                const touch = event.touches[0];
+                showContextMenu(task, {
+                    preventDefault: () => {},
+                    stopPropagation: () => {},
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                });
+            }, longPressDelay);
+        }
+
+        function handleTouchEnd() {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+        }
+
+        function handleTouchMove() {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+        }
+
+        // Context menu action handlers
+        function handleContextEdit(task) {
+            openTask(task.id);
+        }
+
+        function handleContextCopyLink(task) {
+            const url = props.taskUrlTemplate.replace('__TASK_ID__', task.id);
+            const fullUrl = window.location.origin + url;
+            navigator.clipboard.writeText(fullUrl).then(() => {
+                if (window.Toastr) {
+                    window.Toastr.success('Link copied to clipboard');
+                }
+            }).catch(() => {
+                if (window.Toastr) {
+                    window.Toastr.error('Failed to copy link');
+                }
+            });
+        }
+
+        async function handleContextSetStatus(taskList, status) {
+            if (!props.statusUrlTemplate) return;
+
+            const statusOpt = statusConfig.find(s => s.value === status);
+
+            for (const task of taskList) {
+                try {
+                    const url = props.statusUrlTemplate.replace('__TASK_ID__', task.id);
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({ status })
+                    });
+
+                    if (response.ok) {
+                        // Update local state
+                        const taskIndex = tasks.value.findIndex(t => t.id === task.id);
+                        if (taskIndex !== -1) {
+                            tasks.value[taskIndex].status = {
+                                value: status,
+                                label: statusOpt?.label || status
+                            };
+                        }
+
+                        // Dispatch event for other components
+                        document.dispatchEvent(new CustomEvent('task-updated', {
+                            detail: {
+                                taskId: task.id,
+                                field: 'status',
+                                value: status,
+                                label: statusOpt?.label || status
+                            }
+                        }));
+                    }
+                } catch (error) {
+                    console.error('Failed to update status:', error);
+                }
+            }
+
+            if (window.Toastr) {
+                window.Toastr.success('Status updated');
+            }
+            nextTick(() => initGantt());
+        }
+
+        async function handleContextSetPriority(taskList, priority) {
+            if (!props.priorityUrlTemplate) return;
+
+            const priorityOpt = priorityConfig.find(p => p.value === priority);
+
+            for (const task of taskList) {
+                try {
+                    const url = props.priorityUrlTemplate.replace('__TASK_ID__', task.id);
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({ priority })
+                    });
+
+                    if (response.ok) {
+                        // Update local state
+                        const taskIndex = tasks.value.findIndex(t => t.id === task.id);
+                        if (taskIndex !== -1) {
+                            tasks.value[taskIndex].priority = {
+                                value: priority,
+                                label: priorityOpt?.label || priority
+                            };
+                        }
+
+                        // Dispatch event for other components
+                        document.dispatchEvent(new CustomEvent('task-updated', {
+                            detail: {
+                                taskId: task.id,
+                                field: 'priority',
+                                value: priority,
+                                label: priorityOpt?.label || priority
+                            }
+                        }));
+                    }
+                } catch (error) {
+                    console.error('Failed to update priority:', error);
+                }
+            }
+
+            if (window.Toastr) {
+                window.Toastr.success('Priority updated');
+            }
+            nextTick(() => initGantt());
+        }
+
+        async function handleContextAssignTo(taskList, userId) {
+            if (!props.assigneeUrlTemplate) return;
+
+            for (const task of taskList) {
+                try {
+                    const url = props.assigneeUrlTemplate.replace('__TASK_ID__', task.id);
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({ action: 'add', userId })
+                    });
+
+                    if (response.ok) {
+                        // Update local state - add assignee if not present
+                        const taskIndex = tasks.value.findIndex(t => t.id === task.id);
+                        if (taskIndex !== -1) {
+                            const member = props.members.find(m => m.id === userId);
+                            if (member) {
+                                const assignees = tasks.value[taskIndex].assignees || [];
+                                const exists = assignees.some(a => (a.user?.id || a.id) === userId);
+                                if (!exists) {
+                                    tasks.value[taskIndex].assignees = [...assignees, { user: member }];
+                                }
+                            }
+                        }
+
+                        // Dispatch event for other components
+                        document.dispatchEvent(new CustomEvent('task-updated', {
+                            detail: {
+                                taskId: task.id,
+                                field: 'assignee',
+                                value: userId
+                            }
+                        }));
+                    }
+                } catch (error) {
+                    console.error('Failed to assign user:', error);
+                }
+            }
+
+            if (window.Toastr) {
+                window.Toastr.success('Assignee updated');
+            }
+        }
+
+        // Milestone options computed from props
+        const milestoneOptions = computed(() => {
+            return props.milestones.map(m => ({
+                value: m.id,
+                label: m.name
+            }));
+        });
+
         onMounted(() => {
             loadViewPreference();
             loadSortPreference();
@@ -813,7 +1100,22 @@ export default {
             effectiveTaskListWidth,
             isMobile,
             isResizing,
-            startResize
+            startResize,
+            // Context menu
+            contextMenu,
+            hideContextMenu,
+            handleTaskContextMenu,
+            handleTouchStart,
+            handleTouchEnd,
+            handleTouchMove,
+            handleContextEdit,
+            handleContextCopyLink,
+            handleContextSetStatus,
+            handleContextSetPriority,
+            handleContextAssignTo,
+            milestoneOptions,
+            statusOptions,
+            priorityOptions
         };
     },
 
@@ -954,6 +1256,10 @@ export default {
                             @mouseenter="handleTaskHover(task.id)"
                             @mouseleave="handleTaskLeave"
                             @click="openTask(task.id)"
+                            @contextmenu="handleTaskContextMenu(task, $event)"
+                            @touchstart="handleTouchStart(task, $event)"
+                            @touchend="handleTouchEnd"
+                            @touchmove="handleTouchMove"
                         >
                             <!-- Expand/Collapse toggle for tasks with children -->
                             <button
@@ -1113,6 +1419,29 @@ export default {
                     <span class="text-gray-700">Updating task...</span>
                 </div>
             </div>
+
+            <!-- Context Menu -->
+            <ContextMenu
+                :visible="contextMenu.visible"
+                :x="contextMenu.x"
+                :y="contextMenu.y"
+                :tasks="contextMenu.tasks"
+                :status-options="statusOptions"
+                :priority-options="priorityOptions"
+                :milestone-options="milestoneOptions"
+                :members="$props.members"
+                :can-edit="$props.canEdit"
+                :can-add-subtask="false"
+                :can-duplicate="false"
+                :can-promote="false"
+                :can-demote="false"
+                @close="hideContextMenu"
+                @edit="handleContextEdit"
+                @copy-link="handleContextCopyLink"
+                @set-status="handleContextSetStatus"
+                @set-priority="handleContextSetPriority"
+                @assign-to="handleContextAssignTo"
+            />
         </div>
     `
 };

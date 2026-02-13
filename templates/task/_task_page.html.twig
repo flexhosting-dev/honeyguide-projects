@@ -167,6 +167,8 @@
             {% include 'task/_gantt_vue.html.twig' with {
                 tasks: tasks,
                 milestones: milestones|default([]),
+                members: projectMembers|default([]),
+                canEdit: canEdit|default(false),
                 storageKey: storageKey ~ '_gantt'
             } %}
         </div>
