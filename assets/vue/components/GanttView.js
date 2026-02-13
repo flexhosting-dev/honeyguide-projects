@@ -236,13 +236,22 @@ export default {
                 });
 
             // Apply sorting based on selected mode
+            // Use _originalIndex as secondary sort for stable ordering
             const sorted = [...filtered];
             switch (taskSortMode.value) {
                 case 'start_date':
-                    sorted.sort((a, b) => new Date(a.start) - new Date(b.start));
+                    sorted.sort((a, b) => {
+                        const dateDiff = new Date(a.start) - new Date(b.start);
+                        if (dateDiff !== 0) return dateDiff;
+                        return a._originalIndex - b._originalIndex;
+                    });
                     break;
                 case 'title':
-                    sorted.sort((a, b) => a.name.localeCompare(b.name));
+                    sorted.sort((a, b) => {
+                        const titleDiff = a.name.localeCompare(b.name);
+                        if (titleDiff !== 0) return titleDiff;
+                        return a._originalIndex - b._originalIndex;
+                    });
                     break;
                 case 'position':
                 default:
