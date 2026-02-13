@@ -54,6 +54,8 @@ export default {
         const isResizing = ref(false);
         const minTaskListWidth = 120;
         const maxTaskListWidth = 400;
+        const isMobile = ref(window.innerWidth < 768);
+        const mobileTaskListWidth = 120; // Fixed narrower width for mobile
 
         const viewModes = ['Day', 'Week', 'Month', 'Year'];
         const sortOptions = [
@@ -153,6 +155,11 @@ export default {
             return parentIds;
         });
 
+        // Effective task list width (same as desktop, user can resize)
+        const effectiveTaskListWidth = computed(() => {
+            return taskListWidth.value;
+        });
+
         // Check if a task or any of its ancestors is collapsed
         function isTaskHidden(task, allTasks) {
             if (!task.parentId) return false;
@@ -244,10 +251,10 @@ export default {
                                     <div><span class="font-medium">Progress:</span> ${task.progress}%</div>
                                 </div>
                                 <div class="mt-3 pt-3 border-t">
-                                    <a href="${props.taskUrlTemplate.replace('__TASK_ID__', task.id)}"
-                                       class="text-sm text-primary-600 hover:text-primary-800 font-medium">
+                                    <button onclick="if(window.openTaskPanel){window.openTaskPanel('${task.id}');document.querySelector('.gantt-popup')?.closest('.popup-wrapper')?.remove();}"
+                                       class="text-sm text-primary-600 hover:text-primary-800 font-medium cursor-pointer bg-transparent border-none p-0">
                                         View Details →
-                                    </a>
+                                    </button>
                                 </div>
                             </div>
                         `;
@@ -276,6 +283,7 @@ export default {
                     measureGanttHeaderHeight();
                     setupScrollSync();
                     reorderGanttBars();
+                    drawTodayLine();
                 });
             } catch (error) {
                 console.error('Failed to initialize Gantt chart:', error);
@@ -352,6 +360,8 @@ export default {
             currentViewMode.value = mode;
             if (ganttInstance.value) {
                 ganttInstance.value.change_view_mode(mode);
+                // Redraw today line after view mode change
+                nextTick(() => drawTodayLine());
             }
             saveViewPreference(mode);
         }
@@ -372,9 +382,73 @@ export default {
         }
 
         function scrollToToday() {
-            if (ganttInstance.value) {
-                ganttInstance.value.scroll_today();
-            }
+            if (!ganttInstance.value || !ganttContainer.value) return;
+
+            const container = ganttContainer.value.querySelector('.gantt-container');
+            if (!container) return;
+
+            // Calculate today's position
+            const today = new Date();
+            const ganttStart = ganttInstance.value.gantt_start;
+            const step = ganttInstance.value.options.step;
+            const columnWidth = ganttInstance.value.options.column_width;
+
+            // Calculate hours difference
+            const hoursDiff = (today - ganttStart) / (1000 * 60 * 60);
+            const scrollPosition = (hoursDiff / step) * columnWidth - (container.clientWidth / 2);
+
+            container.scrollLeft = Math.max(0, scrollPosition);
+        }
+
+        // Draw today line on the Gantt chart
+        function drawTodayLine() {
+            if (!ganttInstance.value || !ganttContainer.value) return;
+
+            const svg = ganttContainer.value.querySelector('svg.gantt');
+            if (!svg) return;
+
+            // Remove existing today line
+            const existingLine = svg.querySelector('.today-line');
+            if (existingLine) existingLine.remove();
+
+            const today = new Date();
+            const ganttStart = ganttInstance.value.gantt_start;
+            const step = ganttInstance.value.options.step;
+            const columnWidth = ganttInstance.value.options.column_width;
+
+            // Calculate x position for today
+            const hoursDiff = (today - ganttStart) / (1000 * 60 * 60);
+            const x = (hoursDiff / step) * columnWidth;
+
+            // Get chart height
+            const gridBackground = svg.querySelector('.grid-background');
+            if (!gridBackground) return;
+            const height = gridBackground.getAttribute('height');
+
+            // Create today line group
+            const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            g.setAttribute('class', 'today-line');
+
+            // Create the line
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', x);
+            line.setAttribute('y1', 0);
+            line.setAttribute('x2', x);
+            line.setAttribute('y2', height);
+            line.setAttribute('stroke', '#3b82f6');
+            line.setAttribute('stroke-width', '2');
+            line.setAttribute('stroke-dasharray', '4,4');
+
+            // Create a small circle at the top
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('cx', x);
+            circle.setAttribute('cy', '8');
+            circle.setAttribute('r', '4');
+            circle.setAttribute('fill', '#3b82f6');
+
+            g.appendChild(line);
+            g.appendChild(circle);
+            svg.appendChild(g);
         }
 
         // Scroll synchronization between task list and Gantt chart
@@ -481,11 +555,13 @@ export default {
             nextTick(() => initGantt());
         }
 
-        // Resize functionality for left panel
+        // Resize functionality for left panel (supports both mouse and touch)
         function startResize(event) {
             isResizing.value = true;
             document.addEventListener('mousemove', handleResize);
             document.addEventListener('mouseup', stopResize);
+            document.addEventListener('touchmove', handleResizeTouch, { passive: false });
+            document.addEventListener('touchend', stopResize);
             document.body.style.cursor = 'col-resize';
             document.body.style.userSelect = 'none';
         }
@@ -500,10 +576,24 @@ export default {
             taskListWidth.value = newWidth;
         }
 
+        function handleResizeTouch(event) {
+            if (!isResizing.value) return;
+            event.preventDefault();
+            const touch = event.touches[0];
+            const container = ganttContainer.value?.closest('.flex.gap-0');
+            if (!container) return;
+            const containerRect = container.getBoundingClientRect();
+            let newWidth = touch.clientX - containerRect.left;
+            newWidth = Math.max(minTaskListWidth, Math.min(maxTaskListWidth, newWidth));
+            taskListWidth.value = newWidth;
+        }
+
         function stopResize() {
             isResizing.value = false;
             document.removeEventListener('mousemove', handleResize);
             document.removeEventListener('mouseup', stopResize);
+            document.removeEventListener('touchmove', handleResizeTouch);
+            document.removeEventListener('touchend', stopResize);
             document.body.style.cursor = '';
             document.body.style.userSelect = '';
             saveTaskListWidth();
@@ -611,21 +701,50 @@ export default {
 
         // Handle external task updates
         function handleTaskUpdate(event) {
-            const { taskId, field, value, startDate, dueDate } = event.detail || {};
+            const { taskId, field, value, startDate, dueDate, label } = event.detail || {};
             if (!taskId) return;
 
             const taskIndex = tasks.value.findIndex(t => t.id === taskId);
             if (taskIndex === -1) return;
 
-            if (field === 'dates' || field === 'dueDate' || field === 'startDate') {
-                if (startDate) tasks.value[taskIndex].startDate = startDate;
-                if (dueDate) tasks.value[taskIndex].dueDate = dueDate;
-                // Refresh gantt
-                nextTick(() => initGantt());
-            } else if (field === 'status') {
-                tasks.value[taskIndex].status = value;
+            let needsRefresh = false;
+
+            switch (field) {
+                case 'dates':
+                    if (startDate) tasks.value[taskIndex].startDate = startDate;
+                    if (dueDate) tasks.value[taskIndex].dueDate = dueDate;
+                    needsRefresh = true;
+                    break;
+                case 'startDate':
+                    tasks.value[taskIndex].startDate = value;
+                    needsRefresh = true;
+                    break;
+                case 'dueDate':
+                    tasks.value[taskIndex].dueDate = value;
+                    needsRefresh = true;
+                    break;
+                case 'status':
+                    tasks.value[taskIndex].status = { value: value, label: label || value };
+                    needsRefresh = true;
+                    break;
+                case 'title':
+                    tasks.value[taskIndex].title = value;
+                    needsRefresh = true;
+                    break;
+                case 'priority':
+                    tasks.value[taskIndex].priority = { value: value, label: label || value };
+                    needsRefresh = true;
+                    break;
+            }
+
+            if (needsRefresh) {
                 nextTick(() => initGantt());
             }
+        }
+
+        // Handle window resize for mobile detection
+        function handleWindowResize() {
+            isMobile.value = window.innerWidth < 768;
         }
 
         onMounted(() => {
@@ -645,11 +764,13 @@ export default {
 
             // Listen for task updates from other components
             document.addEventListener('task-updated', handleTaskUpdate);
+            window.addEventListener('resize', handleWindowResize);
         });
 
         onUnmounted(() => {
             document.removeEventListener('task-updated', handleTaskUpdate);
             cleanupScrollSync();
+            window.removeEventListener('resize', handleWindowResize);
         });
 
         // Watch for task changes
@@ -689,6 +810,8 @@ export default {
             expandAllTasks,
             collapseAllTasks,
             taskListWidth,
+            effectiveTaskListWidth,
+            isMobile,
             isResizing,
             startResize
         };
@@ -697,7 +820,7 @@ export default {
     template: `
         <div class="gantt-view-container" @click="closeSortMenu">
             <!-- Toolbar -->
-            <div class="flex items-center justify-between mb-4 bg-white rounded-lg shadow-sm p-3">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-4 bg-white rounded-lg shadow-sm p-2 sm:p-3">
                 <div class="flex items-center gap-2">
                     <!-- View Mode Buttons -->
                     <div class="inline-flex rounded-lg bg-gray-100 p-1">
@@ -706,7 +829,7 @@ export default {
                             :key="mode"
                             @click="changeViewMode(mode)"
                             :class="[
-                                'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+                                'px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors',
                                 currentViewMode === mode
                                     ? 'bg-white text-primary-600 shadow-sm'
                                     : 'text-gray-600 hover:text-gray-900'
@@ -721,16 +844,16 @@ export default {
                     <!-- Today Button -->
                     <button
                         @click="scrollToToday"
-                        class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                        class="inline-flex items-center px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
                     >
-                        <svg class="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
                         </svg>
                         Today
                     </button>
 
-                    <!-- Task Count -->
-                    <span class="text-sm text-gray-500">
+                    <!-- Task Count - hidden on mobile -->
+                    <span class="hidden sm:inline text-sm text-gray-500">
                         <template v-if="visibleGanttTasks.length < ganttTasks.length">
                             {{ visibleGanttTasks.length }} of {{ ganttTasks.length }} tasks shown
                         </template>
@@ -746,13 +869,13 @@ export default {
                 <!-- Left Task List Panel -->
                 <div
                     v-if="visibleGanttTasks.length > 0"
-                    class="flex-shrink-0 bg-white rounded-l-lg shadow-sm border-r border-gray-200 flex flex-col relative"
-                    :style="{ width: taskListWidth + 'px' }"
+                    class="flex flex-shrink-0 bg-white rounded-l-lg shadow-sm border-r border-gray-200 flex-col relative"
+                    :style="{ width: effectiveTaskListWidth + 'px' }"
                 >
-                    <!-- Task List Header (matches Gantt header height) -->
+                    <!-- Task List Header (matches Gantt header height + small offset for alignment) -->
                     <div
-                        class="flex items-center justify-between px-3 font-medium text-gray-700 text-sm border-b border-gray-200 bg-gray-50"
-                        :style="{ height: ganttHeaderHeight + 'px' }"
+                        class="flex items-center justify-between px-2 md:px-3 font-medium text-gray-700 text-xs md:text-sm border-b border-gray-200 bg-gray-50"
+                        :style="{ height: (ganttHeaderHeight + 2) + 'px' }"
                     >
                         <span>Tasks</span>
                         <div class="flex items-center gap-1">
@@ -825,8 +948,8 @@ export default {
                             ]"
                             :style="{
                                 height: GANTT_ROW_HEIGHT + 'px',
-                                paddingLeft: (8 + task.depth * 14) + 'px',
-                                paddingRight: '8px'
+                                paddingLeft: (isMobile ? (4 + task.depth * 10) : (8 + task.depth * 14)) + 'px',
+                                paddingRight: (isMobile ? 4 : 8) + 'px'
                             }"
                             @mouseenter="handleTaskHover(task.id)"
                             @mouseleave="handleTaskLeave"
@@ -868,22 +991,27 @@ export default {
                             ></span>
                             <!-- Task name -->
                             <span
-                                class="text-sm truncate"
-                                :class="task.depth === 0 ? 'text-gray-900 font-medium' : 'text-gray-700'"
+                                class="truncate"
+                                :class="[
+                                    isMobile ? 'text-xs' : 'text-sm',
+                                    task.depth === 0 ? 'text-gray-900 font-medium' : 'text-gray-700'
+                                ]"
                                 :title="task.name"
                             >
                                 {{ task.name }}
                             </span>
                         </div>
                     </div>
-                    <!-- Resize Handle -->
+                    <!-- Resize Handle (wider touch target on mobile) -->
                     <div
-                        class="absolute top-0 right-0 w-1 h-full cursor-col-resize group"
+                        class="absolute top-0 right-0 h-full cursor-col-resize group"
+                        :class="isMobile ? 'w-3 -right-1' : 'w-1'"
                         @mousedown.prevent="startResize"
+                        @touchstart.prevent="startResize"
                     >
                         <div
                             class="absolute top-0 right-0 w-1 h-full transition-colors"
-                            :class="isResizing ? 'bg-primary-500' : 'bg-transparent group-hover:bg-gray-300'"
+                            :class="isResizing ? 'bg-primary-500' : 'bg-gray-300 md:bg-transparent group-hover:bg-gray-300'"
                         ></div>
                     </div>
                 </div>
@@ -900,8 +1028,8 @@ export default {
                     <div ref="ganttContainer" class="gantt-chart-wrapper"></div>
                 </div>
 
-                <!-- Unscheduled Tasks Sidebar -->
-                <div v-if="unscheduledTasks.length > 0" class="w-64 flex-shrink-0 ml-4">
+                <!-- Unscheduled Tasks Sidebar - large screens only -->
+                <div v-if="unscheduledTasks.length > 0" class="hidden lg:block w-64 flex-shrink-0 ml-4">
                     <div class="bg-white rounded-lg shadow-sm p-4">
                         <h3 class="font-medium text-gray-900 mb-3 flex items-center">
                             <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -932,6 +1060,43 @@ export default {
                                         {{ task.status?.label || 'To Do' }}
                                     </span>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Unscheduled Tasks - below Gantt on mobile/tablet -->
+            <div v-if="unscheduledTasks.length > 0" class="lg:hidden mt-4">
+                <div class="bg-white rounded-lg shadow-sm p-4">
+                    <h3 class="font-medium text-gray-900 mb-3 flex items-center">
+                        <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Unscheduled ({{ unscheduledTasks.length }})
+                    </h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                        <div
+                            v-for="task in unscheduledTasks"
+                            :key="task.id"
+                            class="p-2 rounded border border-gray-200 hover:border-primary-300 hover:bg-primary-50 cursor-pointer transition-colors"
+                            @click="openTask(task.id)"
+                        >
+                            <div class="text-sm font-medium text-gray-900 truncate">{{ task.title }}</div>
+                            <div class="flex items-center gap-2 mt-1">
+                                <span
+                                    class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium"
+                                    :style="{
+                                        backgroundColor: (task.status?.value === 'completed' ? '#22c55e' :
+                                            task.status?.value === 'in_review' ? '#eab308' :
+                                            task.status?.value === 'in_progress' ? '#3b82f6' : '#6b7280') + '20',
+                                        color: task.status?.value === 'completed' ? '#22c55e' :
+                                            task.status?.value === 'in_review' ? '#eab308' :
+                                            task.status?.value === 'in_progress' ? '#3b82f6' : '#6b7280'
+                                    }"
+                                >
+                                    {{ task.status?.label || 'To Do' }}
+                                </span>
                             </div>
                         </div>
                     </div>

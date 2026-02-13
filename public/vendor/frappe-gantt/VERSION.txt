@@ -1,0 +1,9 @@
+Frappe Gantt v0.6.1
+Downloaded: 2026-02-13
+Source: https://unpkg.com/frappe-gantt@0.6.1/dist/
+
+Files:
+- frappe-gantt.js (development)
+- frappe-gantt.min.js (production)
+- frappe-gantt.css (development)
+- frappe-gantt.min.css (production)

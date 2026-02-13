@@ -54,7 +54,7 @@
                                 style="background-color: color-mix(in srgb, {{ currentStatusColor }} 15%, white); color: color-mix(in srgb, {{ currentStatusColor }} 80%, black);"
                                 data-current="{{ currentStatusValue }}"
                                 data-color="{{ currentStatusColor }}"
-                                onclick="toggleStatusDropdown(this)">
+                                onclick="toggleStatusDropdown(this, event)">
                             <span class="status-label">{{ currentStatusLabel }}</span>
                             <svg class="ml-1 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
@@ -87,7 +87,7 @@
                                     {% elseif task.priority.value == 'low' %}bg-blue-100 text-blue-700
                                     {% else %}bg-gray-100 text-gray-700{% endif %}"
                                 data-current="{{ task.priority.value }}"
-                                onclick="togglePriorityDropdown(this)">
+                                onclick="togglePriorityDropdown(this, event)">
                             <span class="priority-label">{{ task.priority.label }}</span>
                             <svg class="ml-1 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
@@ -278,7 +278,7 @@
                     <div class="relative inline-block">
                         <button type="button"
                                 class="milestone-btn text-sm text-gray-900 hover:text-primary-600 flex items-center"
-                                onclick="toggleMilestoneDropdown(this)">
+                                onclick="toggleMilestoneDropdown(this, event)">
                             <span class="milestone-label">{{ task.milestone.name }}</span>
                             <svg class="ml-1 h-3 w-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />

@@ -78,7 +78,7 @@
                         Kanban
                     </button>
                     <button type="button" onclick="showTaskView(2)" id="task-view-btn-2"
-                            class="task-view-btn hidden md:inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md text-gray-600 hover:text-gray-900">
+                            class="task-view-btn inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md text-gray-600 hover:text-gray-900">
                         <svg class="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
                         </svg>
@@ -164,25 +164,11 @@
 
         {# Gantt View #}
         <div id="task-view-panel-2" class="task-view-panel hidden">
-            {# Mobile fallback message #}
-            <div class="md:hidden bg-white rounded-lg shadow-sm p-6 text-center">
-                <svg class="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" />
-                </svg>
-                <h3 class="text-lg font-medium text-gray-900 mb-1">Gantt view is best on desktop</h3>
-                <p class="text-sm text-gray-500 mb-4">The timeline chart requires a larger screen. Use Table or Kanban view on mobile.</p>
-                <button onclick="showTaskView(0)" class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-500">
-                    Switch to Table View
-                </button>
-            </div>
-            {# Desktop Gantt chart #}
-            <div class="hidden md:block">
-                {% include 'task/_gantt_vue.html.twig' with {
-                    tasks: tasks,
-                    milestones: milestones|default([]),
-                    storageKey: storageKey ~ '_gantt'
-                } %}
-            </div>
+            {% include 'task/_gantt_vue.html.twig' with {
+                tasks: tasks,
+                milestones: milestones|default([]),
+                storageKey: storageKey ~ '_gantt'
+            } %}
         </div>
     {% else %}
         {% include 'components/_empty_state.html.twig' with {
@@ -277,21 +263,28 @@
         }
     });
 
-    // Restore saved view on load
-    if (storageKey) {
+    // Restore saved view on load (deferred to ensure DOM is ready and other scripts have run)
+    function restoreSavedView() {
+        if (!storageKey) return;
         try {
             const savedView = localStorage.getItem(storageKey);
             if (savedView !== null) {
                 let viewIndex = parseInt(savedView);
                 // 3 views: 0=Table, 1=Kanban, 2=Gantt
-                // On mobile, fallback from Gantt to Table
-                const isMobile = window.innerWidth < 768;
-                if (viewIndex === 2 && isMobile) {
-                    viewIndex = 0;
+                if (viewIndex >= 0 && viewIndex <= 2) {
+                    showTaskView(viewIndex, false);
                 }
-                showTaskView(viewIndex <= 2 ? viewIndex : 0, false);
             }
         } catch (e) {}
+    }
+
+    // Run after DOM is fully loaded and other scripts have initialized
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            requestAnimationFrame(restoreSavedView);
+        });
+    } else {
+        requestAnimationFrame(restoreSavedView);
     }
 })();
 </script>
@@ -307,6 +300,28 @@
 
 .gantt-chart-wrapper {
     min-height: 300px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Mobile optimizations for Gantt chart */
+@media (max-width: 767px) {
+    .gantt-view-container {
+        min-height: 300px;
+    }
+
+    .gantt-chart-wrapper {
+        min-height: 250px;
+    }
+
+    .gantt .bar-label {
+        font-size: 10px;
+    }
+
+    .gantt .upper-text,
+    .gantt .lower-text {
+        font-size: 10px;
+    }
 }
 
 /* Override Frappe Gantt styles to match app theme */
