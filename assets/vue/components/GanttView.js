@@ -237,7 +237,7 @@ export default {
 
             // Apply sorting based on selected mode
             // Use _originalIndex as secondary sort for stable ordering
-            const sorted = [...filtered];
+            let sorted = [...filtered];
             switch (taskSortMode.value) {
                 case 'start_date':
                     sorted.sort((a, b) => {
@@ -257,6 +257,27 @@ export default {
                 default:
                     sorted.sort((a, b) => a._originalIndex - b._originalIndex);
                     break;
+            }
+
+            // After sorting, ensure tasks with _insertedAdjacentTo are placed correctly
+            // This ensures newly added tasks appear next to their target regardless of sort
+            const tasksToReposition = sorted.filter(t => t._insertedAdjacentTo);
+            if (tasksToReposition.length > 0) {
+                // Remove these tasks from sorted array
+                sorted = sorted.filter(t => !t._insertedAdjacentTo);
+
+                // Re-insert each one next to its target
+                for (const task of tasksToReposition) {
+                    const targetIndex = sorted.findIndex(t => t.id === task._insertedAdjacentTo);
+                    if (targetIndex !== -1) {
+                        // Insert after the target (for "below") or at target position (for "above")
+                        const insertPos = task._insertedAbove ? targetIndex : targetIndex + 1;
+                        sorted.splice(insertPos, 0, task);
+                    } else {
+                        // Target not found, add to end
+                        sorted.push(task);
+                    }
+                }
             }
 
             return sorted;
@@ -663,6 +684,11 @@ export default {
             taskSortMode.value = mode;
             showSortMenu.value = false;
             saveSortPreference(mode);
+            // Clear adjacency markers so tasks sort normally
+            tasks.value.forEach(t => {
+                delete t._insertedAdjacentTo;
+                delete t._insertedAbove;
+            });
             // Reinitialize Gantt to reflect new order
             nextTick(() => initGantt());
         }
@@ -1241,7 +1267,10 @@ export default {
                             position: data.task.position || 0,
                             depth: targetTask?.depth || 0,
                             parentId: targetTask?.parentId || null,
-                            assignees: []
+                            assignees: [],
+                            // Mark this task to stay adjacent to target regardless of sort
+                            _insertedAdjacentTo: quickAddTargetTaskId.value,
+                            _insertedAbove: quickAddMode.value === 'above'
                         };
 
                         // Insert at correct position
