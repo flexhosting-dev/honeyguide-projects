@@ -64,6 +64,7 @@
     data-vue-task-url-template="{{ path('app_task_show', {id: '__TASK_ID__'}) }}"
     data-vue-create-url="{{ project is defined and project ? path('app_task_create_json', {projectId: project.id}) : '' }}"
     data-vue-subtask-url-template="{{ path('app_task_create_subtask', {id: '__TASK_ID__'}) }}"
+    data-vue-bulk-delete-url="{{ path('app_task_bulk_delete') }}"
     data-vue-default-milestone-id="{{ defaultMilestoneId|default('') }}"
     data-vue-storage-key="{{ storageKey|default('gantt_view') }}"
     data-vue-can-edit="{{ canEdit ? 'true' : 'false' }}"

@@ -1,11 +1,13 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import ContextMenu from './TaskTable/ContextMenu.js';
+import ConfirmDialog from './ConfirmDialog.js';
 
 export default {
     name: 'GanttView',
 
     components: {
-        ContextMenu
+        ContextMenu,
+        ConfirmDialog
     },
 
     props: {
@@ -76,6 +78,10 @@ export default {
         defaultMilestoneId: {
             type: String,
             default: ''
+        },
+        bulkDeleteUrl: {
+            type: String,
+            default: ''
         }
     },
 
@@ -116,6 +122,10 @@ export default {
         const quickAddInputRef = ref(null);
         const quickAddTitle = ref('');
         const isCreatingTask = ref(false);
+
+        // Confirm dialog ref
+        const confirmDialogRef = ref(null);
+        const isDeleting = ref(false);
 
         const viewModes = ['Day', 'Week', 'Month', 'Year'];
         const sortOptions = [
@@ -1273,6 +1283,69 @@ export default {
             return (task.depth || 0) < maxDepth;
         }
 
+        // Delete task handler
+        async function handleContextDelete(contextTasks) {
+            if (!props.bulkDeleteUrl) {
+                console.warn('No delete URL configured');
+                return;
+            }
+
+            const count = contextTasks.length;
+            const title = count === 1 ? 'Delete Task' : `Delete ${count} Tasks`;
+            const message = count === 1
+                ? `Are you sure you want to delete "${contextTasks[0].title}"? This action cannot be undone.`
+                : `Are you sure you want to delete ${count} tasks? This action cannot be undone.`;
+
+            const confirmed = await confirmDialogRef.value?.show({
+                title,
+                message,
+                confirmText: 'Delete',
+                cancelText: 'Cancel',
+                type: 'danger'
+            });
+
+            if (!confirmed) return;
+
+            isDeleting.value = true;
+
+            try {
+                const taskIds = contextTasks.map(t => t.id);
+                const response = await fetch(props.bulkDeleteUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({ taskIds })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to delete task(s)');
+                }
+
+                // Remove deleted tasks from local state
+                tasks.value = tasks.value.filter(t => !taskIds.includes(t.id));
+
+                if (window.Toastr) {
+                    window.Toastr.success(count === 1 ? 'Task deleted' : `${count} tasks deleted`);
+                }
+
+                // Dispatch event for other components
+                document.dispatchEvent(new CustomEvent('task-deleted', {
+                    detail: { taskIds }
+                }));
+
+                nextTick(() => initGantt());
+            } catch (error) {
+                console.error('Failed to delete task(s):', error);
+                if (window.Toastr) {
+                    window.Toastr.error('Failed to delete task(s)');
+                }
+            } finally {
+                isDeleting.value = false;
+            }
+        }
+
         onMounted(() => {
             loadViewPreference();
             loadSortPreference();
@@ -1364,6 +1437,10 @@ export default {
             saveQuickAdd,
             handleQuickAddKeydown,
             canAddSubtaskTo,
+            // Delete
+            confirmDialogRef,
+            isDeleting,
+            handleContextDelete,
             statusOptions: computedStatusOptions,
             priorityOptions
         };
@@ -1811,7 +1888,11 @@ export default {
                 @add-subtask="handleContextAddSubtask"
                 @add-above="handleContextAddAbove"
                 @add-below="handleContextAddBelow"
+                @delete="handleContextDelete"
             />
+
+            <!-- Confirm Dialog -->
+            <ConfirmDialog ref="confirmDialogRef" />
         </div>
     `
 };
