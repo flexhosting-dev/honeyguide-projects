@@ -1425,6 +1425,7 @@ export default {
                 :can-duplicate="false"
                 :can-promote="false"
                 :can-demote="false"
+                :can-set-due-date="false"
                 @close="hideContextMenu"
                 @edit="handleContextEdit"
                 @copy-link="handleContextCopyLink"

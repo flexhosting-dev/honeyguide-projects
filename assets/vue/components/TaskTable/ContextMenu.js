@@ -55,6 +55,10 @@ export default {
         canDemote: {
             type: Boolean,
             default: false
+        },
+        canSetDueDate: {
+            type: Boolean,
+            default: true
         }
     },
 
@@ -569,7 +573,7 @@ export default {
 
                 <!-- Set Due Date (single task only) -->
                 <button
-                    v-if="canEdit && !isMultiSelect"
+                    v-if="canEdit && canSetDueDate && !isMultiSelect"
                     type="button"
                     @click="handleSetDueDate"
                     class="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
