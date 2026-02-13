@@ -107,10 +107,9 @@ export default {
 
         // Default status and priority configs (fallback if not passed from props)
         const defaultStatusConfig = [
-            { value: 'open', label: 'Open', color: '#3B82F6' },
-            { value: 'in_progress', label: 'In Progress', color: '#F59E0B' },
-            { value: 'completed', label: 'Completed', color: '#10B981' },
-            { value: 'cancelled', label: 'Cancelled', color: '#EF4444' }
+            { value: 'todo', label: 'To Do', color: '#6B7280' },
+            { value: 'in_progress', label: 'In Progress', color: '#3B82F6' },
+            { value: 'completed', label: 'Completed', color: '#10B981' }
         ];
 
         const priorityConfig = [
@@ -150,14 +149,14 @@ export default {
             if (task?.status?.color) return task.status.color;
             // Fallback for legacy statuses
             const fallbackColors = {
-                'open': '#3B82F6',
-                'todo': '#6b7280',
-                'in_progress': '#F59E0B',
-                'in_review': '#eab308',
+                'todo': '#6B7280',
+                'open': '#6B7280',
+                'in_progress': '#3B82F6',
+                'in_review': '#3B82F6',
                 'completed': '#10B981',
                 'cancelled': '#EF4444'
             };
-            return fallbackColors[task?.status?.value] || '#6b7280';
+            return fallbackColors[task?.status?.value] || '#6B7280';
         };
 
         // Priority bar accents
@@ -183,11 +182,11 @@ export default {
 
                     // Calculate progress based on status
                     let progress = 0;
-                    const statusValue = task.status?.value || 'open';
+                    const statusValue = task.status?.value || 'todo';
                     if (statusValue === 'completed' || statusValue === 'cancelled') progress = 100;
                     else if (statusValue === 'in_review') progress = 75;
                     else if (statusValue === 'in_progress') progress = 50;
-                    else progress = 0; // open, todo, etc.
+                    else progress = 0; // todo, open, etc.
 
                     // Find dependencies (parent tasks)
                     const dependencies = task.parentId ? [task.parentId] : [];
@@ -199,7 +198,7 @@ export default {
                         end: formatDate(endDate),
                         progress: progress,
                         dependencies: dependencies.join(', '),
-                        custom_class: `gantt-task-${task.status?.value || 'open'} gantt-priority-${task.priority?.value || 'none'}`,
+                        custom_class: `gantt-task-${task.status?.value || 'todo'} gantt-priority-${task.priority?.value || 'none'}`,
                         _originalIndex: task._originalIndex,
                         depth: task.depth || 0,
                         parentId: task.parentId || null,
@@ -371,6 +370,7 @@ export default {
                     setupScrollSync();
                     reorderGanttBars();
                     drawTodayLine();
+                    applyBarColors();
                 });
             } catch (error) {
                 console.error('Failed to initialize Gantt chart:', error);
@@ -536,6 +536,38 @@ export default {
             g.appendChild(line);
             g.appendChild(circle);
             svg.appendChild(g);
+        }
+
+        // Apply status colors to Gantt bars
+        function applyBarColors() {
+            if (!ganttContainer.value) return;
+
+            const svg = ganttContainer.value.querySelector('svg.gantt');
+            if (!svg) return;
+
+            // Get all bar wrappers
+            const barWrappers = svg.querySelectorAll('.bar-wrapper');
+            barWrappers.forEach(wrapper => {
+                const taskId = wrapper.getAttribute('data-id');
+                if (!taskId) return;
+
+                // Find the task to get its status color
+                const ganttTask = visibleGanttTasks.value.find(t => t.id === taskId);
+                if (!ganttTask || !ganttTask.statusColor) return;
+
+                // Find the bar and bar-progress elements
+                const bar = wrapper.querySelector('.bar');
+                const barProgress = wrapper.querySelector('.bar-progress');
+
+                if (bar) {
+                    bar.style.fill = ganttTask.statusColor;
+                }
+                if (barProgress) {
+                    // Make progress bar slightly darker
+                    barProgress.style.fill = ganttTask.statusColor;
+                    barProgress.style.filter = 'brightness(0.85)';
+                }
+            });
         }
 
         // Scroll synchronization between task list and Gantt chart
@@ -1379,7 +1411,7 @@ export default {
                                             color: task.status?.color || '#6b7280'
                                         }"
                                     >
-                                        {{ task.status?.label || 'Open' }}
+                                        {{ task.status?.label || 'To Do' }}
                                     </span>
                                 </div>
                             </div>
@@ -1413,7 +1445,7 @@ export default {
                                         color: task.status?.color || '#6b7280'
                                     }"
                                 >
-                                    {{ task.status?.label || 'Open' }}
+                                    {{ task.status?.label || 'To Do' }}
                                 </span>
                             </div>
                         </div>

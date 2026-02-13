@@ -135,12 +135,11 @@ export default {
             { value: 'dueDate', label: 'Due Date' }
         ];
 
-        // Status and priority configs
+        // Status and priority configs (fallback - should come from database)
         const statusConfig = [
-            { value: 'todo', label: 'To Do', color: '#6b7280' },
-            { value: 'in_progress', label: 'In Progress', color: '#3b82f6' },
-            { value: 'in_review', label: 'In Review', color: '#eab308' },
-            { value: 'completed', label: 'Completed', color: '#22c55e' }
+            { value: 'todo', label: 'To Do', color: '#6B7280' },
+            { value: 'in_progress', label: 'In Progress', color: '#3B82F6' },
+            { value: 'completed', label: 'Completed', color: '#10B981' }
         ];
 
         const priorityConfig = [
