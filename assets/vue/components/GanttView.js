@@ -1233,13 +1233,25 @@ export default {
                         dueDate: targetTask?.dueDate || null
                     };
 
-                    // Calculate position based on above/below
+                    // Calculate position using fractional values to insert between tasks
+                    // This ensures proper ordering without needing to shift all other tasks
+                    const targetPosition = targetTask?.position || 0;
+                    const siblings = tasks.value
+                        .filter(t => t.parentId === targetTask?.parentId && t.milestoneId === targetTask?.milestoneId)
+                        .sort((a, b) => (a.position || 0) - (b.position || 0));
+
+                    const targetIndex = siblings.findIndex(t => t.id === quickAddTargetTaskId.value);
+
                     if (quickAddMode.value === 'above') {
-                        payload.position = (targetTask?.position || 0);
-                        payload.insertBefore = quickAddTargetTaskId.value;
+                        // Insert before target - find position between previous sibling and target
+                        const prevSibling = targetIndex > 0 ? siblings[targetIndex - 1] : null;
+                        const prevPosition = prevSibling ? (prevSibling.position || 0) : targetPosition - 1;
+                        payload.position = (prevPosition + targetPosition) / 2;
                     } else {
-                        payload.position = (targetTask?.position || 0) + 1;
-                        payload.insertAfter = quickAddTargetTaskId.value;
+                        // Insert after target - find position between target and next sibling
+                        const nextSibling = targetIndex < siblings.length - 1 ? siblings[targetIndex + 1] : null;
+                        const nextPosition = nextSibling ? (nextSibling.position || 0) : targetPosition + 1;
+                        payload.position = (targetPosition + nextPosition) / 2;
                     }
 
                     const response = await fetch(props.createUrl, {
@@ -1264,7 +1276,7 @@ export default {
                             milestoneName: data.task.milestoneName || targetTask?.milestoneName,
                             dueDate: targetTask?.dueDate || null,
                             startDate: targetTask?.startDate || null,
-                            position: data.task.position || 0,
+                            position: data.task.position ?? payload.position,
                             depth: targetTask?.depth || 0,
                             parentId: targetTask?.parentId || null,
                             assignees: [],
