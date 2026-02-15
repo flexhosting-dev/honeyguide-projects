@@ -25,9 +25,6 @@ return [
     '@symfony/stimulus-bundle' => [
         'path' => '@symfony/stimulus-bundle/loader.js',
     ],
-    'vue' => [
-        'version' => '3.5.27',
-    ],
     'vue/index' => [
         'path' => './assets/vue/index.js',
     ],
@@ -87,5 +84,20 @@ return [
     ],
     'vue/components/GanttView' => [
         'path' => './assets/vue/components/GanttView.js',
+    ],
+    '@vue/runtime-dom' => [
+        'version' => '3.5.28',
+    ],
+    '@vue/runtime-core' => [
+        'version' => '3.5.28',
+    ],
+    '@vue/reactivity' => [
+        'version' => '3.5.28',
+    ],
+    '@vue/shared' => [
+        'version' => '3.5.28',
+    ],
+    'vue' => [
+        'version' => '3.5.28',
     ],
 ];
