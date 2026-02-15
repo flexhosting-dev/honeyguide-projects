@@ -9,18 +9,5 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install SSH Key
-        uses: shimataro/ssh-key-action@v2
-        with:
-          key: ${{ secrets.PRODUCTION_SSH_KEY }}
-          known_hosts: unnecessary
-
-      - name: Adding Known Hosts
-        run: ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
-
-      - name: Deploy
-        run: |
-          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} "cd /var/www/honeyguide-projects && git fetch origin liveApp && git reset --hard origin/liveApp && composer install --no-dev --optimize-autoloader --no-interaction && php bin/console doctrine:migrations:migrate --no-interaction && php bin/console importmap:install && php bin/console cache:clear --env=prod && chown -R www-data:www-data var/ && chmod -R 775 var/ && systemctl restart php8.3-fpm"
+      - name: Test
+        run: echo "Workflow started"
