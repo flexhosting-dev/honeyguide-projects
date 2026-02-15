@@ -70,7 +70,7 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $sylvester = new User();
         $sylvester->setEmail('sylvester@honeyguide.org');
         $sylvester->setFirstName('Sylvester');
-        $sylvester->setLastName('Ngallaba');
+        $sylvester->setLastName('Mselle');
         $sylvester->setPassword($this->passwordHasher->hashPassword($sylvester, 'password123'));
         $sylvester->setIsVerified(true);
         $manager->persist($sylvester);
@@ -78,7 +78,7 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $max = new User();
         $max->setEmail('max@honeyguide.org');
         $max->setFirstName('Max');
-        $max->setLastName('Chawala');
+        $max->setLastName('Msack');
         $max->setPassword($this->passwordHasher->hashPassword($max, 'password123'));
         $max->setIsVerified(true);
         $manager->persist($max);
@@ -86,7 +86,7 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $fatma = new User();
         $fatma->setEmail('fatma@honeyguide.org');
         $fatma->setFirstName('Fatma');
-        $fatma->setLastName('Said');
+        $fatma->setLastName('Kitine');
         $fatma->setPassword($this->passwordHasher->hashPassword($fatma, 'password123'));
         $fatma->setIsVerified(true);
         $manager->persist($fatma);
@@ -94,7 +94,7 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $namnyaki = new User();
         $namnyaki->setEmail('namnyaki@honeyguide.org');
         $namnyaki->setFirstName('Namnyaki');
-        $namnyaki->setLastName('Mbise');
+        $namnyaki->setLastName('Mattasia');
         $namnyaki->setPassword($this->passwordHasher->hashPassword($namnyaki, 'password123'));
         $namnyaki->setIsVerified(true);
         $manager->persist($namnyaki);
@@ -102,7 +102,7 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $kateto = new User();
         $kateto->setEmail('kateto@honeyguide.org');
         $kateto->setFirstName('Kateto');
-        $kateto->setLastName('Oleng');
+        $kateto->setLastName('Ole Kashe');
         $kateto->setPassword($this->passwordHasher->hashPassword($kateto, 'password123'));
         $kateto->setIsVerified(true);
         $manager->persist($kateto);
@@ -110,7 +110,7 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $lemuta = new User();
         $lemuta->setEmail('lemuta@honeyguide.org');
         $lemuta->setFirstName('Lemuta');
-        $lemuta->setLastName('Nanai');
+        $lemuta->setLastName('Mengoru');
         $lemuta->setPassword($this->passwordHasher->hashPassword($lemuta, 'password123'));
         $lemuta->setIsVerified(true);
         $manager->persist($lemuta);
@@ -118,7 +118,7 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $glad = new User();
         $glad->setEmail('glad@honeyguide.org');
         $glad->setFirstName('Glad');
-        $glad->setLastName('Mushi');
+        $glad->setLastName('Kampa');
         $glad->setPassword($this->passwordHasher->hashPassword($glad, 'password123'));
         $glad->setIsVerified(true);
         $manager->persist($glad);
@@ -134,7 +134,7 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $michael = new User();
         $michael->setEmail('michael@honeyguide.org');
         $michael->setFirstName('Michael');
-        $michael->setLastName('Kisetu');
+        $michael->setLastName('Kambosha');
         $michael->setPassword($this->passwordHasher->hashPassword($michael, 'password123'));
         $michael->setIsVerified(true);
         $manager->persist($michael);
@@ -142,7 +142,7 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $meleck = new User();
         $meleck->setEmail('meleck@honeyguide.org');
         $meleck->setFirstName('Meleck');
-        $meleck->setLastName('Pallangyo');
+        $meleck->setLastName('Laizer');
         $meleck->setPassword($this->passwordHasher->hashPassword($meleck, 'password123'));
         $meleck->setIsVerified(true);
         $manager->persist($meleck);
