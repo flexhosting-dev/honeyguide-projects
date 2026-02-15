@@ -81,8 +81,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'json')]
     private array $notificationPreferences = [];
 
-    #[ORM\Column(type: 'json')]
-    private array $tablePreferences = [];
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $tablePreferences = [];
 
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
@@ -499,7 +499,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function getTablePreferences(): array
     {
-        return $this->tablePreferences;
+        return $this->tablePreferences ?? [];
     }
 
     public function setTablePreferences(array $tablePreferences): static
@@ -510,7 +510,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function getTablePreference(string $key): ?array
     {
-        return $this->tablePreferences[$key] ?? null;
+        return ($this->tablePreferences ?? [])[$key] ?? null;
     }
 
     public function setTablePreference(string $key, array $preferences): static
