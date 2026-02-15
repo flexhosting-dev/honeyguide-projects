@@ -16,9 +16,8 @@ final class Version20260206120000 extends AbstractMigration
 
     public function up(Schema $schema): void
     {
-        $this->addSql('ALTER TABLE `user` ADD task_table_preferences JSON NOT NULL DEFAULT \'[]\' COMMENT \'(DC2Type:json)\'');
-        $this->addSql('UPDATE `user` SET task_table_preferences = \'{}\'');
-        $this->addSql('ALTER TABLE `user` ALTER task_table_preferences DROP DEFAULT');
+        $this->addSql('ALTER TABLE `user` ADD task_table_preferences JSON DEFAULT NULL COMMENT \'(DC2Type:json)\'');
+        $this->addSql('UPDATE `user` SET task_table_preferences = \'{}\' WHERE task_table_preferences IS NULL');
     }
 
     public function down(Schema $schema): void
