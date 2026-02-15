@@ -111,6 +111,18 @@ desc('Compile assets for production');
 task('deploy:assets:compile', function () {
     cd('{{release_path}}');
     run('{{bin/php}} {{bin/console}} asset-map:compile --no-interaction');
+
+    // Create symlinks from unhashed to hashed filenames
+    // This is needed because compiled JS files use relative imports that
+    // browsers may not resolve through the importmap correctly
+    run('cd {{release_path}}/public/assets && find . -name "*-*.js" -type f | while read f; do
+        base=$(echo "$f" | sed "s/-[a-f0-9]*\\.js/.js/")
+        [ ! -e "$base" ] && ln -sf "$(basename $f)" "$base"
+    done');
+    run('cd {{release_path}}/public/assets && find . -name "*-*.css" -type f | while read f; do
+        base=$(echo "$f" | sed "s/-[a-f0-9]*\\.css/.css/")
+        [ ! -e "$base" ] && ln -sf "$(basename $f)" "$base"
+    done');
 });
 
 // Restart PHP-FPM
