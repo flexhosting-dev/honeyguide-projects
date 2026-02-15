@@ -1,0 +1,46 @@
+---
+# Application settings
+app_name: honeyguide-projects
+app_domain: "{{ lookup('env', 'DOMAIN') | default('projects.honeyguide.org', true) }}"
+app_env: prod
+app_debug: false
+
+# System user for the app
+app_user: www-data
+app_group: www-data
+
+# Paths
+app_root: /var/www/{{ app_name }}
+app_public: "{{ app_root }}/public"
+
+# PHP settings
+php_version: "8.3"
+php_memory_limit: "256M"
+php_max_execution_time: 60
+php_upload_max_filesize: "64M"
+php_post_max_size: "64M"
+
+# MySQL settings
+mysql_root_password: "{{ lookup('env', 'MYSQL_ROOT_PASSWORD') }}"
+mysql_database: honeyguide_projects
+mysql_user: honeyguide
+mysql_password: "{{ lookup('env', 'DB_PASSWORD') }}"
+
+# Symfony settings
+app_secret: "{{ lookup('env', 'APP_SECRET') }}"
+jwt_passphrase: "{{ lookup('env', 'JWT_PASSPHRASE') }}"
+mailer_dsn: "{{ lookup('env', 'MAILER_DSN') | default('null://null', true) }}"
+
+# Google OAuth
+google_client_id: "{{ lookup('env', 'GOOGLE_CLIENT_ID') | default('', true) }}"
+google_client_secret: "{{ lookup('env', 'GOOGLE_CLIENT_SECRET') | default('', true) }}"
+google_auth_enabled: "{{ lookup('env', 'GOOGLE_AUTH_ENABLED') | default('false', true) }}"
+google_allowed_domains: "{{ lookup('env', 'GOOGLE_ALLOWED_DOMAINS') | default('', true) }}"
+
+# SSL (using Let's Encrypt)
+ssl_enabled: true
+ssl_email: "admin@{{ app_domain }}"
+
+# Git repository
+git_repo: "https://github.com/flexhosting-dev/honeyguide-projects.git"
+git_branch: main

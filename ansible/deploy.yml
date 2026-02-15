@@ -1,0 +1,65 @@
+---
+# Lightweight deployment playbook - run this for code updates
+# Usage: ansible-playbook -i inventory.yml deploy.yml
+
+- name: Deploy Application Update
+  hosts: all
+  become: yes
+
+  vars_files:
+    - group_vars/all.yml
+
+  tasks:
+    - name: Pull latest code
+      git:
+        repo: "{{ git_repo }}"
+        dest: "{{ app_root }}"
+        version: "{{ git_branch }}"
+        force: yes
+      become_user: "{{ app_user }}"
+      register: git_result
+
+    - name: Install Composer dependencies
+      composer:
+        command: install
+        working_dir: "{{ app_root }}"
+        no_dev: yes
+        optimize_autoloader: yes
+      become_user: "{{ app_user }}"
+      environment:
+        APP_ENV: "{{ app_env }}"
+      when: git_result.changed
+
+    - name: Run database migrations
+      command: php bin/console doctrine:migrations:migrate --no-interaction
+      args:
+        chdir: "{{ app_root }}"
+      become_user: "{{ app_user }}"
+      environment:
+        APP_ENV: "{{ app_env }}"
+      when: git_result.changed
+
+    - name: Install asset map
+      command: php bin/console importmap:install
+      args:
+        chdir: "{{ app_root }}"
+      become_user: "{{ app_user }}"
+      environment:
+        APP_ENV: "{{ app_env }}"
+      when: git_result.changed
+
+    - name: Clear cache
+      command: php bin/console cache:clear --env={{ app_env }}
+      args:
+        chdir: "{{ app_root }}"
+      become_user: "{{ app_user }}"
+
+    - name: Restart PHP-FPM
+      service:
+        name: "php{{ php_version }}-fpm"
+        state: restarted
+      when: git_result.changed
+
+    - name: Display deployment status
+      debug:
+        msg: "Deployment {{ 'completed with changes' if git_result.changed else 'skipped (no changes)' }}"

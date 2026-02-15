@@ -1,0 +1,327 @@
+---
+- name: Provision Honeyguide Projects Server
+  hosts: all
+  become: yes
+
+  vars_files:
+    - group_vars/all.yml
+
+  tasks:
+    # ==========================================
+    # SYSTEM SETUP
+    # ==========================================
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install system packages
+      apt:
+        name:
+          - curl
+          - wget
+          - git
+          - unzip
+          - acl
+          - ufw
+          - fail2ban
+          - htop
+          - vim
+          - software-properties-common
+          - apt-transport-https
+          - ca-certificates
+          - gnupg
+        state: present
+
+    # ==========================================
+    # FIREWALL
+    # ==========================================
+    - name: Configure UFW - allow SSH
+      ufw:
+        rule: allow
+        port: "22"
+        proto: tcp
+
+    - name: Configure UFW - allow HTTP
+      ufw:
+        rule: allow
+        port: "80"
+        proto: tcp
+
+    - name: Configure UFW - allow HTTPS
+      ufw:
+        rule: allow
+        port: "443"
+        proto: tcp
+
+    - name: Enable UFW
+      ufw:
+        state: enabled
+        policy: deny
+
+    # ==========================================
+    # PHP
+    # ==========================================
+    - name: Add PHP PPA
+      apt_repository:
+        repo: ppa:ondrej/php
+        state: present
+
+    - name: Install PHP and extensions
+      apt:
+        name:
+          - "php{{ php_version }}-fpm"
+          - "php{{ php_version }}-cli"
+          - "php{{ php_version }}-mysql"
+          - "php{{ php_version }}-xml"
+          - "php{{ php_version }}-mbstring"
+          - "php{{ php_version }}-curl"
+          - "php{{ php_version }}-zip"
+          - "php{{ php_version }}-intl"
+          - "php{{ php_version }}-gd"
+          - "php{{ php_version }}-opcache"
+          - "php{{ php_version }}-redis"
+        state: present
+        update_cache: yes
+
+    - name: Create PHP log directory
+      file:
+        path: /var/log/php
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: "0755"
+
+    - name: Configure PHP-FPM pool
+      template:
+        src: templates/php-fpm-pool.conf.j2
+        dest: "/etc/php/{{ php_version }}/fpm/pool.d/{{ app_name }}.conf"
+      notify: Restart PHP-FPM
+
+    - name: Configure PHP CLI
+      template:
+        src: templates/php.ini.j2
+        dest: "/etc/php/{{ php_version }}/cli/conf.d/99-custom.ini"
+
+    - name: Configure PHP FPM
+      template:
+        src: templates/php.ini.j2
+        dest: "/etc/php/{{ php_version }}/fpm/conf.d/99-custom.ini"
+      notify: Restart PHP-FPM
+
+    # ==========================================
+    # MYSQL
+    # ==========================================
+    - name: Install MySQL
+      apt:
+        name:
+          - mysql-server
+          - mysql-client
+          - python3-mysqldb
+        state: present
+
+    - name: Start MySQL service
+      service:
+        name: mysql
+        state: started
+        enabled: yes
+
+    - name: Set MySQL root password
+      mysql_user:
+        name: root
+        password: "{{ mysql_root_password }}"
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+        host_all: yes
+        state: present
+      ignore_errors: yes
+
+    - name: Create MySQL credentials file
+      copy:
+        dest: /root/.my.cnf
+        content: |
+          [client]
+          user=root
+          password={{ mysql_root_password }}
+        mode: "0600"
+
+    - name: Create application database
+      mysql_db:
+        name: "{{ mysql_database }}"
+        state: present
+
+    - name: Create application database user
+      mysql_user:
+        name: "{{ mysql_user }}"
+        password: "{{ mysql_password }}"
+        priv: "{{ mysql_database }}.*:ALL"
+        host: localhost
+        state: present
+
+    # ==========================================
+    # NGINX
+    # ==========================================
+    - name: Install Nginx
+      apt:
+        name: nginx
+        state: present
+
+    - name: Remove default Nginx site
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+
+    - name: Create Nginx site config
+      template:
+        src: templates/nginx-site.conf.j2
+        dest: "/etc/nginx/sites-available/{{ app_name }}.conf"
+      notify: Reload Nginx
+
+    - name: Enable Nginx site
+      file:
+        src: "/etc/nginx/sites-available/{{ app_name }}.conf"
+        dest: "/etc/nginx/sites-enabled/{{ app_name }}.conf"
+        state: link
+      notify: Reload Nginx
+
+    - name: Start Nginx
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+
+    # ==========================================
+    # SSL (Let's Encrypt)
+    # ==========================================
+    - name: Install Certbot
+      apt:
+        name:
+          - certbot
+          - python3-certbot-nginx
+        state: present
+      when: ssl_enabled
+
+    - name: Obtain SSL certificate
+      command: >
+        certbot --nginx -d {{ app_domain }}
+        --non-interactive --agree-tos
+        --email {{ ssl_email }}
+        --redirect
+      args:
+        creates: "/etc/letsencrypt/live/{{ app_domain }}/fullchain.pem"
+      when: ssl_enabled
+      notify: Reload Nginx
+
+    - name: Set up SSL certificate renewal cron
+      cron:
+        name: "Certbot renewal"
+        minute: "0"
+        hour: "3"
+        job: "certbot renew --quiet"
+      when: ssl_enabled
+
+    # ==========================================
+    # COMPOSER
+    # ==========================================
+    - name: Download Composer installer
+      get_url:
+        url: https://getcomposer.org/installer
+        dest: /tmp/composer-setup.php
+        mode: '0755'
+
+    - name: Install Composer
+      command: php /tmp/composer-setup.php --install-dir=/usr/local/bin --filename=composer
+      args:
+        creates: /usr/local/bin/composer
+
+    # ==========================================
+    # APPLICATION DEPLOYMENT
+    # ==========================================
+    - name: Create application directory
+      file:
+        path: "{{ app_root }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: "0755"
+
+    - name: Clone/update application repository
+      git:
+        repo: "{{ git_repo }}"
+        dest: "{{ app_root }}"
+        version: "{{ git_branch }}"
+        force: yes
+      become_user: "{{ app_user }}"
+
+    - name: Create .env file
+      template:
+        src: templates/env.j2
+        dest: "{{ app_root }}/.env"
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: "0640"
+
+    - name: Install Composer dependencies
+      composer:
+        command: install
+        working_dir: "{{ app_root }}"
+        no_dev: yes
+        optimize_autoloader: yes
+      become_user: "{{ app_user }}"
+      environment:
+        APP_ENV: "{{ app_env }}"
+
+    - name: Run database migrations
+      command: php bin/console doctrine:migrations:migrate --no-interaction
+      args:
+        chdir: "{{ app_root }}"
+      become_user: "{{ app_user }}"
+      environment:
+        APP_ENV: "{{ app_env }}"
+
+    - name: Clear and warm up cache
+      command: php bin/console cache:clear --env={{ app_env }}
+      args:
+        chdir: "{{ app_root }}"
+      become_user: "{{ app_user }}"
+
+    - name: Install asset map
+      command: php bin/console importmap:install
+      args:
+        chdir: "{{ app_root }}"
+      become_user: "{{ app_user }}"
+      environment:
+        APP_ENV: "{{ app_env }}"
+
+    - name: Set proper permissions on var directory
+      file:
+        path: "{{ app_root }}/var"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: "0775"
+        recurse: yes
+
+    # ==========================================
+    # OPTIONAL: REDIS (for sessions/cache)
+    # ==========================================
+    # - name: Install Redis
+    #   apt:
+    #     name: redis-server
+    #     state: present
+
+    # - name: Start Redis
+    #   service:
+    #     name: redis-server
+    #     state: started
+    #     enabled: yes
+
+  handlers:
+    - name: Restart PHP-FPM
+      service:
+        name: "php{{ php_version }}-fpm"
+        state: restarted
+
+    - name: Reload Nginx
+      service:
+        name: nginx
+        state: reloaded

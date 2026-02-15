@@ -1,0 +1,33 @@
+; Custom PHP settings for {{ app_name }}
+
+[PHP]
+memory_limit = {{ php_memory_limit }}
+max_execution_time = {{ php_max_execution_time }}
+upload_max_filesize = {{ php_upload_max_filesize }}
+post_max_size = {{ php_post_max_size }}
+
+; Security
+expose_php = Off
+display_errors = Off
+log_errors = On
+
+; Date/Time
+date.timezone = UTC
+
+; Session
+session.cookie_httponly = 1
+session.cookie_secure = 1
+session.use_strict_mode = 1
+
+; OPcache (production settings)
+opcache.enable = 1
+opcache.memory_consumption = 128
+opcache.interned_strings_buffer = 16
+opcache.max_accelerated_files = 10000
+opcache.validate_timestamps = 0
+opcache.save_comments = 1
+opcache.fast_shutdown = 1
+
+; Realpath cache (for Symfony)
+realpath_cache_size = 4096K
+realpath_cache_ttl = 600

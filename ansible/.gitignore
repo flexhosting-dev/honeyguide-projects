@@ -1,0 +1,7 @@
+# Don't commit sensitive files
+.env.ansible
+*.retry
+inventory.yml
+
+# Keep the example
+!inventory.yml.example
