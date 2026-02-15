@@ -142,8 +142,8 @@ after('deploy:dump-env', 'deploy:importmap');
 // Compile assets after importmap
 after('deploy:importmap', 'deploy:assets:compile');
 
-// Fix ownership after cache warmup (cache is created by root, needs www-data ownership)
-after('deploy:cache:warmup', 'deploy:ownership');
+// Fix ownership after cache clear (cache is created by root, needs www-data ownership)
+after('deploy:cache:clear', 'deploy:ownership');
 
 // Restart PHP-FPM after symlink switch
 after('deploy:symlink', 'php-fpm:restart');
