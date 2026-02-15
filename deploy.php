@@ -103,14 +103,14 @@ task('deploy:dump-env', function () {
 desc('Install importmap packages');
 task('deploy:importmap', function () {
     cd('{{release_path}}');
-    run('{{bin/php}} {{bin/console}} importmap:install --no-interaction 2>/dev/null || true');
+    run('{{bin/php}} {{bin/console}} importmap:install --no-interaction');
 });
 
 // Compile assets for production
 desc('Compile assets for production');
 task('deploy:assets:compile', function () {
     cd('{{release_path}}');
-    run('{{bin/php}} {{bin/console}} asset-map:compile --no-interaction 2>/dev/null || true');
+    run('{{bin/php}} {{bin/console}} asset-map:compile --no-interaction');
 });
 
 // Restart PHP-FPM
