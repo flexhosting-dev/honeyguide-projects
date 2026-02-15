@@ -25,40 +25,18 @@ jobs:
           ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
 
       - name: Deploy to server
+        env:
+          HOST: ${{ secrets.PRODUCTION_HOST }}
+          USER: ${{ secrets.PRODUCTION_USER }}
         run: |
-          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'ENDSSH'
-            cd /var/www/honeyguide-projects
-
-            # Pull latest code
-            git fetch origin liveApp
-            git reset --hard origin/liveApp
-
-            # Install dependencies (production mode)
-            composer install --no-dev --optimize-autoloader --no-interaction
-
-            # Run migrations
-            php bin/console doctrine:migrations:migrate --no-interaction
-
-            # Install assets
-            php bin/console importmap:install
-
-            # Clear and warm up cache
-            php bin/console cache:clear --env=prod
-
-            # Fix permissions
-            chown -R www-data:www-data var/
-            chmod -R 775 var/
-
-            # Restart PHP-FPM
-            systemctl restart php8.3-fpm
-
-            echo "Deployment completed successfully!"
-          ENDSSH
-
-      - name: Notify on success
-        if: success()
-        run: echo "✅ Deployment to production completed successfully"
-
-      - name: Notify on failure
-        if: failure()
-        run: echo "❌ Deployment to production failed"
+          ssh ${USER}@${HOST} 'cd /var/www/honeyguide-projects && \
+            git fetch origin liveApp && \
+            git reset --hard origin/liveApp && \
+            composer install --no-dev --optimize-autoloader --no-interaction && \
+            php bin/console doctrine:migrations:migrate --no-interaction && \
+            php bin/console importmap:install && \
+            php bin/console cache:clear --env=prod && \
+            chown -R www-data:www-data var/ && \
+            chmod -R 775 var/ && \
+            systemctl restart php8.3-fpm && \
+            echo "Deployment completed!"'
