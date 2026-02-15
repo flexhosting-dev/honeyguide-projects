@@ -1,0 +1,64 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - liveApp
+
+jobs:
+  deploy:
+    name: Deploy to Production Server
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.PRODUCTION_SSH_KEY }}
+
+      - name: Add server to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to server
+        run: |
+          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'ENDSSH'
+            cd /var/www/honeyguide-projects
+
+            # Pull latest code
+            git fetch origin liveApp
+            git reset --hard origin/liveApp
+
+            # Install dependencies (production mode)
+            composer install --no-dev --optimize-autoloader --no-interaction
+
+            # Run migrations
+            php bin/console doctrine:migrations:migrate --no-interaction
+
+            # Install assets
+            php bin/console importmap:install
+
+            # Clear and warm up cache
+            php bin/console cache:clear --env=prod
+
+            # Fix permissions
+            chown -R www-data:www-data var/
+            chmod -R 775 var/
+
+            # Restart PHP-FPM
+            systemctl restart php8.3-fpm
+
+            echo "Deployment completed successfully!"
+          ENDSSH
+
+      - name: Notify on success
+        if: success()
+        run: echo "✅ Deployment to production completed successfully"
+
+      - name: Notify on failure
+        if: failure()
+        run: echo "❌ Deployment to production failed"
