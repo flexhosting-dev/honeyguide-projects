@@ -118,7 +118,7 @@ export default {
         const sortDirection = ref('asc');
 
         // Grouping state
-        const groupBy = ref('none'); // 'none', 'status', 'priority', 'milestone', 'assignee', 'dueDate'
+        const groupBy = ref('milestone'); // 'none', 'status', 'priority', 'milestone', 'assignee', 'dueDate' - default to milestone
 
         // Search state
         const searchQuery = ref('');
