@@ -98,6 +98,6 @@ return [
         'version' => '3.5.28',
     ],
     'vue' => [
-        'version' => '3.5.28',
+        'path' => './assets/vendor/vue/vue.index.js',
     ],
 ];
