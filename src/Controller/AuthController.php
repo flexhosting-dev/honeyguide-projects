@@ -152,7 +152,11 @@ class AuthController extends AbstractController
         $frontendUrl = $_ENV['FRONTEND_URL'] ?? 'http://localhost:3000';
         $resetUrl = $frontendUrl . '/reset-password/' . $resetToken->getToken();
 
+        $fromAddress = $_ENV['MAILER_FROM_ADDRESS'] ?? 'noreply@honeyguide.org';
+        $fromName = $_ENV['MAILER_FROM_NAME'] ?? 'Honeyguide Projects';
+
         $email = (new Email())
+            ->from(new \Symfony\Component\Mime\Address($fromAddress, $fromName))
             ->to($user->getEmail())
             ->subject('Password Reset Request')
             ->html($this->renderResetEmail($user, $resetUrl));
