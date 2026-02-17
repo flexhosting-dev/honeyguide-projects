@@ -95,7 +95,6 @@ export default {
         const isSyncingScroll = ref(false);
         const hoveredTaskId = ref(null);
         const taskSortMode = ref('start_date'); // 'start_date', 'position', 'title'
-        const showSortMenu = ref(false);
         const collapsedTaskIds = ref(new Set());
         const groupBy = ref('milestone'); // 'none' or 'milestone'
         const collapsedGroups = ref(new Set());
@@ -104,7 +103,10 @@ export default {
         const minTaskListWidth = 120;
         const maxTaskListWidth = 400;
         const isMobile = ref(window.innerWidth < 768);
-        const mobileTaskListWidth = 120; // Fixed narrower width for mobile
+
+        // Frappe Gantt dimensions
+        const GANTT_ROW_HEIGHT = 38; // bar_height (20) + padding (18)
+        const ganttHeaderHeight = ref(60); // Approximate header height
 
         // Context menu state
         const contextMenu = ref({
@@ -118,23 +120,11 @@ export default {
         let longPressTimer = null;
         const longPressDelay = 500;
 
-        // Quick add state
-        const quickAddMode = ref(null); // 'above', 'below', or 'subtask'
-        const quickAddTargetTaskId = ref(null);
-        const quickAddInputRef = ref(null);
-        const quickAddTitle = ref('');
-        const isCreatingTask = ref(false);
-
         // Confirm dialog ref
         const confirmDialogRef = ref(null);
         const isDeleting = ref(false);
 
         const viewModes = ['Day', 'Week', 'Month', 'Year'];
-        const sortOptions = [
-            { value: 'start_date', label: 'Start Date' },
-            { value: 'position', label: 'Position' },
-            { value: 'title', label: 'Title' }
-        ];
 
         // Default status and priority configs (fallback if not passed from props)
         const defaultStatusConfig = [
@@ -170,10 +160,6 @@ export default {
             value: p.value,
             label: p.label
         })));
-
-        // Frappe Gantt dimensions
-        const GANTT_ROW_HEIGHT = 38; // bar_height (20) + padding (18)
-        const ganttHeaderHeight = ref(50); // Will be measured dynamically
 
         // Get status color from task or fallback to default
         const getStatusColor = (task) => {
@@ -497,7 +483,19 @@ export default {
                 return;
             }
 
-            const ganttData = ganttDisplayTasks.value;
+            // Use ganttTasks (all tasks with dates), native Gantt handles collapsed groups
+            const ganttData = ganttTasks.value.map(task => {
+                const originalTask = tasks.value.find(t => t.id === task.id);
+                return {
+                    ...task,
+                    // Add milestoneId for grouping
+                    milestoneId: getTaskMilestoneId(task.id),
+                    // Add status info for display
+                    status: originalTask?.status,
+                    statusColor: getStatusColor(originalTask),
+                    depth: task.depth || 0
+                };
+            });
 
             if (ganttData.length === 0) {
                 // Show empty state
@@ -511,14 +509,48 @@ export default {
             }
 
             try {
-                // Clean up previous scroll listeners
-                cleanupScrollSync();
+                // Build groups array from milestones
+                const milestoneGroups = props.milestones.map(m => ({
+                    id: m.id,
+                    name: m.name,
+                    color: '#6366f1'
+                }));
 
                 ganttInstance.value = new window.Gantt(ganttContainer.value, ganttData, {
                     view_mode: currentViewMode.value,
                     date_format: 'YYYY-MM-DD',
                     language: 'en',
                     popup_trigger: 'click',
+                    // Native sidebar with grouping support
+                    sidebar: {
+                        enabled: true,
+                        width: taskListWidth.value,
+                        min_width: 120,
+                        max_width: 400,
+                        resizable: true
+                    },
+                    // Enable grouping by milestone
+                    grouping: {
+                        enabled: groupBy.value === 'milestone',
+                        field: 'milestoneId',
+                        groups: milestoneGroups,
+                        collapsed_groups: [...collapsedGroups.value],
+                        ungrouped_label: 'No Milestone'
+                    },
+                    // Callbacks for sidebar interactions
+                    on_group_collapse: (group, collapsed) => {
+                        if (collapsed) {
+                            collapsedGroups.value.add(group.id);
+                        } else {
+                            collapsedGroups.value.delete(group.id);
+                        }
+                    },
+                    on_sidebar_task_click: (task) => {
+                        openTask(task.id);
+                    },
+                    on_sidebar_resize: (newWidth) => {
+                        taskListWidth.value = newWidth;
+                    },
                     custom_popup_html: function(task) {
                         const originalTask = tasks.value.find(t => t.id === task.id);
                         if (!originalTask) return '';
@@ -572,13 +604,9 @@ export default {
                     }
                 });
 
-                // Setup scroll sync and reorder bars after Gantt is initialized
-                // Use requestAnimationFrame + setTimeout to ensure Frappe Gantt has fully rendered
+                // Apply styling after render
                 requestAnimationFrame(() => {
                     setTimeout(() => {
-                        measureGanttHeaderHeight();
-                        setupScrollSync();
-                        reorderGanttBars();
                         drawTodayLine();
                         applyBarColors();
                     }, 100);
@@ -832,71 +860,109 @@ export default {
             }
         }
 
-        function changeTaskSort(mode) {
-            taskSortMode.value = mode;
-            showSortMenu.value = false;
-            saveSortPreference(mode);
-            // Clear adjacency markers so tasks sort normally
-            tasks.value.forEach(t => {
-                delete t._insertedAdjacentTo;
-                delete t._insertedAbove;
-            });
-            // Reinitialize Gantt to reflect new order
-            nextTick(() => initGantt());
-        }
+        // Reorder Gantt bars to match our display order (including milestone groups)
+        function reorderGanttBars() {
+            if (!ganttContainer.value || !ganttInstance.value) return;
 
-        function saveSortPreference(mode) {
-            try {
-                localStorage.setItem(`${props.storageKey}_sortMode`, mode);
-            } catch (e) {}
-        }
+            const svg = ganttContainer.value.querySelector('svg.gantt');
+            if (!svg) return;
 
-        function loadSortPreference() {
-            try {
-                const saved = localStorage.getItem(`${props.storageKey}_sortMode`);
-                if (saved && ['start_date', 'position', 'title'].includes(saved)) {
-                    taskSortMode.value = saved;
+            const barWrappers = Array.from(svg.querySelectorAll('.bar-wrapper'));
+            if (barWrappers.length === 0) return;
+
+            const barMap = new Map();
+            barWrappers.forEach(bar => {
+                const taskId = bar.getAttribute('data-id');
+                if (taskId) {
+                    barMap.set(taskId, bar);
                 }
-            } catch (e) {}
-        }
+            });
 
-        function toggleSortMenu() {
-            showSortMenu.value = !showSortMenu.value;
-        }
+            const updateBarY = (barWrapper, newY) => {
+                const barRect = barWrapper.querySelector('.bar');
+                if (barRect) barRect.setAttribute('y', newY);
+                const progressRect = barWrapper.querySelector('.bar-progress');
+                if (progressRect) progressRect.setAttribute('y', newY);
+                const label = barWrapper.querySelector('.bar-label');
+                if (label) label.setAttribute('y', newY + 10);
+                const handles = barWrapper.querySelectorAll('.handle');
+                handles.forEach(handle => handle.setAttribute('y', newY + 1));
+            };
 
-        function closeSortMenu() {
-            showSortMenu.value = false;
-        }
+            // Build display index map accounting for milestone headers
+            let displayIndex = 0;
+            const taskDisplayIndexMap = new Map();
+            const groupRowIndices = [];
 
-        function toggleTaskCollapse(taskId) {
-            const newCollapsed = new Set(collapsedTaskIds.value);
-            if (newCollapsed.has(taskId)) {
-                newCollapsed.delete(taskId);
-            } else {
-                newCollapsed.add(taskId);
+            displayItems.value.forEach(item => {
+                if (item.type === 'group') {
+                    groupRowIndices.push(displayIndex);
+                    displayIndex++;
+                } else if (item.type === 'task') {
+                    taskDisplayIndexMap.set(item.task.id, displayIndex);
+                    displayIndex++;
+                }
+            });
+
+            // Position each bar at its correct display index
+            taskDisplayIndexMap.forEach((rowIndex, taskId) => {
+                const barWrapper = barMap.get(taskId);
+                if (barWrapper) {
+                    const newY = ganttHeaderHeight.value + 9 + (rowIndex * GANTT_ROW_HEIGHT);
+                    updateBarY(barWrapper, newY);
+                }
+            });
+
+            // Update SVG and grid heights
+            const totalRows = displayIndex;
+            const newHeight = ganttHeaderHeight.value + (totalRows * GANTT_ROW_HEIGHT) + 20;
+            svg.setAttribute('height', newHeight);
+
+            const gridBackground = svg.querySelector('.grid-background');
+            const gridWidth = gridBackground?.getAttribute('width') || '2000';
+            if (gridBackground) gridBackground.setAttribute('height', newHeight);
+
+            // Rebuild grid rows
+            const gridLayer = svg.querySelector('.grid');
+            if (gridLayer) {
+                const gridRowsGroup = gridLayer.querySelector('g:nth-child(2)');
+                const gridLinesGroup = gridLayer.querySelector('g:nth-child(3)');
+
+                if (gridRowsGroup) {
+                    gridRowsGroup.innerHTML = '';
+                    for (let i = 0; i < totalRows; i++) {
+                        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                        rect.setAttribute('class', 'grid-row');
+                        rect.setAttribute('x', '0');
+                        rect.setAttribute('y', (ganttHeaderHeight.value + i * GANTT_ROW_HEIGHT).toString());
+                        rect.setAttribute('width', gridWidth);
+                        rect.setAttribute('height', GANTT_ROW_HEIGHT.toString());
+                        rect.setAttribute('fill', groupRowIndices.includes(i) ? '#f3f4f6' : (i % 2 === 0 ? '#ffffff' : '#f9fafb'));
+                        gridRowsGroup.appendChild(rect);
+                    }
+                }
+
+                if (gridLinesGroup) {
+                    gridLinesGroup.innerHTML = '';
+                    for (let i = 0; i < totalRows; i++) {
+                        const lineY = ganttHeaderHeight.value + (i + 1) * GANTT_ROW_HEIGHT;
+                        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                        line.setAttribute('class', 'row-line');
+                        line.setAttribute('x1', '0');
+                        line.setAttribute('y1', lineY.toString());
+                        line.setAttribute('x2', gridWidth);
+                        line.setAttribute('y2', lineY.toString());
+                        gridLinesGroup.appendChild(line);
+                    }
+                }
             }
-            collapsedTaskIds.value = newCollapsed;
-            // Reinitialize Gantt to show/hide collapsed tasks
-            nextTick(() => initGantt());
         }
 
-        function expandAllTasks() {
-            collapsedTaskIds.value = new Set();
-            nextTick(() => initGantt());
-        }
-
-        function collapseAllTasks() {
-            collapsedTaskIds.value = new Set(tasksWithChildren.value);
-            nextTick(() => initGantt());
-        }
-
-        // Resize functionality for left panel (supports both mouse and touch)
+        // Resize functionality
         function startResize(event) {
             isResizing.value = true;
             document.addEventListener('mousemove', handleResize);
             document.addEventListener('mouseup', stopResize);
-            document.addEventListener('touchmove', handleResizeTouch, { passive: false });
-            document.addEventListener('touchend', stopResize);
             document.body.style.cursor = 'col-resize';
             document.body.style.userSelect = 'none';
         }
@@ -911,24 +977,10 @@ export default {
             taskListWidth.value = newWidth;
         }
 
-        function handleResizeTouch(event) {
-            if (!isResizing.value) return;
-            event.preventDefault();
-            const touch = event.touches[0];
-            const container = ganttContainer.value?.closest('.flex.gap-0');
-            if (!container) return;
-            const containerRect = container.getBoundingClientRect();
-            let newWidth = touch.clientX - containerRect.left;
-            newWidth = Math.max(minTaskListWidth, Math.min(maxTaskListWidth, newWidth));
-            taskListWidth.value = newWidth;
-        }
-
         function stopResize() {
             isResizing.value = false;
             document.removeEventListener('mousemove', handleResize);
             document.removeEventListener('mouseup', stopResize);
-            document.removeEventListener('touchmove', handleResizeTouch);
-            document.removeEventListener('touchend', stopResize);
             document.body.style.cursor = '';
             document.body.style.userSelect = '';
             saveTaskListWidth();
@@ -950,202 +1002,6 @@ export default {
                     }
                 }
             } catch (e) {}
-        }
-
-        // Measure actual Gantt header height from rendered SVG
-        function measureGanttHeaderHeight() {
-            if (!ganttContainer.value) return;
-
-            const svg = ganttContainer.value.querySelector('svg.gantt');
-            if (!svg) return;
-
-            // Method 1: Find the first grid row to determine where content area starts
-            const firstGridRow = svg.querySelector('.grid .grid-row');
-            if (firstGridRow) {
-                const rowY = parseFloat(firstGridRow.getAttribute('y') || '0');
-                if (rowY > 0) {
-                    ganttHeaderHeight.value = rowY;
-                    return;
-                }
-            }
-
-            // Method 2: Find the first bar's Y position
-            const firstBar = svg.querySelector('.bar-wrapper .bar-group');
-            if (firstBar) {
-                const transform = firstBar.getAttribute('transform') || '';
-                const match = transform.match(/translate\(\s*[^,\s]+\s*,\s*([^)\s]+)\s*\)/);
-                if (match) {
-                    const barY = parseFloat(match[1]);
-                    // Bar Y is the top of the bar area. Subtract half of row height to get header end.
-                    // Actually, the row starts at barY - (padding/2) approximately
-                    // For alignment, use barY - padding to align with row top
-                    const measuredHeight = barY - 9; // padding/2 = 9
-                    if (measuredHeight > 0) {
-                        ganttHeaderHeight.value = measuredHeight;
-                    }
-                }
-            }
-        }
-
-        // Reorder Gantt bars to match our display order (including milestone groups)
-        function reorderGanttBars() {
-            if (!ganttContainer.value || !ganttInstance.value) return;
-
-            const svg = ganttContainer.value.querySelector('svg.gantt');
-            if (!svg) return;
-
-            // Get all bar wrappers
-            const barWrappers = Array.from(svg.querySelectorAll('.bar-wrapper'));
-            if (barWrappers.length === 0) return;
-
-            // Create a map of task ID to bar wrapper element
-            const barMap = new Map();
-            barWrappers.forEach(bar => {
-                const taskId = bar.getAttribute('data-id');
-                if (taskId) {
-                    barMap.set(taskId, bar);
-                }
-            });
-
-            // Frappe Gantt positions bars at: header_height + padding + index * (bar_height + padding)
-            // where padding = 18 and bar_height = 20, so row_height = 38
-            // The bar Y position formula is: header_height + padding + index * row_height
-            // This equals: 50 + 18 + index * 38 = 68 + index * 38
-
-            // Helper function to update all Y positions in a bar wrapper
-            const updateBarY = (barWrapper, newY) => {
-                // Update the main bar rect
-                const barRect = barWrapper.querySelector('.bar');
-                if (barRect) {
-                    barRect.setAttribute('y', newY);
-                }
-
-                // Update progress bar
-                const progressRect = barWrapper.querySelector('.bar-progress');
-                if (progressRect) {
-                    progressRect.setAttribute('y', newY);
-                }
-
-                // Update label (centered vertically in bar)
-                const label = barWrapper.querySelector('.bar-label');
-                if (label) {
-                    const barHeight = 20; // Frappe Gantt default bar_height
-                    label.setAttribute('y', newY + barHeight / 2);
-                }
-
-                // Update handles
-                const handles = barWrapper.querySelectorAll('.handle');
-                handles.forEach(handle => {
-                    handle.setAttribute('y', newY + 1);
-                });
-            };
-
-            // When grouping is disabled, just handle sort mode reordering
-            if (groupBy.value === 'none') {
-                // Skip reordering for start_date sort since Frappe Gantt already does this
-                if (taskSortMode.value === 'start_date') return;
-
-                // Get our desired order (task IDs)
-                const desiredOrder = ganttTasks.value.map(t => t.id);
-
-                desiredOrder.forEach((taskId, newIndex) => {
-                    const barWrapper = barMap.get(taskId);
-                    if (barWrapper) {
-                        // Bar Y = ganttHeaderHeight + padding/2 + index * row_height
-                        // ganttHeaderHeight = header_height + padding/2 = 50 + 9 = 59
-                        // So bar Y = 59 + 9 + index * 38 = 68 + index * 38
-                        const newY = ganttHeaderHeight.value + 9 + (newIndex * GANTT_ROW_HEIGHT);
-                        updateBarY(barWrapper, newY);
-                    }
-                });
-                return;
-            }
-
-            // When grouping is enabled, reorder to account for milestone headers
-            // Build display index map accounting for milestone headers
-            let displayIndex = 0;
-            const taskDisplayIndexMap = new Map();
-            const groupRowIndices = []; // Track which row indices are group headers
-
-            displayItems.value.forEach(item => {
-                if (item.type === 'group') {
-                    groupRowIndices.push(displayIndex);
-                    displayIndex++; // Milestone header takes a row
-                } else if (item.type === 'task') {
-                    taskDisplayIndexMap.set(item.task.id, displayIndex);
-                    displayIndex++;
-                }
-            });
-
-            // Position each bar at its correct display index
-            taskDisplayIndexMap.forEach((rowIndex, taskId) => {
-                const barWrapper = barMap.get(taskId);
-                if (barWrapper) {
-                    // Bar Y = ganttHeaderHeight + padding/2 + rowIndex * row_height
-                    const newY = ganttHeaderHeight.value + 9 + (rowIndex * GANTT_ROW_HEIGHT);
-                    updateBarY(barWrapper, newY);
-                }
-            });
-
-            // Calculate total rows needed (including milestone headers)
-            const totalRows = displayIndex;
-            const newHeight = ganttHeaderHeight.value + (totalRows * GANTT_ROW_HEIGHT) + 20;
-
-            // Update SVG height
-            svg.setAttribute('height', newHeight);
-
-            // Update grid background height
-            const gridBackground = svg.querySelector('.grid-background');
-            const gridWidth = gridBackground?.getAttribute('width') || '2000';
-            if (gridBackground) {
-                gridBackground.setAttribute('height', newHeight);
-            }
-
-            // Rebuild grid rows and row lines to match total row count
-            const gridLayer = svg.querySelector('.grid');
-            if (gridLayer) {
-                // Find or create grid-rows group (first g child after grid-background)
-                let gridRowsGroup = gridLayer.querySelector('g:nth-child(2)');
-                let gridLinesGroup = gridLayer.querySelector('g:nth-child(3)');
-
-                if (gridRowsGroup) {
-                    gridRowsGroup.innerHTML = '';
-
-                    // Create new rows for the total count
-                    for (let i = 0; i < totalRows; i++) {
-                        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-                        rect.setAttribute('class', 'grid-row');
-                        rect.setAttribute('x', '0');
-                        rect.setAttribute('y', (ganttHeaderHeight.value + i * GANTT_ROW_HEIGHT).toString());
-                        rect.setAttribute('width', gridWidth);
-                        rect.setAttribute('height', GANTT_ROW_HEIGHT.toString());
-
-                        // Use different background for milestone header rows
-                        if (groupRowIndices.includes(i)) {
-                            rect.setAttribute('fill', '#f3f4f6'); // gray-100 for milestone rows
-                        } else {
-                            rect.setAttribute('fill', i % 2 === 0 ? '#ffffff' : '#f9fafb');
-                        }
-                        gridRowsGroup.appendChild(rect);
-                    }
-                }
-
-                if (gridLinesGroup) {
-                    gridLinesGroup.innerHTML = '';
-
-                    // Create row lines for each row
-                    for (let i = 0; i < totalRows; i++) {
-                        const lineY = ganttHeaderHeight.value + (i + 1) * GANTT_ROW_HEIGHT;
-                        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                        line.setAttribute('class', 'row-line');
-                        line.setAttribute('x1', '0');
-                        line.setAttribute('y1', lineY.toString());
-                        line.setAttribute('x2', gridWidth);
-                        line.setAttribute('y2', lineY.toString());
-                        gridLinesGroup.appendChild(line);
-                    }
-                }
-            }
         }
 
         // Handle external task updates
@@ -1367,27 +1223,17 @@ export default {
             nextTick(() => initGantt());
         }
 
-        // Quick add handlers
+        // Quick add handlers - these open the task panel for creation since the inline UI is now in the native sidebar
         function handleContextAddSubtask(task) {
             if (!props.subtaskUrlTemplate) {
                 console.warn('No subtask URL template configured');
                 return;
             }
-            quickAddMode.value = 'subtask';
-            quickAddTargetTaskId.value = task.id;
-            quickAddTitle.value = '';
-
-            // Expand parent to show subtasks
-            if (collapsedTaskIds.value.has(task.id)) {
-                collapsedTaskIds.value.delete(task.id);
-                collapsedTaskIds.value = new Set(collapsedTaskIds.value);
+            // Open task panel or redirect to create subtask
+            if (window.Toastr) {
+                window.Toastr.info('Use the task panel to add subtasks');
             }
-
-            nextTick(() => {
-                if (quickAddInputRef.value) {
-                    quickAddInputRef.value.focus();
-                }
-            });
+            openTask(task.id);
         }
 
         function handleContextAddAbove(task) {
@@ -1395,14 +1241,10 @@ export default {
                 console.warn('No create URL configured');
                 return;
             }
-            quickAddMode.value = 'above';
-            quickAddTargetTaskId.value = task.id;
-            quickAddTitle.value = '';
-            nextTick(() => {
-                if (quickAddInputRef.value) {
-                    quickAddInputRef.value.focus();
-                }
-            });
+            // For now, just open the task to view context
+            if (window.Toastr) {
+                window.Toastr.info('Use the task list view to add tasks above');
+            }
         }
 
         function handleContextAddBelow(task) {
@@ -1410,186 +1252,9 @@ export default {
                 console.warn('No create URL configured');
                 return;
             }
-            quickAddMode.value = 'below';
-            quickAddTargetTaskId.value = task.id;
-            quickAddTitle.value = '';
-            nextTick(() => {
-                if (quickAddInputRef.value) {
-                    quickAddInputRef.value.focus();
-                }
-            });
-        }
-
-        function cancelQuickAdd() {
-            quickAddMode.value = null;
-            quickAddTargetTaskId.value = null;
-            quickAddTitle.value = '';
-        }
-
-        async function saveQuickAdd() {
-            const title = quickAddTitle.value.trim();
-            if (!title || isCreatingTask.value) return;
-
-            isCreatingTask.value = true;
-            const targetTask = tasks.value.find(t => t.id === quickAddTargetTaskId.value);
-
-            try {
-                if (quickAddMode.value === 'subtask') {
-                    // Create subtask - inherit dates from parent
-                    const url = props.subtaskUrlTemplate.replace('__TASK_ID__', quickAddTargetTaskId.value);
-                    const subtaskPayload = {
-                        title,
-                        startDate: targetTask?.startDate || null,
-                        dueDate: targetTask?.dueDate || null
-                    };
-                    const response = await fetch(url, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest'
-                        },
-                        body: JSON.stringify(subtaskPayload)
-                    });
-
-                    if (!response.ok) throw new Error('Failed to create subtask');
-
-                    const data = await response.json();
-                    if (data.subtask) {
-                        // Add new task to local state with inherited dates
-                        const newTask = {
-                            id: data.subtask.id + '',
-                            title: data.subtask.title,
-                            status: { value: 'todo', label: 'To Do', color: '#6B7280' },
-                            priority: { value: 'none', label: 'None' },
-                            milestoneId: targetTask?.milestoneId,
-                            milestoneName: targetTask?.milestoneName,
-                            dueDate: data.subtask.dueDate || targetTask?.dueDate || null,
-                            startDate: data.subtask.startDate || targetTask?.startDate || null,
-                            position: data.subtask.position || 0,
-                            depth: (targetTask?.depth || 0) + 1,
-                            parentId: quickAddTargetTaskId.value,
-                            assignees: []
-                        };
-
-                        // Insert subtask right after the parent task
-                        const parentIndex = tasks.value.findIndex(t => t.id === quickAddTargetTaskId.value);
-                        if (parentIndex !== -1) {
-                            // Find the last existing child of this parent to insert after
-                            let insertIndex = parentIndex + 1;
-                            while (insertIndex < tasks.value.length &&
-                                   tasks.value[insertIndex].parentId === quickAddTargetTaskId.value) {
-                                insertIndex++;
-                            }
-                            tasks.value.splice(insertIndex, 0, newTask);
-                        } else {
-                            tasks.value.push(newTask);
-                        }
-                    }
-
-                    if (window.Toastr) {
-                        window.Toastr.success('Subtask created');
-                    }
-                } else {
-                    // Create task above or below - inherit dates from target task
-                    const payload = {
-                        title,
-                        parentId: targetTask?.parentId || null,
-                        milestone: props.defaultMilestoneId || targetTask?.milestoneId || null,
-                        startDate: targetTask?.startDate || null,
-                        dueDate: targetTask?.dueDate || null
-                    };
-
-                    // Calculate position using fractional values to insert between tasks
-                    // This ensures proper ordering without needing to shift all other tasks
-                    const targetPosition = targetTask?.position || 0;
-                    const siblings = tasks.value
-                        .filter(t => t.parentId === targetTask?.parentId && t.milestoneId === targetTask?.milestoneId)
-                        .sort((a, b) => (a.position || 0) - (b.position || 0));
-
-                    const targetIndex = siblings.findIndex(t => t.id === quickAddTargetTaskId.value);
-
-                    if (quickAddMode.value === 'above') {
-                        // Insert before target - find position between previous sibling and target
-                        const prevSibling = targetIndex > 0 ? siblings[targetIndex - 1] : null;
-                        const prevPosition = prevSibling ? (prevSibling.position || 0) : targetPosition - 1;
-                        payload.position = (prevPosition + targetPosition) / 2;
-                    } else {
-                        // Insert after target - find position between target and next sibling
-                        const nextSibling = targetIndex < siblings.length - 1 ? siblings[targetIndex + 1] : null;
-                        const nextPosition = nextSibling ? (nextSibling.position || 0) : targetPosition + 1;
-                        payload.position = (targetPosition + nextPosition) / 2;
-                    }
-
-                    const response = await fetch(props.createUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest'
-                        },
-                        body: JSON.stringify(payload)
-                    });
-
-                    if (!response.ok) throw new Error('Failed to create task');
-
-                    const data = await response.json();
-                    if (data.task) {
-                        const newTask = {
-                            id: data.task.id + '',
-                            title: data.task.title,
-                            status: { value: 'todo', label: 'To Do', color: '#6B7280' },
-                            priority: { value: 'none', label: 'None' },
-                            milestoneId: data.task.milestoneId || targetTask?.milestoneId,
-                            milestoneName: data.task.milestoneName || targetTask?.milestoneName,
-                            dueDate: targetTask?.dueDate || null,
-                            startDate: targetTask?.startDate || null,
-                            position: data.task.position ?? payload.position,
-                            depth: targetTask?.depth || 0,
-                            parentId: targetTask?.parentId || null,
-                            assignees: [],
-                            // Mark this task to stay adjacent to target regardless of sort
-                            _insertedAdjacentTo: quickAddTargetTaskId.value,
-                            _insertedAbove: quickAddMode.value === 'above'
-                        };
-
-                        // Insert at correct position
-                        const targetIndex = tasks.value.findIndex(t => t.id === quickAddTargetTaskId.value);
-                        if (targetIndex !== -1) {
-                            const insertIndex = quickAddMode.value === 'above' ? targetIndex : targetIndex + 1;
-                            tasks.value.splice(insertIndex, 0, newTask);
-                        } else {
-                            tasks.value.push(newTask);
-                        }
-                    }
-
-                    if (window.Toastr) {
-                        window.Toastr.success('Task created');
-                    }
-                }
-
-                // Dispatch event for other components
-                document.dispatchEvent(new CustomEvent('task-created', {
-                    detail: { refresh: true }
-                }));
-
-                cancelQuickAdd();
-                nextTick(() => initGantt());
-            } catch (error) {
-                console.error('Failed to create task:', error);
-                if (window.Toastr) {
-                    window.Toastr.error('Failed to create task');
-                }
-            } finally {
-                isCreatingTask.value = false;
-            }
-        }
-
-        function handleQuickAddKeydown(event) {
-            if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
-                saveQuickAdd();
-            } else if (event.key === 'Escape') {
-                event.preventDefault();
-                cancelQuickAdd();
+            // For now, just open the task to view context
+            if (window.Toastr) {
+                window.Toastr.info('Use the task list view to add tasks below');
             }
         }
 
@@ -1664,7 +1329,6 @@ export default {
 
         onMounted(() => {
             loadViewPreference();
-            loadSortPreference();
             loadTaskListWidth();
             loadGroupPreference();
 
@@ -1685,7 +1349,6 @@ export default {
 
         onUnmounted(() => {
             document.removeEventListener('task-updated', handleTaskUpdate);
-            cleanupScrollSync();
             window.removeEventListener('resize', handleWindowResize);
         });
 
@@ -1698,69 +1361,29 @@ export default {
         return {
             tasks,
             ganttContainer,
-            taskListRef,
             currentViewMode,
             viewModes,
             ganttTasks,
             visibleGanttTasks,
             unscheduledTasks,
-            tasksWithChildren,
-            collapsedTaskIds,
             changeViewMode,
             scrollToToday,
             isUpdating,
-            hoveredTaskId,
-            syncScrollFromTaskList,
-            handleTaskHover,
-            handleTaskLeave,
             openTask,
-            GANTT_ROW_HEIGHT,
-            ganttHeaderHeight,
-            taskSortMode,
-            showSortMenu,
-            sortOptions,
-            changeTaskSort,
-            toggleSortMenu,
-            closeSortMenu,
-            toggleTaskCollapse,
-            expandAllTasks,
-            collapseAllTasks,
-            taskListWidth,
-            effectiveTaskListWidth,
-            // Milestone grouping
+            // Milestone grouping (still needed for toolbar toggle)
             groupBy,
-            collapsedGroups,
-            displayItems,
-            toggleGroupCollapse,
-            expandAllGroups,
-            collapseAllGroups,
             toggleGroupBy,
-            isMobile,
-            isResizing,
-            startResize,
             // Context menu
             contextMenu,
             hideContextMenu,
             handleTaskContextMenu,
-            handleTouchStart,
-            handleTouchEnd,
-            handleTouchMove,
             handleContextEdit,
             handleContextCopyLink,
             handleContextSetStatus,
             handleContextSetPriority,
-            // Quick add
-            quickAddMode,
-            quickAddTargetTaskId,
-            quickAddInputRef,
-            quickAddTitle,
-            isCreatingTask,
             handleContextAddSubtask,
             handleContextAddAbove,
             handleContextAddBelow,
-            cancelQuickAdd,
-            saveQuickAdd,
-            handleQuickAddKeydown,
             canAddSubtaskTo,
             // Delete
             confirmDialogRef,
@@ -1772,7 +1395,7 @@ export default {
     },
 
     template: `
-        <div class="gantt-view-container" @click="closeSortMenu">
+        <div class="gantt-view-container">
             <!-- Toolbar -->
             <div class="flex flex-wrap items-center justify-between gap-2 mb-4 bg-white rounded-lg shadow-sm p-2 sm:p-3">
                 <div class="flex items-center gap-2">
@@ -1837,351 +1460,8 @@ export default {
 
             <!-- Main Content -->
             <div class="flex gap-0">
-                <!-- Left Task List Panel -->
-                <div
-                    v-if="displayItems.length > 0"
-                    class="flex flex-shrink-0 bg-white rounded-l-lg shadow-sm border-r border-gray-200 flex-col relative"
-                    :style="{ width: effectiveTaskListWidth + 'px' }"
-                >
-                    <!-- Task List Header (matches Gantt header height + small offset for alignment) -->
-                    <div
-                        class="flex items-center justify-between px-2 md:px-3 font-medium text-gray-700 text-xs md:text-sm border-b border-gray-200 bg-gray-50"
-                        :style="{ height: ganttHeaderHeight + 'px' }"
-                    >
-                        <span>Tasks</span>
-                        <div class="flex items-center gap-1">
-                            <!-- Expand/Collapse All Milestone Groups (when grouped) -->
-                            <template v-if="groupBy === 'milestone'">
-                                <button
-                                    @click.stop="expandAllGroups"
-                                    class="p-1 rounded hover:bg-gray-200 transition-colors"
-                                    title="Expand all milestones"
-                                >
-                                    <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
-                                    </svg>
-                                </button>
-                                <button
-                                    @click.stop="collapseAllGroups"
-                                    class="p-1 rounded hover:bg-gray-200 transition-colors"
-                                    title="Collapse all milestones"
-                                >
-                                    <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
-                                    </svg>
-                                </button>
-                            </template>
-                            <!-- Expand/Collapse All Task Trees (when not grouped) -->
-                            <template v-else>
-                                <button
-                                    v-if="tasksWithChildren.size > 0"
-                                    @click.stop="expandAllTasks"
-                                    class="p-1 rounded hover:bg-gray-200 transition-colors"
-                                    title="Expand all"
-                                >
-                                    <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
-                                    </svg>
-                                </button>
-                                <button
-                                    v-if="tasksWithChildren.size > 0"
-                                    @click.stop="collapseAllTasks"
-                                    class="p-1 rounded hover:bg-gray-200 transition-colors"
-                                    title="Collapse all"
-                                >
-                                    <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
-                                    </svg>
-                                </button>
-                            </template>
-                            <!-- Sort Dropdown -->
-                            <div class="relative">
-                                <button
-                                    @click.stop="toggleSortMenu"
-                                    class="p-1 rounded hover:bg-gray-200 transition-colors"
-                                    title="Sort tasks"
-                                >
-                                    <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 7.5L7.5 3m0 0L12 7.5M7.5 3v13.5m13.5 0L16.5 21m0 0L12 16.5m4.5 4.5V7.5" />
-                                    </svg>
-                                </button>
-                                <!-- Dropdown Menu -->
-                                <div
-                                    v-if="showSortMenu"
-                                    class="absolute right-0 top-full mt-1 w-36 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50"
-                                    @click.stop
-                                >
-                                    <button
-                                        v-for="option in sortOptions"
-                                        :key="option.value"
-                                        @click="changeTaskSort(option.value)"
-                                        class="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100 flex items-center justify-between"
-                                        :class="taskSortMode === option.value ? 'text-primary-600 bg-primary-50' : 'text-gray-700'"
-                                    >
-                                        {{ option.label }}
-                                        <svg v-if="taskSortMode === option.value" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Task List (scrollable, synced with Gantt) -->
-                    <div
-                        ref="taskListRef"
-                        class="flex-1 overflow-y-auto overflow-x-hidden"
-                        @scroll="syncScrollFromTaskList"
-                    >
-                        <template v-for="(item, index) in displayItems" :key="item.type === 'group' ? 'g-' + item.groupKey : 't-' + item.task.id">
-                            <!-- Milestone Group Header -->
-                            <div
-                                v-if="item.type === 'group'"
-                                class="flex items-center border-b border-gray-200 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
-                                :style="{ height: GANTT_ROW_HEIGHT + 'px', paddingLeft: (isMobile ? 4 : 8) + 'px', paddingRight: (isMobile ? 4 : 8) + 'px' }"
-                                @click="toggleGroupCollapse(item.groupKey)"
-                            >
-                                <!-- Expand/Collapse toggle -->
-                                <button
-                                    class="flex-shrink-0 w-4 h-4 mr-1.5 flex items-center justify-center"
-                                >
-                                    <svg
-                                        class="w-3 h-3 text-gray-500 transition-transform"
-                                        :class="item.isCollapsed ? '' : 'rotate-90'"
-                                        fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
-                                    >
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                                    </svg>
-                                </button>
-                                <!-- Milestone icon -->
-                                <svg class="w-3.5 h-3.5 mr-1.5 flex-shrink-0" :style="{ color: item.groupColor }" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v1.5M3 21v-6m0 0l2.77-.693a9 9 0 016.208.682l.108.054a9 9 0 006.086.71l3.114-.732a48.524 48.524 0 01-.005-10.499l-3.11.732a9 9 0 01-6.085-.711l-.108-.054a9 9 0 00-6.208-.682L3 4.5M3 15V4.5" />
-                                </svg>
-                                <!-- Milestone name -->
-                                <span
-                                    class="truncate font-medium"
-                                    :class="isMobile ? 'text-xs' : 'text-sm'"
-                                    :style="{ color: item.groupColor }"
-                                    :title="item.groupLabel"
-                                >
-                                    {{ item.groupLabel }}
-                                </span>
-                                <!-- Task count badge -->
-                                <span class="ml-auto flex-shrink-0 text-xs text-gray-500 bg-gray-200 px-1.5 py-0.5 rounded">
-                                    {{ item.completedCount }}/{{ item.taskCount }}
-                                </span>
-                            </div>
-
-                            <!-- Task Row -->
-                            <template v-else>
-                                <!-- Quick Add Above Row -->
-                                <div
-                                    v-if="quickAddMode === 'above' && quickAddTargetTaskId === item.task.id"
-                                    class="flex items-center border-b border-primary-200 bg-primary-50"
-                                    :style="{
-                                        height: GANTT_ROW_HEIGHT + 'px',
-                                        paddingLeft: (isMobile ? (4 + (item.task.depth || 0) * 10 + (groupBy === 'milestone' ? 12 : 0)) : (8 + (item.task.depth || 0) * 14 + (groupBy === 'milestone' ? 16 : 0))) + 'px',
-                                        paddingRight: (isMobile ? 4 : 8) + 'px'
-                                    }"
-                                >
-                                    <span class="w-2 h-2 rounded-full mr-1.5 flex-shrink-0 bg-gray-400"></span>
-                                    <input
-                                        ref="quickAddInputRef"
-                                        type="text"
-                                        v-model="quickAddTitle"
-                                        placeholder="New task title..."
-                                        :disabled="isCreatingTask"
-                                        @keydown="handleQuickAddKeydown"
-                                        @blur="quickAddTitle.trim() ? null : cancelQuickAdd()"
-                                        class="flex-1 min-w-0 px-2 py-1 text-sm border border-primary-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white"
-                                    />
-                                    <button
-                                        @click="saveQuickAdd"
-                                        :disabled="!quickAddTitle.trim() || isCreatingTask"
-                                        class="ml-1 p-1 text-primary-600 hover:text-primary-800 disabled:opacity-50"
-                                    >
-                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                        </svg>
-                                    </button>
-                                    <button
-                                        @click="cancelQuickAdd"
-                                        :disabled="isCreatingTask"
-                                        class="p-1 text-gray-400 hover:text-gray-600"
-                                    >
-                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                        </svg>
-                                    </button>
-                                </div>
-
-                                <!-- Actual Task Row -->
-                                <div
-                                    class="flex items-center border-b border-gray-100 cursor-pointer transition-colors"
-                                    :class="[
-                                        hoveredTaskId === item.task.id ? 'bg-primary-50' : 'hover:bg-gray-50'
-                                    ]"
-                                    :style="{
-                                        height: GANTT_ROW_HEIGHT + 'px',
-                                        paddingLeft: (isMobile ? (4 + item.task.depth * 10 + (groupBy === 'milestone' ? 12 : 0)) : (8 + item.task.depth * 14 + (groupBy === 'milestone' ? 16 : 0))) + 'px',
-                                        paddingRight: (isMobile ? 4 : 8) + 'px'
-                                    }"
-                                    @mouseenter="handleTaskHover(item.task.id)"
-                                    @mouseleave="handleTaskLeave"
-                                    @click="openTask(item.task.id)"
-                                    @contextmenu="handleTaskContextMenu(item.task, $event)"
-                                    @touchstart="handleTouchStart(item.task, $event)"
-                                    @touchend="handleTouchEnd"
-                                    @touchmove="handleTouchMove"
-                                >
-                                    <!-- Expand/Collapse toggle for tasks with children -->
-                                    <button
-                                        v-if="tasksWithChildren.has(item.task.id)"
-                                        @click.stop="toggleTaskCollapse(item.task.id)"
-                                        class="flex-shrink-0 w-4 h-4 mr-1 flex items-center justify-center rounded hover:bg-gray-200 transition-colors"
-                                    >
-                                        <svg
-                                            class="w-3 h-3 text-gray-500 transition-transform"
-                                            :class="collapsedTaskIds.has(item.task.id) ? '' : 'rotate-90'"
-                                            fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
-                                        >
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                                        </svg>
-                                    </button>
-                                    <!-- Spacer for tasks without children (to align with those that have toggle) -->
-                                    <span v-else-if="tasksWithChildren.size > 0" class="flex-shrink-0 w-4 mr-1"></span>
-                                    <!-- Tree indent indicator for nested tasks -->
-                                    <span
-                                        v-if="item.task.depth > 0"
-                                        class="flex-shrink-0 mr-1 text-gray-300"
-                                    >
-                                        <svg class="w-3 h-3" viewBox="0 0 12 12" fill="none">
-                                            <path d="M3 1v6h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                                        </svg>
-                                    </span>
-                                    <!-- Status indicator dot -->
-                                    <span
-                                        class="w-2 h-2 rounded-full mr-1.5 flex-shrink-0"
-                                        :style="{ backgroundColor: item.task.statusColor || '#6b7280' }"
-                                    ></span>
-                                    <!-- Task name -->
-                                    <span
-                                        class="truncate"
-                                        :class="[
-                                            isMobile ? 'text-xs' : 'text-sm',
-                                            item.task.depth === 0 ? 'text-gray-900 font-medium' : 'text-gray-700'
-                                        ]"
-                                        :title="item.task.name"
-                                    >
-                                        {{ item.task.name }}
-                                    </span>
-                                </div>
-
-                                <!-- Quick Add Below Row -->
-                                <div
-                                    v-if="quickAddMode === 'below' && quickAddTargetTaskId === item.task.id"
-                                    class="flex items-center border-b border-primary-200 bg-primary-50"
-                                    :style="{
-                                        height: GANTT_ROW_HEIGHT + 'px',
-                                        paddingLeft: (isMobile ? (4 + (item.task.depth || 0) * 10 + (groupBy === 'milestone' ? 12 : 0)) : (8 + (item.task.depth || 0) * 14 + (groupBy === 'milestone' ? 16 : 0))) + 'px',
-                                        paddingRight: (isMobile ? 4 : 8) + 'px'
-                                    }"
-                                >
-                                    <span class="w-2 h-2 rounded-full mr-1.5 flex-shrink-0 bg-gray-400"></span>
-                                    <input
-                                        ref="quickAddInputRef"
-                                        type="text"
-                                        v-model="quickAddTitle"
-                                        placeholder="New task title..."
-                                        :disabled="isCreatingTask"
-                                        @keydown="handleQuickAddKeydown"
-                                        @blur="quickAddTitle.trim() ? null : cancelQuickAdd()"
-                                        class="flex-1 min-w-0 px-2 py-1 text-sm border border-primary-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white"
-                                    />
-                                    <button
-                                        @click="saveQuickAdd"
-                                        :disabled="!quickAddTitle.trim() || isCreatingTask"
-                                        class="ml-1 p-1 text-primary-600 hover:text-primary-800 disabled:opacity-50"
-                                    >
-                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                        </svg>
-                                    </button>
-                                    <button
-                                        @click="cancelQuickAdd"
-                                        :disabled="isCreatingTask"
-                                        class="p-1 text-gray-400 hover:text-gray-600"
-                                    >
-                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                        </svg>
-                                    </button>
-                                </div>
-
-                                <!-- Quick Add Subtask Row -->
-                                <div
-                                    v-if="quickAddMode === 'subtask' && quickAddTargetTaskId === item.task.id"
-                                    class="flex items-center border-b border-primary-200 bg-primary-50"
-                                    :style="{
-                                        height: GANTT_ROW_HEIGHT + 'px',
-                                        paddingLeft: (isMobile ? (4 + ((item.task.depth || 0) + 1) * 10 + (groupBy === 'milestone' ? 12 : 0)) : (8 + ((item.task.depth || 0) + 1) * 14 + (groupBy === 'milestone' ? 16 : 0))) + 'px',
-                                        paddingRight: (isMobile ? 4 : 8) + 'px'
-                                    }"
-                                >
-                                    <span class="flex-shrink-0 mr-1 text-gray-300">
-                                        <svg class="w-3 h-3" viewBox="0 0 12 12" fill="none">
-                                            <path d="M3 1v6h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                                        </svg>
-                                    </span>
-                                    <span class="w-2 h-2 rounded-full mr-1.5 flex-shrink-0 bg-gray-400"></span>
-                                    <input
-                                        ref="quickAddInputRef"
-                                        type="text"
-                                        v-model="quickAddTitle"
-                                        placeholder="New subtask title..."
-                                        :disabled="isCreatingTask"
-                                        @keydown="handleQuickAddKeydown"
-                                        @blur="quickAddTitle.trim() ? null : cancelQuickAdd()"
-                                        class="flex-1 min-w-0 px-2 py-1 text-sm border border-primary-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white"
-                                    />
-                                    <button
-                                        @click="saveQuickAdd"
-                                        :disabled="!quickAddTitle.trim() || isCreatingTask"
-                                        class="ml-1 p-1 text-primary-600 hover:text-primary-800 disabled:opacity-50"
-                                    >
-                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                        </svg>
-                                    </button>
-                                    <button
-                                        @click="cancelQuickAdd"
-                                        :disabled="isCreatingTask"
-                                        class="p-1 text-gray-400 hover:text-gray-600"
-                                    >
-                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                        </svg>
-                                    </button>
-                                </div>
-                            </template>
-                        </template>
-                    </div>
-                    <!-- Resize Handle (wider touch target on mobile) -->
-                    <div
-                        class="absolute top-0 right-0 h-full cursor-col-resize group"
-                        :class="isMobile ? 'w-3 -right-1' : 'w-1'"
-                        @mousedown.prevent="startResize"
-                        @touchstart.prevent="startResize"
-                    >
-                        <div
-                            class="absolute top-0 right-0 w-1 h-full transition-colors"
-                            :class="isResizing ? 'bg-primary-500' : 'bg-gray-300 md:bg-transparent group-hover:bg-gray-300'"
-                        ></div>
-                    </div>
-                </div>
-
-                <!-- Gantt Chart -->
-                <div class="flex-1 bg-white shadow-sm overflow-hidden" :class="displayItems.length > 0 ? 'rounded-r-lg' : 'rounded-lg'">
+                <!-- Gantt Chart with native sidebar -->
+                <div class="flex-1 bg-white shadow-sm overflow-hidden rounded-lg">
                     <div v-if="ganttTasks.length === 0" class="flex flex-col items-center justify-center py-16 text-gray-500">
                         <svg class="w-16 h-16 mb-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5m-9-6h.008v.008H12v-.008zM12 15h.008v.008H12V15zm0 2.25h.008v.008H12v-.008zM9.75 15h.008v.008H9.75V15zm0 2.25h.008v.008H9.75v-.008zM7.5 15h.008v.008H7.5V15zm0 2.25h.008v.008H7.5v-.008zm6.75-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V15zm0 2.25h.008v.008h-.008v-.008zm2.25-4.5h.008v.008H16.5v-.008zm0 2.25h.008v.008H16.5V15z" />

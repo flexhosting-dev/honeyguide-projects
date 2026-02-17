@@ -775,14 +775,18 @@ var Gantt = (function () {
                 const diff = date_utils.diff(task_start, gantt_start, 'day');
                 x = (diff * column_width) / 30;
             }
+
+            // No sidebar offset needed - sidebar is in separate container
             return x;
         }
 
         compute_y() {
+            // Use _displayIndex if available (for grouping support), otherwise fall back to _index
+            const index = this.task._displayIndex !== undefined ? this.task._displayIndex : this.task._index;
             return (
                 this.gantt.options.header_height +
                 this.gantt.options.padding +
-                this.task._index * (this.height + this.gantt.options.padding)
+                index * (this.height + this.gantt.options.padding)
             );
         }
 
@@ -1086,12 +1090,21 @@ var Gantt = (function () {
                 this.$svg.classList.add('gantt');
             }
 
-            // wrapper element
+            const parent_element = this.$svg.parentElement;
+
+            // Create outer container for flex layout
+            this.$outer_container = document.createElement('div');
+            this.$outer_container.classList.add('gantt-outer-container');
+            parent_element.appendChild(this.$outer_container);
+
+            // Sidebar container (will be set up later if sidebar enabled)
+            this.$sidebar_container = null;
+            this.$sidebar_svg = null;
+
+            // Chart wrapper element (scrollable)
             this.$container = document.createElement('div');
             this.$container.classList.add('gantt-container');
-
-            const parent_element = this.$svg.parentElement;
-            parent_element.appendChild(this.$container);
+            this.$outer_container.appendChild(this.$container);
             this.$container.appendChild(this.$svg);
 
             // popup wrapper
@@ -1115,8 +1128,36 @@ var Gantt = (function () {
                 popup_trigger: 'click',
                 custom_popup_html: null,
                 language: 'en',
+                // Sidebar options
+                sidebar: {
+                    enabled: false,
+                    width: 200,
+                    min_width: 120,
+                    max_width: 400,
+                    resizable: true,
+                },
+                // Grouping options
+                grouping: {
+                    enabled: false,
+                    field: 'milestoneId',
+                    groups: [],                 // [{id, name, color, collapsed}]
+                    collapsed_groups: [],
+                    ungrouped_label: 'No Milestone',
+                },
+                // Callbacks
+                on_group_collapse: null,        // (group, collapsed) => {}
+                on_sidebar_task_click: null,    // (task) => {}
+                on_sidebar_resize: null,        // (new_width) => {}
             };
             this.options = Object.assign({}, default_options, options);
+
+            // Deep merge sidebar and grouping options
+            if (options && options.sidebar) {
+                this.options.sidebar = Object.assign({}, default_options.sidebar, options.sidebar);
+            }
+            if (options && options.grouping) {
+                this.options.grouping = Object.assign({}, default_options.grouping, options.grouping);
+            }
         }
 
         setup_tasks(tasks) {
@@ -1182,6 +1223,8 @@ var Gantt = (function () {
             });
 
             this.setup_dependencies();
+            this.setup_groups();
+            this.calculate_display_indices();
         }
 
         setup_dependencies() {
@@ -1192,6 +1235,145 @@ var Gantt = (function () {
                     this.dependency_map[d].push(t.id);
                 }
             }
+        }
+
+        setup_groups() {
+            if (!this.options.grouping.enabled) {
+                this.groups = [];
+                this.group_map = {};
+                return;
+            }
+
+            const field = this.options.grouping.field;
+            const providedGroups = this.options.grouping.groups || [];
+            const collapsedGroups = new Set(this.options.grouping.collapsed_groups || []);
+
+            // Build group map from provided groups
+            this.group_map = {};
+            this.groups = [];
+
+            // First, add provided groups in order
+            providedGroups.forEach((g, index) => {
+                const group = {
+                    id: g.id,
+                    name: g.name,
+                    color: g.color || '#6366f1',
+                    collapsed: collapsedGroups.has(g.id),
+                    tasks: [],
+                    order: index
+                };
+                this.groups.push(group);
+                this.group_map[g.id] = group;
+            });
+
+            // Create ungrouped group
+            const ungroupedGroup = {
+                id: '__ungrouped__',
+                name: this.options.grouping.ungrouped_label,
+                color: '#6b7280',
+                collapsed: collapsedGroups.has('__ungrouped__'),
+                tasks: [],
+                order: this.groups.length
+            };
+
+            // Assign tasks to groups
+            for (let task of this.tasks) {
+                const groupId = task[field];
+                if (groupId && this.group_map[groupId]) {
+                    this.group_map[groupId].tasks.push(task);
+                } else {
+                    ungroupedGroup.tasks.push(task);
+                }
+            }
+
+            // Add ungrouped group if it has tasks
+            if (ungroupedGroup.tasks.length > 0) {
+                this.groups.push(ungroupedGroup);
+                this.group_map['__ungrouped__'] = ungroupedGroup;
+            }
+        }
+
+        calculate_display_indices() {
+            this.display_items = [];
+            let displayIndex = 0;
+
+            if (!this.options.grouping.enabled) {
+                // No grouping - just list tasks
+                for (let task of this.tasks) {
+                    task._displayIndex = displayIndex;
+                    this.display_items.push({
+                        type: 'task',
+                        task: task,
+                        displayIndex: displayIndex
+                    });
+                    displayIndex++;
+                }
+                this.total_rows = displayIndex;
+                return;
+            }
+
+            // With grouping - alternate between groups and their tasks
+            for (let group of this.groups) {
+                if (group.tasks.length === 0) continue;
+
+                // Add group header
+                this.display_items.push({
+                    type: 'group',
+                    group: group,
+                    displayIndex: displayIndex
+                });
+                displayIndex++;
+
+                // Add tasks if not collapsed
+                if (!group.collapsed) {
+                    for (let task of group.tasks) {
+                        task._displayIndex = displayIndex;
+                        this.display_items.push({
+                            type: 'task',
+                            task: task,
+                            displayIndex: displayIndex
+                        });
+                        displayIndex++;
+                    }
+                }
+            }
+
+            this.total_rows = displayIndex;
+        }
+
+        toggle_group_collapse(groupId) {
+            const group = this.group_map[groupId];
+            if (!group) return;
+
+            group.collapsed = !group.collapsed;
+
+            // Update collapsed_groups in options
+            const collapsedSet = new Set(this.options.grouping.collapsed_groups || []);
+            if (group.collapsed) {
+                collapsedSet.add(groupId);
+            } else {
+                collapsedSet.delete(groupId);
+            }
+            this.options.grouping.collapsed_groups = Array.from(collapsedSet);
+
+            // Recalculate display indices and re-render
+            this.calculate_display_indices();
+            this.render();
+
+            // Trigger callback
+            if (this.options.on_group_collapse) {
+                this.options.on_group_collapse(group, group.collapsed);
+            }
+        }
+
+        get_visible_tasks() {
+            if (!this.options.grouping.enabled) {
+                return this.tasks;
+            }
+
+            return this.display_items
+                .filter(item => item.type === 'task')
+                .map(item => item.task);
         }
 
         refresh(tasks) {
@@ -1295,23 +1477,213 @@ var Gantt = (function () {
         bind_events() {
             this.bind_grid_click();
             this.bind_bar_events();
+            // Sidebar events are bound in make_sidebar() after the sidebar SVG is created
+        }
+
+        bind_sidebar_events() {
+            if (!this.$sidebar_svg) return;
+
+            // Click on sidebar group to collapse/expand
+            $.on(this.$sidebar_svg, 'click', '.sidebar-group', (e, element) => {
+                const groupId = element.getAttribute('data-id');
+                if (groupId) {
+                    this.toggle_group_collapse(groupId);
+                }
+            });
+
+            // Click on sidebar task to trigger callback
+            $.on(this.$sidebar_svg, 'click', '.sidebar-task', (e, element) => {
+                const taskId = element.getAttribute('data-id');
+                if (taskId && this.options.on_sidebar_task_click) {
+                    const task = this.get_task(taskId);
+                    if (task) {
+                        this.options.on_sidebar_task_click(task);
+                    }
+                }
+            });
+
+            // Hover sync: sidebar task <-> bar
+            $.on(this.$sidebar_svg, 'mouseenter', '.sidebar-task', (e, element) => {
+                const taskId = element.getAttribute('data-id');
+                if (taskId) {
+                    this.highlight_task(taskId, true);
+                }
+            });
+
+            $.on(this.$sidebar_svg, 'mouseleave', '.sidebar-task', (e, element) => {
+                const taskId = element.getAttribute('data-id');
+                if (taskId) {
+                    this.highlight_task(taskId, false);
+                }
+            });
+
+            // Hover sync: bar -> sidebar task
+            $.on(this.$svg, 'mouseenter', '.bar-wrapper', (e, element) => {
+                const taskId = element.getAttribute('data-id');
+                if (taskId) {
+                    this.highlight_sidebar_task(taskId, true);
+                }
+            });
+
+            $.on(this.$svg, 'mouseleave', '.bar-wrapper', (e, element) => {
+                const taskId = element.getAttribute('data-id');
+                if (taskId) {
+                    this.highlight_sidebar_task(taskId, false);
+                }
+            });
+        }
+
+        highlight_task(taskId, highlight) {
+            const barWrapper = this.$svg.querySelector(`.bar-wrapper[data-id="${taskId}"]`);
+            if (barWrapper) {
+                if (highlight) {
+                    barWrapper.classList.add('hover');
+                } else {
+                    barWrapper.classList.remove('hover');
+                }
+            }
+        }
+
+        highlight_sidebar_task(taskId, highlight) {
+            if (!this.$sidebar_svg) return;
+            const sidebarTask = this.$sidebar_svg.querySelector(`.sidebar-task[data-id="${taskId}"]`);
+            if (sidebarTask) {
+                const row = sidebarTask.querySelector('.sidebar-row');
+                if (row) {
+                    if (highlight) {
+                        row.classList.add('hover');
+                    } else {
+                        row.classList.remove('hover');
+                    }
+                }
+            }
+        }
+
+        bind_sidebar_resize(handle) {
+            if (!handle) return;
+
+            let is_resizing = false;
+            let start_x = 0;
+            let start_width = 0;
+
+            const onMouseDown = (e) => {
+                is_resizing = true;
+                start_x = e.clientX;
+                start_width = this.options.sidebar.width;
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+                e.preventDefault();
+            };
+
+            const onMouseMove = (e) => {
+                if (!is_resizing) return;
+
+                const dx = e.clientX - start_x;
+                let new_width = start_width + dx;
+
+                // Clamp to min/max
+                new_width = Math.max(this.options.sidebar.min_width, new_width);
+                new_width = Math.min(this.options.sidebar.max_width, new_width);
+
+                this.options.sidebar.width = new_width;
+
+                // Re-render to apply new width
+                this.render();
+
+                // Trigger callback
+                if (this.options.on_sidebar_resize) {
+                    this.options.on_sidebar_resize(new_width);
+                }
+            };
+
+            const onMouseUp = () => {
+                if (is_resizing) {
+                    is_resizing = false;
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                }
+            };
+
+            handle.addEventListener('mousedown', onMouseDown);
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+
+            // Store cleanup function for potential future use
+            this._cleanup_sidebar_resize = () => {
+                handle.removeEventListener('mousedown', onMouseDown);
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+            };
         }
 
         render() {
             this.clear();
+            this.setup_sidebar_container();
             this.setup_layers();
             this.make_grid();
             this.make_dates();
+            if (this.options.sidebar.enabled) {
+                this.make_sidebar();
+            }
             this.make_bars();
             this.make_arrows();
             this.map_arrows_on_bars();
             this.set_width();
             this.set_scroll_position();
+            this.setup_scroll_sync();
+        }
+
+        setup_sidebar_container() {
+            // Clean up existing sidebar container if any
+            if (this.$sidebar_container) {
+                this.$sidebar_container.remove();
+                this.$sidebar_container = null;
+                this.$sidebar_svg = null;
+            }
+
+            if (!this.options.sidebar.enabled) return;
+
+            const sidebar_width = this.options.sidebar.width;
+
+            // Create sidebar container
+            this.$sidebar_container = document.createElement('div');
+            this.$sidebar_container.classList.add('gantt-sidebar-container');
+            this.$sidebar_container.style.width = `${sidebar_width}px`;
+            this.$sidebar_container.style.flexShrink = '0';
+            this.$sidebar_container.style.overflow = 'hidden';
+            this.$sidebar_container.style.position = 'relative';
+
+            // Insert sidebar container at the beginning of outer container
+            this.$outer_container.insertBefore(this.$sidebar_container, this.$container);
+
+            // Create sidebar SVG
+            this.$sidebar_svg = createSVG('svg', {
+                append_to: this.$sidebar_container,
+                class: 'gantt-sidebar',
+            });
+        }
+
+        setup_scroll_sync() {
+            if (!this.options.sidebar.enabled || !this.$sidebar_container) return;
+
+            // Remove existing listener if any
+            if (this._scroll_sync_handler) {
+                this.$container.removeEventListener('scroll', this._scroll_sync_handler);
+            }
+
+            // Sync vertical scroll from chart to sidebar
+            this._scroll_sync_handler = () => {
+                if (this.$sidebar_svg) {
+                    this.$sidebar_svg.style.transform = `translateY(-${this.$container.scrollTop}px)`;
+                }
+            };
+
+            this.$container.addEventListener('scroll', this._scroll_sync_handler);
         }
 
         setup_layers() {
             this.layers = {};
-            const layers = ['grid', 'date', 'arrow', 'progress', 'bar', 'details'];
+            const layers = ['grid', 'sidebar', 'date', 'arrow', 'progress', 'bar', 'details'];
             // make group layers
             for (let layer of layers) {
                 this.layers[layer] = createSVG('g', {
@@ -1319,6 +1691,246 @@ var Gantt = (function () {
                     append_to: this.$svg,
                 });
             }
+        }
+
+        make_sidebar() {
+            if (!this.options.sidebar.enabled || !this.$sidebar_svg) return;
+
+            const sidebar_width = this.options.sidebar.width;
+            const row_height = this.options.bar_height + this.options.padding;
+            const total_rows = this.total_rows || this.tasks.length;
+            const grid_height = this.options.header_height + this.options.padding + row_height * total_rows;
+
+            // Set sidebar SVG dimensions
+            this.$sidebar_svg.setAttribute('width', sidebar_width);
+            this.$sidebar_svg.setAttribute('height', grid_height);
+            this.$sidebar_container.style.height = `${grid_height}px`;
+
+            // Sidebar background
+            createSVG('rect', {
+                x: 0,
+                y: 0,
+                width: sidebar_width,
+                height: grid_height,
+                class: 'sidebar-background',
+                append_to: this.$sidebar_svg,
+            });
+
+            // Sidebar header
+            this.make_sidebar_header();
+
+            // Sidebar rows
+            this.make_sidebar_rows();
+
+            // Sidebar resize handle
+            if (this.options.sidebar.resizable) {
+                const handle = createSVG('rect', {
+                    x: sidebar_width - 4,
+                    y: 0,
+                    width: 8,
+                    height: grid_height,
+                    class: 'sidebar-resize-handle',
+                    append_to: this.$sidebar_svg,
+                });
+                this.bind_sidebar_resize(handle);
+            }
+
+            // Sidebar border
+            createSVG('line', {
+                x1: sidebar_width,
+                y1: 0,
+                x2: sidebar_width,
+                y2: grid_height,
+                class: 'sidebar-border',
+                append_to: this.$sidebar_svg,
+            });
+
+            // Bind sidebar events
+            this.bind_sidebar_events();
+        }
+
+        make_sidebar_header() {
+            const sidebar_width = this.options.sidebar.width;
+            const header_height = this.options.header_height + 10;
+
+            // Header group (fixed position, doesn't scroll)
+            this.$sidebar_header = createSVG('g', {
+                class: 'sidebar-header-group',
+                append_to: this.$sidebar_svg,
+            });
+
+            // Header background
+            createSVG('rect', {
+                x: 0,
+                y: 0,
+                width: sidebar_width,
+                height: header_height,
+                class: 'sidebar-header',
+                append_to: this.$sidebar_header,
+            });
+
+            // Header text
+            createSVG('text', {
+                x: 12,
+                y: this.options.header_height / 2 + 5,
+                innerHTML: 'Tasks',
+                class: 'sidebar-header-text',
+                append_to: this.$sidebar_header,
+            });
+        }
+
+        make_sidebar_rows() {
+            const sidebar_width = this.options.sidebar.width;
+            const row_height = this.options.bar_height + this.options.padding;
+            const start_y = this.options.header_height + this.options.padding / 2;
+
+            // Create a group for sidebar rows
+            const rows_group = createSVG('g', {
+                class: 'sidebar-rows',
+                append_to: this.$sidebar_svg,
+            });
+
+            for (let item of this.display_items) {
+                const row_y = start_y + item.displayIndex * row_height;
+
+                if (item.type === 'group') {
+                    this.render_sidebar_group(rows_group, item.group, row_y, sidebar_width, row_height);
+                } else {
+                    this.render_sidebar_task(rows_group, item.task, row_y, sidebar_width, row_height);
+                }
+            }
+        }
+
+        render_sidebar_group(container, group, row_y, sidebar_width, row_height) {
+            // Group row container
+            const group_g = createSVG('g', {
+                class: 'sidebar-group',
+                'data-id': group.id,
+                append_to: container,
+            });
+
+            // Group row background
+            createSVG('rect', {
+                x: 0,
+                y: row_y,
+                width: sidebar_width,
+                height: row_height,
+                class: 'sidebar-row sidebar-row-group',
+                append_to: group_g,
+            });
+
+            // Chevron icon (rotated based on collapse state)
+            const chevron_x = 8;
+            const chevron_y = row_y + row_height / 2;
+            const chevron_path = group.collapsed
+                ? `M ${chevron_x} ${chevron_y - 4} l 5 4 l -5 4`  // pointing right
+                : `M ${chevron_x - 2} ${chevron_y - 2} l 4 4 l 4 -4`; // pointing down
+
+            createSVG('path', {
+                d: chevron_path,
+                class: 'sidebar-chevron',
+                append_to: group_g,
+            });
+
+            // Milestone icon
+            const icon_x = 22;
+            createSVG('path', {
+                d: `M ${icon_x} ${row_y + row_height / 2 - 5} v 10 M ${icon_x} ${row_y + row_height / 2 - 3} h 6`,
+                class: 'sidebar-group-icon',
+                stroke: group.color,
+                append_to: group_g,
+            });
+
+            // Group name
+            const name_x = 34;
+            const max_name_width = sidebar_width - name_x - 40; // Reserve space for badge
+
+            createSVG('text', {
+                x: name_x,
+                y: row_y + row_height / 2 + 4,
+                innerHTML: this.truncate_text(group.name, max_name_width, 12),
+                class: 'sidebar-group-name',
+                fill: group.color,
+                append_to: group_g,
+            });
+
+            // Task count badge
+            const completedCount = group.tasks.filter(t => {
+                const statusValue = t.status?.value || t.statusValue;
+                return statusValue === 'completed';
+            }).length;
+            const badge_text = `${completedCount}/${group.tasks.length}`;
+
+            createSVG('text', {
+                x: sidebar_width - 12,
+                y: row_y + row_height / 2 + 4,
+                innerHTML: badge_text,
+                class: 'sidebar-badge',
+                'text-anchor': 'end',
+                append_to: group_g,
+            });
+        }
+
+        render_sidebar_task(container, task, row_y, sidebar_width, row_height) {
+            // Task row container
+            const task_g = createSVG('g', {
+                class: 'sidebar-task',
+                'data-id': task.id,
+                append_to: container,
+            });
+
+            // Task row background
+            createSVG('rect', {
+                x: 0,
+                y: row_y,
+                width: sidebar_width,
+                height: row_height,
+                class: 'sidebar-row sidebar-row-task',
+                append_to: task_g,
+            });
+
+            // Calculate indent based on depth and grouping
+            const depth = task.depth || 0;
+            const base_indent = this.options.grouping.enabled ? 24 : 12;
+            const indent = base_indent + depth * 14;
+
+            // Status dot
+            const dot_x = indent;
+            const dot_y = row_y + row_height / 2;
+            const status_color = task.statusColor || '#6b7280';
+
+            createSVG('circle', {
+                cx: dot_x,
+                cy: dot_y,
+                r: 4,
+                class: 'sidebar-status-dot',
+                fill: status_color,
+                append_to: task_g,
+            });
+
+            // Task name
+            const name_x = dot_x + 10;
+            const max_name_width = sidebar_width - name_x - 8;
+
+            createSVG('text', {
+                x: name_x,
+                y: row_y + row_height / 2 + 4,
+                innerHTML: this.truncate_text(task.name, max_name_width, 12),
+                class: 'sidebar-task-name',
+                append_to: task_g,
+            });
+        }
+
+        truncate_text(text, max_width, font_size) {
+            // Rough estimate: each character is about 0.6 * font_size wide
+            const char_width = font_size * 0.6;
+            const max_chars = Math.floor(max_width / char_width);
+
+            if (text.length <= max_chars) {
+                return text;
+            }
+
+            return text.substring(0, max_chars - 1) + '…';
         }
 
         make_grid() {
@@ -1330,12 +1942,14 @@ var Gantt = (function () {
         }
 
         make_grid_background() {
+            // Sidebar is in separate container, so no offset needed
             const grid_width = this.dates.length * this.options.column_width;
+            const total_rows = this.total_rows || this.tasks.length;
             const grid_height =
                 this.options.header_height +
                 this.options.padding +
                 (this.options.bar_height + this.options.padding) *
-                    this.tasks.length;
+                    total_rows;
 
             createSVG('rect', {
                 x: 0,
@@ -1356,18 +1970,25 @@ var Gantt = (function () {
             const rows_layer = createSVG('g', { append_to: this.layers.grid });
             const lines_layer = createSVG('g', { append_to: this.layers.grid });
 
+            // Sidebar is in separate container, so no offset needed
             const row_width = this.dates.length * this.options.column_width;
             const row_height = this.options.bar_height + this.options.padding;
 
             let row_y = this.options.header_height + this.options.padding / 2;
 
-            for (let task of this.tasks) {
+            // Use display_items if grouping is enabled, otherwise use tasks
+            const items_to_render = this.options.grouping.enabled ? this.display_items : this.tasks;
+
+            for (let i = 0; i < items_to_render.length; i++) {
+                const item = items_to_render[i];
+                const is_group = item.type === 'group';
+
                 createSVG('rect', {
                     x: 0,
                     y: row_y,
                     width: row_width,
                     height: row_height,
-                    class: 'grid-row',
+                    class: is_group ? 'grid-row grid-row-group' : 'grid-row',
                     append_to: rows_layer,
                 });
 
@@ -1380,11 +2001,12 @@ var Gantt = (function () {
                     append_to: lines_layer,
                 });
 
-                row_y += this.options.bar_height + this.options.padding;
+                row_y += row_height;
             }
         }
 
         make_grid_header() {
+            // Sidebar is in separate container, so no offset needed
             const header_width = this.dates.length * this.options.column_width;
             const header_height = this.options.header_height + 10;
             createSVG('rect', {
@@ -1398,11 +2020,13 @@ var Gantt = (function () {
         }
 
         make_grid_ticks() {
+            // Sidebar is in separate container, so no offset needed
             let tick_x = 0;
             let tick_y = this.options.header_height + this.options.padding / 2;
+            const total_rows = this.total_rows || this.tasks.length;
             let tick_height =
                 (this.options.bar_height + this.options.padding) *
-                this.tasks.length;
+                total_rows;
 
             for (let date of this.dates) {
                 let tick_class = 'tick';
@@ -1444,6 +2068,9 @@ var Gantt = (function () {
         }
 
         make_grid_highlights() {
+            // Sidebar is in separate container, so no offset needed
+            const total_rows = this.total_rows || this.tasks.length;
+
             // highlight today's date
             if (this.view_is(VIEW_MODE.DAY)) {
                 const x =
@@ -1455,7 +2082,7 @@ var Gantt = (function () {
                 const width = this.options.column_width;
                 const height =
                     (this.options.bar_height + this.options.padding) *
-                        this.tasks.length +
+                        total_rows +
                     this.options.header_height +
                     this.options.padding / 2;
 
@@ -1566,6 +2193,7 @@ var Gantt = (function () {
                         : '',
             };
 
+            // Sidebar is in separate container, so no offset needed
             const base_pos = {
                 x: i * this.options.column_width,
                 lower_y: this.options.header_height,
@@ -1598,7 +2226,9 @@ var Gantt = (function () {
         }
 
         make_bars() {
-            this.bars = this.tasks.map((task) => {
+            // Only create bars for visible tasks (not in collapsed groups)
+            const visible_tasks = this.get_visible_tasks();
+            this.bars = visible_tasks.map((task) => {
                 const bar = new Bar(this, task);
                 this.layers.bar.appendChild(bar.group);
                 return bar;
