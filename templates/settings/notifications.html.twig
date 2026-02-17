@@ -19,7 +19,7 @@
         <p class="mt-1 text-sm text-gray-500">Choose which notifications you receive</p>
     </div>
 
-    <div class="notifications-content max-w-3xl mx-auto space-y-6" x-data="notificationPreferences({{ preferences|json_encode|e('html_attr') }})">
+    <div class="notifications-content max-w-3xl mx-auto space-y-6" x-data="notificationPreferences({{ preferences|json_encode|e('html_attr') }}, {{ defaults|json_encode|e('html_attr') }})">
 
     {% for category, types in categories %}
     <div class="mb-8">
@@ -74,15 +74,19 @@
 </div>
 
 <script>
-function notificationPreferences(initial) {
+function notificationPreferences(initial, defaults) {
     return {
         prefs: initial || {},
+        defaults: defaults || {},
         saving: false,
         isEnabled(type, channel) {
             if (this.prefs[type] && this.prefs[type][channel] !== undefined) {
                 return this.prefs[type][channel];
             }
-            // defaults are handled server-side, but for UI we assume true for in_app
+            // Use server-provided defaults
+            if (this.defaults[type] && this.defaults[type][channel] !== undefined) {
+                return this.defaults[type][channel];
+            }
             return channel === 'in_app';
         },
         toggle(type, channel) {

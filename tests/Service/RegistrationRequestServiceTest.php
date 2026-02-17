@@ -12,8 +12,6 @@ use App\Service\NotificationService;
 use App\Service\RegistrationRequestService;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Mailer\MailerInterface;
-use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 class RegistrationRequestServiceTest extends TestCase
 {
@@ -23,8 +21,6 @@ class RegistrationRequestServiceTest extends TestCase
         $pendingRequestRepository = $this->createMock(PendingRegistrationRequestRepository::class);
         $userRepository = $this->createMock(UserRepository::class);
         $notificationService = $this->createMock(NotificationService::class);
-        $mailer = $this->createMock(MailerInterface::class);
-        $urlGenerator = $this->createMock(UrlGeneratorInterface::class);
 
         // Mock findPendingByEmail to return null (no existing request)
         $pendingRequestRepository->method('findPendingByEmail')->willReturn(null);
@@ -34,14 +30,10 @@ class RegistrationRequestServiceTest extends TestCase
 
         return new RegistrationRequestService(
             $allowedDomains,
-            'noreply@test.com',
-            'Test App',
             $entityManager,
             $pendingRequestRepository,
             $userRepository,
             $notificationService,
-            $mailer,
-            $urlGenerator,
         );
     }
 
@@ -107,19 +99,13 @@ class RegistrationRequestServiceTest extends TestCase
         $pendingRequestRepository = $this->createMock(PendingRegistrationRequestRepository::class);
         $userRepository = $this->createMock(UserRepository::class);
         $notificationService = $this->createMock(NotificationService::class);
-        $mailer = $this->createMock(MailerInterface::class);
-        $urlGenerator = $this->createMock(UrlGeneratorInterface::class);
 
         $service = new RegistrationRequestService(
             '',
-            'noreply@test.com',
-            'Test App',
             $entityManager,
             $pendingRequestRepository,
             $userRepository,
             $notificationService,
-            $mailer,
-            $urlGenerator,
         );
 
         $request = new PendingRegistrationRequest();
@@ -146,19 +132,13 @@ class RegistrationRequestServiceTest extends TestCase
         $pendingRequestRepository = $this->createMock(PendingRegistrationRequestRepository::class);
         $userRepository = $this->createMock(UserRepository::class);
         $notificationService = $this->createMock(NotificationService::class);
-        $mailer = $this->createMock(MailerInterface::class);
-        $urlGenerator = $this->createMock(UrlGeneratorInterface::class);
 
         $service = new RegistrationRequestService(
             '',
-            'noreply@test.com',
-            'Test App',
             $entityManager,
             $pendingRequestRepository,
             $userRepository,
             $notificationService,
-            $mailer,
-            $urlGenerator,
         );
 
         $request = new PendingRegistrationRequest();

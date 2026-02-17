@@ -2598,4 +2598,22 @@ Relevant code locations:
 
 ---
 
-*Last updated: 8 February 2026*
+## 12. Email Notifications Enhancements
+
+**Priority:** Medium
+**Complexity:** Medium
+**Impact:** Improves email delivery reliability and user experience
+
+### Current State
+Email notifications are now sent automatically when in-app notifications are created, respecting user preferences. The `NotificationEmailService` handles all notification types centrally.
+
+### Future Considerations
+
+- **Async email sending**: Use Symfony Messenger to queue emails instead of sending synchronously
+- **Email templates**: Move to Twig templates for better maintainability and easier customization
+- **Unsubscribe links**: Add one-click unsubscribe per notification type
+- **Email batching**: Digest emails instead of individual notifications (daily/weekly summaries)
+
+---
+
+*Last updated: 17 February 2026*

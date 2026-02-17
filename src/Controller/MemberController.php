@@ -91,6 +91,7 @@ class MemberController extends AbstractController
             'project',
             $project->getId(),
             $project->getName(),
+            ['projectId' => $project->getId()->toString()],
         );
 
         $this->entityManager->flush();

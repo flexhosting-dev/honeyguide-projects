@@ -62,16 +62,22 @@ class SettingsController extends AbstractController
             return $this->json(['success' => true]);
         }
 
-        // Group types by category
+        // Group types by category and build defaults
         $categories = [];
+        $defaults = [];
         foreach (NotificationType::cases() as $type) {
             $category = $type->category();
             $categories[$category][] = $type;
+            $defaults[$type->value] = [
+                'in_app' => $type->defaultInApp(),
+                'email' => $type->defaultEmail(),
+            ];
         }
 
         return $this->render('settings/notifications.html.twig', [
             'page_title' => 'Notification Preferences',
             'preferences' => $user->getNotificationPreferences(),
+            'defaults' => $defaults,
             'categories' => $categories,
         ]);
     }
