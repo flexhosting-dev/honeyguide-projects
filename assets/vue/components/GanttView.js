@@ -97,6 +97,8 @@ export default {
         const taskSortMode = ref('start_date'); // 'start_date', 'position', 'title'
         const showSortMenu = ref(false);
         const collapsedTaskIds = ref(new Set());
+        const groupBy = ref('milestone'); // 'none' or 'milestone'
+        const collapsedGroups = ref(new Set());
         const taskListWidth = ref(192); // Default w-48 = 192px
         const isResizing = ref(false);
         const minTaskListWidth = 120;
@@ -328,6 +330,153 @@ export default {
             return allTasks.filter(task => !isTaskHidden(task, allTasks));
         });
 
+        // Get milestone info for a task
+        const getMilestoneInfo = (milestoneId) => {
+            if (!milestoneId) return { label: 'No Milestone', color: '#6b7280' };
+            const milestone = props.milestones.find(m => m.id === milestoneId);
+            return {
+                label: milestone?.name || 'Unknown Milestone',
+                color: '#6366f1',
+                dueDate: milestone?.dueDate
+            };
+        };
+
+        // Get milestone ID for a task (from original tasks array)
+        const getTaskMilestoneId = (taskId) => {
+            const task = tasks.value.find(t => t.id === taskId);
+            return task?.milestoneId || '__no_milestone__';
+        };
+
+        // Computed: display items with milestone grouping
+        const displayItems = computed(() => {
+            const visibleTasks = visibleGanttTasks.value;
+
+            if (groupBy.value === 'none') {
+                return visibleTasks.map(task => ({
+                    type: 'task',
+                    task
+                }));
+            }
+
+            // Group by milestone
+            const groups = {};
+            const groupOrder = [];
+
+            // Use milestone order from props if available
+            props.milestones.forEach(m => {
+                groups[m.id] = [];
+                groupOrder.push(m.id);
+            });
+            // Add no-milestone group
+            groups['__no_milestone__'] = [];
+
+            // Group tasks
+            visibleTasks.forEach(task => {
+                const milestoneId = getTaskMilestoneId(task.id);
+                if (!groups[milestoneId]) {
+                    groups[milestoneId] = [];
+                    groupOrder.push(milestoneId);
+                }
+                groups[milestoneId].push(task);
+            });
+
+            // Add no-milestone group to end if it has tasks
+            if (groups['__no_milestone__'].length > 0 && !groupOrder.includes('__no_milestone__')) {
+                groupOrder.push('__no_milestone__');
+            }
+
+            // Build result with group headers
+            const result = [];
+            groupOrder.forEach(key => {
+                const groupTasks = groups[key];
+                if (!groupTasks || groupTasks.length === 0) return;
+
+                const info = key === '__no_milestone__'
+                    ? { label: 'No Milestone', color: '#6b7280' }
+                    : getMilestoneInfo(key);
+
+                const completedCount = groupTasks.filter(t => {
+                    const originalTask = tasks.value.find(ot => ot.id === t.id);
+                    return originalTask?.status?.value === 'completed';
+                }).length;
+
+                result.push({
+                    type: 'group',
+                    groupKey: key,
+                    groupLabel: info.label,
+                    groupColor: info.color,
+                    dueDate: info.dueDate,
+                    taskCount: groupTasks.length,
+                    completedCount,
+                    isCollapsed: collapsedGroups.value.has(key)
+                });
+
+                if (!collapsedGroups.value.has(key)) {
+                    groupTasks.forEach(task => {
+                        result.push({ type: 'task', task });
+                    });
+                }
+            });
+
+            return result;
+        });
+
+        // Tasks to show in Gantt (excludes tasks in collapsed groups)
+        const ganttDisplayTasks = computed(() => {
+            return displayItems.value
+                .filter(item => item.type === 'task')
+                .map(item => item.task);
+        });
+
+        // Toggle milestone group collapse
+        function toggleGroupCollapse(groupKey) {
+            const newCollapsed = new Set(collapsedGroups.value);
+            if (newCollapsed.has(groupKey)) {
+                newCollapsed.delete(groupKey);
+            } else {
+                newCollapsed.add(groupKey);
+            }
+            collapsedGroups.value = newCollapsed;
+            nextTick(() => initGantt());
+        }
+
+        // Expand all milestone groups
+        function expandAllGroups() {
+            collapsedGroups.value = new Set();
+            nextTick(() => initGantt());
+        }
+
+        // Collapse all milestone groups
+        function collapseAllGroups() {
+            const allGroupKeys = displayItems.value
+                .filter(item => item.type === 'group')
+                .map(item => item.groupKey);
+            collapsedGroups.value = new Set(allGroupKeys);
+            nextTick(() => initGantt());
+        }
+
+        // Toggle grouping mode
+        function toggleGroupBy() {
+            groupBy.value = groupBy.value === 'none' ? 'milestone' : 'none';
+            saveGroupPreference();
+            nextTick(() => initGantt());
+        }
+
+        function saveGroupPreference() {
+            try {
+                localStorage.setItem(`${props.storageKey}_groupBy`, groupBy.value);
+            } catch (e) {}
+        }
+
+        function loadGroupPreference() {
+            try {
+                const saved = localStorage.getItem(`${props.storageKey}_groupBy`);
+                if (saved && ['none', 'milestone'].includes(saved)) {
+                    groupBy.value = saved;
+                }
+            } catch (e) {}
+        }
+
         function formatDate(date) {
             const d = new Date(date);
             const year = d.getFullYear();
@@ -348,7 +497,7 @@ export default {
                 return;
             }
 
-            const ganttData = visibleGanttTasks.value;
+            const ganttData = ganttDisplayTasks.value;
 
             if (ganttData.length === 0) {
                 // Show empty state
@@ -424,12 +573,15 @@ export default {
                 });
 
                 // Setup scroll sync and reorder bars after Gantt is initialized
-                nextTick(() => {
-                    measureGanttHeaderHeight();
-                    setupScrollSync();
-                    reorderGanttBars();
-                    drawTodayLine();
-                    applyBarColors();
+                // Use requestAnimationFrame + setTimeout to ensure Frappe Gantt has fully rendered
+                requestAnimationFrame(() => {
+                    setTimeout(() => {
+                        measureGanttHeaderHeight();
+                        setupScrollSync();
+                        reorderGanttBars();
+                        drawTodayLine();
+                        applyBarColors();
+                    }, 100);
                 });
             } catch (error) {
                 console.error('Failed to initialize Gantt chart:', error);
@@ -835,24 +987,18 @@ export default {
             }
         }
 
-        // Reorder Gantt bars to match our sort order
+        // Reorder Gantt bars to match our display order (including milestone groups)
         function reorderGanttBars() {
             if (!ganttContainer.value || !ganttInstance.value) return;
 
-            // Skip reordering for start_date sort since Frappe Gantt already does this
-            if (taskSortMode.value === 'start_date') return;
-
             const svg = ganttContainer.value.querySelector('svg.gantt');
             if (!svg) return;
-
-            // Get our desired order (task IDs)
-            const desiredOrder = ganttTasks.value.map(t => t.id);
 
             // Get all bar wrappers
             const barWrappers = Array.from(svg.querySelectorAll('.bar-wrapper'));
             if (barWrappers.length === 0) return;
 
-            // Create a map of task ID to current bar info
+            // Create a map of task ID to bar wrapper element
             const barMap = new Map();
             barWrappers.forEach(bar => {
                 const taskId = bar.getAttribute('data-id');
@@ -861,25 +1007,145 @@ export default {
                 }
             });
 
-            // Frappe Gantt positioning: y = header_height + padding + index * row_height
-            const baseY = ganttHeaderHeight.value + 18;
+            // Frappe Gantt positions bars at: header_height + padding + index * (bar_height + padding)
+            // where padding = 18 and bar_height = 20, so row_height = 38
+            // The bar Y position formula is: header_height + padding + index * row_height
+            // This equals: 50 + 18 + index * 38 = 68 + index * 38
 
-            desiredOrder.forEach((taskId, newIndex) => {
-                const bar = barMap.get(taskId);
-                if (bar) {
-                    const newY = baseY + (newIndex * GANTT_ROW_HEIGHT);
-                    // Find the bar-group inside and update its transform
-                    const barGroup = bar.querySelector('.bar-group');
-                    if (barGroup) {
-                        const currentTransform = barGroup.getAttribute('transform') || '';
-                        const match = currentTransform.match(/translate\(\s*([^,\s]+)\s*,\s*([^)\s]+)\s*\)/);
-                        if (match) {
-                            const x = match[1];
-                            barGroup.setAttribute('transform', `translate(${x}, ${newY})`);
-                        }
+            // Helper function to update all Y positions in a bar wrapper
+            const updateBarY = (barWrapper, newY) => {
+                // Update the main bar rect
+                const barRect = barWrapper.querySelector('.bar');
+                if (barRect) {
+                    barRect.setAttribute('y', newY);
+                }
+
+                // Update progress bar
+                const progressRect = barWrapper.querySelector('.bar-progress');
+                if (progressRect) {
+                    progressRect.setAttribute('y', newY);
+                }
+
+                // Update label (centered vertically in bar)
+                const label = barWrapper.querySelector('.bar-label');
+                if (label) {
+                    const barHeight = 20; // Frappe Gantt default bar_height
+                    label.setAttribute('y', newY + barHeight / 2);
+                }
+
+                // Update handles
+                const handles = barWrapper.querySelectorAll('.handle');
+                handles.forEach(handle => {
+                    handle.setAttribute('y', newY + 1);
+                });
+            };
+
+            // When grouping is disabled, just handle sort mode reordering
+            if (groupBy.value === 'none') {
+                // Skip reordering for start_date sort since Frappe Gantt already does this
+                if (taskSortMode.value === 'start_date') return;
+
+                // Get our desired order (task IDs)
+                const desiredOrder = ganttTasks.value.map(t => t.id);
+
+                desiredOrder.forEach((taskId, newIndex) => {
+                    const barWrapper = barMap.get(taskId);
+                    if (barWrapper) {
+                        // Bar Y = ganttHeaderHeight + padding/2 + index * row_height
+                        // ganttHeaderHeight = header_height + padding/2 = 50 + 9 = 59
+                        // So bar Y = 59 + 9 + index * 38 = 68 + index * 38
+                        const newY = ganttHeaderHeight.value + 9 + (newIndex * GANTT_ROW_HEIGHT);
+                        updateBarY(barWrapper, newY);
                     }
+                });
+                return;
+            }
+
+            // When grouping is enabled, reorder to account for milestone headers
+            // Build display index map accounting for milestone headers
+            let displayIndex = 0;
+            const taskDisplayIndexMap = new Map();
+            const groupRowIndices = []; // Track which row indices are group headers
+
+            displayItems.value.forEach(item => {
+                if (item.type === 'group') {
+                    groupRowIndices.push(displayIndex);
+                    displayIndex++; // Milestone header takes a row
+                } else if (item.type === 'task') {
+                    taskDisplayIndexMap.set(item.task.id, displayIndex);
+                    displayIndex++;
                 }
             });
+
+            // Position each bar at its correct display index
+            taskDisplayIndexMap.forEach((rowIndex, taskId) => {
+                const barWrapper = barMap.get(taskId);
+                if (barWrapper) {
+                    // Bar Y = ganttHeaderHeight + padding/2 + rowIndex * row_height
+                    const newY = ganttHeaderHeight.value + 9 + (rowIndex * GANTT_ROW_HEIGHT);
+                    updateBarY(barWrapper, newY);
+                }
+            });
+
+            // Calculate total rows needed (including milestone headers)
+            const totalRows = displayIndex;
+            const newHeight = ganttHeaderHeight.value + (totalRows * GANTT_ROW_HEIGHT) + 20;
+
+            // Update SVG height
+            svg.setAttribute('height', newHeight);
+
+            // Update grid background height
+            const gridBackground = svg.querySelector('.grid-background');
+            const gridWidth = gridBackground?.getAttribute('width') || '2000';
+            if (gridBackground) {
+                gridBackground.setAttribute('height', newHeight);
+            }
+
+            // Rebuild grid rows and row lines to match total row count
+            const gridLayer = svg.querySelector('.grid');
+            if (gridLayer) {
+                // Find or create grid-rows group (first g child after grid-background)
+                let gridRowsGroup = gridLayer.querySelector('g:nth-child(2)');
+                let gridLinesGroup = gridLayer.querySelector('g:nth-child(3)');
+
+                if (gridRowsGroup) {
+                    gridRowsGroup.innerHTML = '';
+
+                    // Create new rows for the total count
+                    for (let i = 0; i < totalRows; i++) {
+                        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                        rect.setAttribute('class', 'grid-row');
+                        rect.setAttribute('x', '0');
+                        rect.setAttribute('y', (ganttHeaderHeight.value + i * GANTT_ROW_HEIGHT).toString());
+                        rect.setAttribute('width', gridWidth);
+                        rect.setAttribute('height', GANTT_ROW_HEIGHT.toString());
+
+                        // Use different background for milestone header rows
+                        if (groupRowIndices.includes(i)) {
+                            rect.setAttribute('fill', '#f3f4f6'); // gray-100 for milestone rows
+                        } else {
+                            rect.setAttribute('fill', i % 2 === 0 ? '#ffffff' : '#f9fafb');
+                        }
+                        gridRowsGroup.appendChild(rect);
+                    }
+                }
+
+                if (gridLinesGroup) {
+                    gridLinesGroup.innerHTML = '';
+
+                    // Create row lines for each row
+                    for (let i = 0; i < totalRows; i++) {
+                        const lineY = ganttHeaderHeight.value + (i + 1) * GANTT_ROW_HEIGHT;
+                        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                        line.setAttribute('class', 'row-line');
+                        line.setAttribute('x1', '0');
+                        line.setAttribute('y1', lineY.toString());
+                        line.setAttribute('x2', gridWidth);
+                        line.setAttribute('y2', lineY.toString());
+                        gridLinesGroup.appendChild(line);
+                    }
+                }
+            }
         }
 
         // Handle external task updates
@@ -1400,6 +1666,7 @@ export default {
             loadViewPreference();
             loadSortPreference();
             loadTaskListWidth();
+            loadGroupPreference();
 
             // Wait for Gantt library to be available
             const checkGantt = () => {
@@ -1460,6 +1727,14 @@ export default {
             collapseAllTasks,
             taskListWidth,
             effectiveTaskListWidth,
+            // Milestone grouping
+            groupBy,
+            collapsedGroups,
+            displayItems,
+            toggleGroupCollapse,
+            expandAllGroups,
+            collapseAllGroups,
+            toggleGroupBy,
             isMobile,
             isResizing,
             startResize,
@@ -1520,6 +1795,23 @@ export default {
                 </div>
 
                 <div class="flex items-center gap-2">
+                    <!-- Group by Milestone Toggle -->
+                    <button
+                        @click="toggleGroupBy"
+                        :class="[
+                            'inline-flex items-center px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md border transition-colors',
+                            groupBy === 'milestone'
+                                ? 'bg-indigo-50 text-indigo-700 border-indigo-300 hover:bg-indigo-100'
+                                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        ]"
+                        title="Group by milestone"
+                    >
+                        <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h9.75m4.5-4.5v12m0 0l-3.75-3.75M17.25 21l3.75-3.75" />
+                        </svg>
+                        <span class="hidden sm:inline">Milestones</span>
+                    </button>
+
                     <!-- Today Button -->
                     <button
                         @click="scrollToToday"
@@ -1547,38 +1839,61 @@ export default {
             <div class="flex gap-0">
                 <!-- Left Task List Panel -->
                 <div
-                    v-if="visibleGanttTasks.length > 0"
+                    v-if="displayItems.length > 0"
                     class="flex flex-shrink-0 bg-white rounded-l-lg shadow-sm border-r border-gray-200 flex-col relative"
                     :style="{ width: effectiveTaskListWidth + 'px' }"
                 >
                     <!-- Task List Header (matches Gantt header height + small offset for alignment) -->
                     <div
                         class="flex items-center justify-between px-2 md:px-3 font-medium text-gray-700 text-xs md:text-sm border-b border-gray-200 bg-gray-50"
-                        :style="{ height: (ganttHeaderHeight + 2) + 'px' }"
+                        :style="{ height: ganttHeaderHeight + 'px' }"
                     >
                         <span>Tasks</span>
                         <div class="flex items-center gap-1">
-                            <!-- Expand/Collapse All Buttons -->
-                            <button
-                                v-if="tasksWithChildren.size > 0"
-                                @click.stop="expandAllTasks"
-                                class="p-1 rounded hover:bg-gray-200 transition-colors"
-                                title="Expand all"
-                            >
-                                <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
-                                </svg>
-                            </button>
-                            <button
-                                v-if="tasksWithChildren.size > 0"
-                                @click.stop="collapseAllTasks"
-                                class="p-1 rounded hover:bg-gray-200 transition-colors"
-                                title="Collapse all"
-                            >
-                                <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
-                                </svg>
-                            </button>
+                            <!-- Expand/Collapse All Milestone Groups (when grouped) -->
+                            <template v-if="groupBy === 'milestone'">
+                                <button
+                                    @click.stop="expandAllGroups"
+                                    class="p-1 rounded hover:bg-gray-200 transition-colors"
+                                    title="Expand all milestones"
+                                >
+                                    <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+                                    </svg>
+                                </button>
+                                <button
+                                    @click.stop="collapseAllGroups"
+                                    class="p-1 rounded hover:bg-gray-200 transition-colors"
+                                    title="Collapse all milestones"
+                                >
+                                    <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
+                                    </svg>
+                                </button>
+                            </template>
+                            <!-- Expand/Collapse All Task Trees (when not grouped) -->
+                            <template v-else>
+                                <button
+                                    v-if="tasksWithChildren.size > 0"
+                                    @click.stop="expandAllTasks"
+                                    class="p-1 rounded hover:bg-gray-200 transition-colors"
+                                    title="Expand all"
+                                >
+                                    <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+                                    </svg>
+                                </button>
+                                <button
+                                    v-if="tasksWithChildren.size > 0"
+                                    @click.stop="collapseAllTasks"
+                                    class="p-1 rounded hover:bg-gray-200 transition-colors"
+                                    title="Collapse all"
+                                >
+                                    <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
+                                    </svg>
+                                </button>
+                            </template>
                             <!-- Sort Dropdown -->
                             <div class="relative">
                                 <button
@@ -1618,196 +1933,237 @@ export default {
                         class="flex-1 overflow-y-auto overflow-x-hidden"
                         @scroll="syncScrollFromTaskList"
                     >
-                        <template v-for="(task, index) in visibleGanttTasks" :key="task.id">
-                            <!-- Quick Add Above Row -->
+                        <template v-for="(item, index) in displayItems" :key="item.type === 'group' ? 'g-' + item.groupKey : 't-' + item.task.id">
+                            <!-- Milestone Group Header -->
                             <div
-                                v-if="quickAddMode === 'above' && quickAddTargetTaskId === task.id"
-                                class="flex items-center border-b border-primary-200 bg-primary-50"
-                                :style="{
-                                    height: GANTT_ROW_HEIGHT + 'px',
-                                    paddingLeft: (isMobile ? (4 + (task.depth || 0) * 10) : (8 + (task.depth || 0) * 14)) + 'px',
-                                    paddingRight: (isMobile ? 4 : 8) + 'px'
-                                }"
+                                v-if="item.type === 'group'"
+                                class="flex items-center border-b border-gray-200 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
+                                :style="{ height: GANTT_ROW_HEIGHT + 'px', paddingLeft: (isMobile ? 4 : 8) + 'px', paddingRight: (isMobile ? 4 : 8) + 'px' }"
+                                @click="toggleGroupCollapse(item.groupKey)"
                             >
-                                <span class="w-2 h-2 rounded-full mr-1.5 flex-shrink-0 bg-gray-400"></span>
-                                <input
-                                    ref="quickAddInputRef"
-                                    type="text"
-                                    v-model="quickAddTitle"
-                                    placeholder="New task title..."
-                                    :disabled="isCreatingTask"
-                                    @keydown="handleQuickAddKeydown"
-                                    @blur="quickAddTitle.trim() ? null : cancelQuickAdd()"
-                                    class="flex-1 min-w-0 px-2 py-1 text-sm border border-primary-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white"
-                                />
+                                <!-- Expand/Collapse toggle -->
                                 <button
-                                    @click="saveQuickAdd"
-                                    :disabled="!quickAddTitle.trim() || isCreatingTask"
-                                    class="ml-1 p-1 text-primary-600 hover:text-primary-800 disabled:opacity-50"
-                                >
-                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                    </svg>
-                                </button>
-                                <button
-                                    @click="cancelQuickAdd"
-                                    :disabled="isCreatingTask"
-                                    class="p-1 text-gray-400 hover:text-gray-600"
-                                >
-                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-                            </div>
-
-                            <!-- Task Row -->
-                            <div
-                                class="flex items-center border-b border-gray-100 cursor-pointer transition-colors"
-                                :class="[
-                                    hoveredTaskId === task.id ? 'bg-primary-50' : 'hover:bg-gray-50'
-                                ]"
-                                :style="{
-                                    height: GANTT_ROW_HEIGHT + 'px',
-                                    paddingLeft: (isMobile ? (4 + task.depth * 10) : (8 + task.depth * 14)) + 'px',
-                                    paddingRight: (isMobile ? 4 : 8) + 'px'
-                                }"
-                                @mouseenter="handleTaskHover(task.id)"
-                                @mouseleave="handleTaskLeave"
-                                @click="openTask(task.id)"
-                                @contextmenu="handleTaskContextMenu(task, $event)"
-                                @touchstart="handleTouchStart(task, $event)"
-                                @touchend="handleTouchEnd"
-                                @touchmove="handleTouchMove"
-                            >
-                                <!-- Expand/Collapse toggle for tasks with children -->
-                                <button
-                                    v-if="tasksWithChildren.has(task.id)"
-                                    @click.stop="toggleTaskCollapse(task.id)"
-                                    class="flex-shrink-0 w-4 h-4 mr-1 flex items-center justify-center rounded hover:bg-gray-200 transition-colors"
+                                    class="flex-shrink-0 w-4 h-4 mr-1.5 flex items-center justify-center"
                                 >
                                     <svg
                                         class="w-3 h-3 text-gray-500 transition-transform"
-                                        :class="collapsedTaskIds.has(task.id) ? '' : 'rotate-90'"
+                                        :class="item.isCollapsed ? '' : 'rotate-90'"
                                         fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
                                     >
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                                     </svg>
                                 </button>
-                                <!-- Spacer for tasks without children (to align with those that have toggle) -->
-                                <span v-else-if="tasksWithChildren.size > 0" class="flex-shrink-0 w-4 mr-1"></span>
-                                <!-- Tree indent indicator for nested tasks -->
+                                <!-- Milestone icon -->
+                                <svg class="w-3.5 h-3.5 mr-1.5 flex-shrink-0" :style="{ color: item.groupColor }" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v1.5M3 21v-6m0 0l2.77-.693a9 9 0 016.208.682l.108.054a9 9 0 006.086.71l3.114-.732a48.524 48.524 0 01-.005-10.499l-3.11.732a9 9 0 01-6.085-.711l-.108-.054a9 9 0 00-6.208-.682L3 4.5M3 15V4.5" />
+                                </svg>
+                                <!-- Milestone name -->
                                 <span
-                                    v-if="task.depth > 0"
-                                    class="flex-shrink-0 mr-1 text-gray-300"
+                                    class="truncate font-medium"
+                                    :class="isMobile ? 'text-xs' : 'text-sm'"
+                                    :style="{ color: item.groupColor }"
+                                    :title="item.groupLabel"
                                 >
-                                    <svg class="w-3 h-3" viewBox="0 0 12 12" fill="none">
-                                        <path d="M3 1v6h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                                    </svg>
+                                    {{ item.groupLabel }}
                                 </span>
-                                <!-- Status indicator dot -->
-                                <span
-                                    class="w-2 h-2 rounded-full mr-1.5 flex-shrink-0"
-                                    :style="{ backgroundColor: task.statusColor || '#6b7280' }"
-                                ></span>
-                                <!-- Task name -->
-                                <span
-                                    class="truncate"
+                                <!-- Task count badge -->
+                                <span class="ml-auto flex-shrink-0 text-xs text-gray-500 bg-gray-200 px-1.5 py-0.5 rounded">
+                                    {{ item.completedCount }}/{{ item.taskCount }}
+                                </span>
+                            </div>
+
+                            <!-- Task Row -->
+                            <template v-else>
+                                <!-- Quick Add Above Row -->
+                                <div
+                                    v-if="quickAddMode === 'above' && quickAddTargetTaskId === item.task.id"
+                                    class="flex items-center border-b border-primary-200 bg-primary-50"
+                                    :style="{
+                                        height: GANTT_ROW_HEIGHT + 'px',
+                                        paddingLeft: (isMobile ? (4 + (item.task.depth || 0) * 10 + (groupBy === 'milestone' ? 12 : 0)) : (8 + (item.task.depth || 0) * 14 + (groupBy === 'milestone' ? 16 : 0))) + 'px',
+                                        paddingRight: (isMobile ? 4 : 8) + 'px'
+                                    }"
+                                >
+                                    <span class="w-2 h-2 rounded-full mr-1.5 flex-shrink-0 bg-gray-400"></span>
+                                    <input
+                                        ref="quickAddInputRef"
+                                        type="text"
+                                        v-model="quickAddTitle"
+                                        placeholder="New task title..."
+                                        :disabled="isCreatingTask"
+                                        @keydown="handleQuickAddKeydown"
+                                        @blur="quickAddTitle.trim() ? null : cancelQuickAdd()"
+                                        class="flex-1 min-w-0 px-2 py-1 text-sm border border-primary-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white"
+                                    />
+                                    <button
+                                        @click="saveQuickAdd"
+                                        :disabled="!quickAddTitle.trim() || isCreatingTask"
+                                        class="ml-1 p-1 text-primary-600 hover:text-primary-800 disabled:opacity-50"
+                                    >
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        @click="cancelQuickAdd"
+                                        :disabled="isCreatingTask"
+                                        class="p-1 text-gray-400 hover:text-gray-600"
+                                    >
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+
+                                <!-- Actual Task Row -->
+                                <div
+                                    class="flex items-center border-b border-gray-100 cursor-pointer transition-colors"
                                     :class="[
-                                        isMobile ? 'text-xs' : 'text-sm',
-                                        task.depth === 0 ? 'text-gray-900 font-medium' : 'text-gray-700'
+                                        hoveredTaskId === item.task.id ? 'bg-primary-50' : 'hover:bg-gray-50'
                                     ]"
-                                    :title="task.name"
+                                    :style="{
+                                        height: GANTT_ROW_HEIGHT + 'px',
+                                        paddingLeft: (isMobile ? (4 + item.task.depth * 10 + (groupBy === 'milestone' ? 12 : 0)) : (8 + item.task.depth * 14 + (groupBy === 'milestone' ? 16 : 0))) + 'px',
+                                        paddingRight: (isMobile ? 4 : 8) + 'px'
+                                    }"
+                                    @mouseenter="handleTaskHover(item.task.id)"
+                                    @mouseleave="handleTaskLeave"
+                                    @click="openTask(item.task.id)"
+                                    @contextmenu="handleTaskContextMenu(item.task, $event)"
+                                    @touchstart="handleTouchStart(item.task, $event)"
+                                    @touchend="handleTouchEnd"
+                                    @touchmove="handleTouchMove"
                                 >
-                                    {{ task.name }}
-                                </span>
-                            </div>
+                                    <!-- Expand/Collapse toggle for tasks with children -->
+                                    <button
+                                        v-if="tasksWithChildren.has(item.task.id)"
+                                        @click.stop="toggleTaskCollapse(item.task.id)"
+                                        class="flex-shrink-0 w-4 h-4 mr-1 flex items-center justify-center rounded hover:bg-gray-200 transition-colors"
+                                    >
+                                        <svg
+                                            class="w-3 h-3 text-gray-500 transition-transform"
+                                            :class="collapsedTaskIds.has(item.task.id) ? '' : 'rotate-90'"
+                                            fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
+                                        >
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                                        </svg>
+                                    </button>
+                                    <!-- Spacer for tasks without children (to align with those that have toggle) -->
+                                    <span v-else-if="tasksWithChildren.size > 0" class="flex-shrink-0 w-4 mr-1"></span>
+                                    <!-- Tree indent indicator for nested tasks -->
+                                    <span
+                                        v-if="item.task.depth > 0"
+                                        class="flex-shrink-0 mr-1 text-gray-300"
+                                    >
+                                        <svg class="w-3 h-3" viewBox="0 0 12 12" fill="none">
+                                            <path d="M3 1v6h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                    </span>
+                                    <!-- Status indicator dot -->
+                                    <span
+                                        class="w-2 h-2 rounded-full mr-1.5 flex-shrink-0"
+                                        :style="{ backgroundColor: item.task.statusColor || '#6b7280' }"
+                                    ></span>
+                                    <!-- Task name -->
+                                    <span
+                                        class="truncate"
+                                        :class="[
+                                            isMobile ? 'text-xs' : 'text-sm',
+                                            item.task.depth === 0 ? 'text-gray-900 font-medium' : 'text-gray-700'
+                                        ]"
+                                        :title="item.task.name"
+                                    >
+                                        {{ item.task.name }}
+                                    </span>
+                                </div>
 
-                            <!-- Quick Add Below Row -->
-                            <div
-                                v-if="quickAddMode === 'below' && quickAddTargetTaskId === task.id"
-                                class="flex items-center border-b border-primary-200 bg-primary-50"
-                                :style="{
-                                    height: GANTT_ROW_HEIGHT + 'px',
-                                    paddingLeft: (isMobile ? (4 + (task.depth || 0) * 10) : (8 + (task.depth || 0) * 14)) + 'px',
-                                    paddingRight: (isMobile ? 4 : 8) + 'px'
-                                }"
-                            >
-                                <span class="w-2 h-2 rounded-full mr-1.5 flex-shrink-0 bg-gray-400"></span>
-                                <input
-                                    ref="quickAddInputRef"
-                                    type="text"
-                                    v-model="quickAddTitle"
-                                    placeholder="New task title..."
-                                    :disabled="isCreatingTask"
-                                    @keydown="handleQuickAddKeydown"
-                                    @blur="quickAddTitle.trim() ? null : cancelQuickAdd()"
-                                    class="flex-1 min-w-0 px-2 py-1 text-sm border border-primary-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white"
-                                />
-                                <button
-                                    @click="saveQuickAdd"
-                                    :disabled="!quickAddTitle.trim() || isCreatingTask"
-                                    class="ml-1 p-1 text-primary-600 hover:text-primary-800 disabled:opacity-50"
+                                <!-- Quick Add Below Row -->
+                                <div
+                                    v-if="quickAddMode === 'below' && quickAddTargetTaskId === item.task.id"
+                                    class="flex items-center border-b border-primary-200 bg-primary-50"
+                                    :style="{
+                                        height: GANTT_ROW_HEIGHT + 'px',
+                                        paddingLeft: (isMobile ? (4 + (item.task.depth || 0) * 10 + (groupBy === 'milestone' ? 12 : 0)) : (8 + (item.task.depth || 0) * 14 + (groupBy === 'milestone' ? 16 : 0))) + 'px',
+                                        paddingRight: (isMobile ? 4 : 8) + 'px'
+                                    }"
                                 >
-                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                    </svg>
-                                </button>
-                                <button
-                                    @click="cancelQuickAdd"
-                                    :disabled="isCreatingTask"
-                                    class="p-1 text-gray-400 hover:text-gray-600"
-                                >
-                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-                            </div>
+                                    <span class="w-2 h-2 rounded-full mr-1.5 flex-shrink-0 bg-gray-400"></span>
+                                    <input
+                                        ref="quickAddInputRef"
+                                        type="text"
+                                        v-model="quickAddTitle"
+                                        placeholder="New task title..."
+                                        :disabled="isCreatingTask"
+                                        @keydown="handleQuickAddKeydown"
+                                        @blur="quickAddTitle.trim() ? null : cancelQuickAdd()"
+                                        class="flex-1 min-w-0 px-2 py-1 text-sm border border-primary-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white"
+                                    />
+                                    <button
+                                        @click="saveQuickAdd"
+                                        :disabled="!quickAddTitle.trim() || isCreatingTask"
+                                        class="ml-1 p-1 text-primary-600 hover:text-primary-800 disabled:opacity-50"
+                                    >
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        @click="cancelQuickAdd"
+                                        :disabled="isCreatingTask"
+                                        class="p-1 text-gray-400 hover:text-gray-600"
+                                    >
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
 
-                            <!-- Quick Add Subtask Row -->
-                            <div
-                                v-if="quickAddMode === 'subtask' && quickAddTargetTaskId === task.id"
-                                class="flex items-center border-b border-primary-200 bg-primary-50"
-                                :style="{
-                                    height: GANTT_ROW_HEIGHT + 'px',
-                                    paddingLeft: (isMobile ? (4 + ((task.depth || 0) + 1) * 10) : (8 + ((task.depth || 0) + 1) * 14)) + 'px',
-                                    paddingRight: (isMobile ? 4 : 8) + 'px'
-                                }"
-                            >
-                                <span class="flex-shrink-0 mr-1 text-gray-300">
-                                    <svg class="w-3 h-3" viewBox="0 0 12 12" fill="none">
-                                        <path d="M3 1v6h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                                    </svg>
-                                </span>
-                                <span class="w-2 h-2 rounded-full mr-1.5 flex-shrink-0 bg-gray-400"></span>
-                                <input
-                                    ref="quickAddInputRef"
-                                    type="text"
-                                    v-model="quickAddTitle"
-                                    placeholder="New subtask title..."
-                                    :disabled="isCreatingTask"
-                                    @keydown="handleQuickAddKeydown"
-                                    @blur="quickAddTitle.trim() ? null : cancelQuickAdd()"
-                                    class="flex-1 min-w-0 px-2 py-1 text-sm border border-primary-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white"
-                                />
-                                <button
-                                    @click="saveQuickAdd"
-                                    :disabled="!quickAddTitle.trim() || isCreatingTask"
-                                    class="ml-1 p-1 text-primary-600 hover:text-primary-800 disabled:opacity-50"
+                                <!-- Quick Add Subtask Row -->
+                                <div
+                                    v-if="quickAddMode === 'subtask' && quickAddTargetTaskId === item.task.id"
+                                    class="flex items-center border-b border-primary-200 bg-primary-50"
+                                    :style="{
+                                        height: GANTT_ROW_HEIGHT + 'px',
+                                        paddingLeft: (isMobile ? (4 + ((item.task.depth || 0) + 1) * 10 + (groupBy === 'milestone' ? 12 : 0)) : (8 + ((item.task.depth || 0) + 1) * 14 + (groupBy === 'milestone' ? 16 : 0))) + 'px',
+                                        paddingRight: (isMobile ? 4 : 8) + 'px'
+                                    }"
                                 >
-                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                    </svg>
-                                </button>
-                                <button
-                                    @click="cancelQuickAdd"
-                                    :disabled="isCreatingTask"
-                                    class="p-1 text-gray-400 hover:text-gray-600"
-                                >
-                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-                            </div>
+                                    <span class="flex-shrink-0 mr-1 text-gray-300">
+                                        <svg class="w-3 h-3" viewBox="0 0 12 12" fill="none">
+                                            <path d="M3 1v6h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                    </span>
+                                    <span class="w-2 h-2 rounded-full mr-1.5 flex-shrink-0 bg-gray-400"></span>
+                                    <input
+                                        ref="quickAddInputRef"
+                                        type="text"
+                                        v-model="quickAddTitle"
+                                        placeholder="New subtask title..."
+                                        :disabled="isCreatingTask"
+                                        @keydown="handleQuickAddKeydown"
+                                        @blur="quickAddTitle.trim() ? null : cancelQuickAdd()"
+                                        class="flex-1 min-w-0 px-2 py-1 text-sm border border-primary-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white"
+                                    />
+                                    <button
+                                        @click="saveQuickAdd"
+                                        :disabled="!quickAddTitle.trim() || isCreatingTask"
+                                        class="ml-1 p-1 text-primary-600 hover:text-primary-800 disabled:opacity-50"
+                                    >
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        @click="cancelQuickAdd"
+                                        :disabled="isCreatingTask"
+                                        class="p-1 text-gray-400 hover:text-gray-600"
+                                    >
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </template>
                         </template>
                     </div>
                     <!-- Resize Handle (wider touch target on mobile) -->
@@ -1825,8 +2181,8 @@ export default {
                 </div>
 
                 <!-- Gantt Chart -->
-                <div class="flex-1 bg-white shadow-sm overflow-hidden" :class="visibleGanttTasks.length > 0 ? 'rounded-r-lg' : 'rounded-lg'">
-                    <div v-if="visibleGanttTasks.length === 0" class="flex flex-col items-center justify-center py-16 text-gray-500">
+                <div class="flex-1 bg-white shadow-sm overflow-hidden" :class="displayItems.length > 0 ? 'rounded-r-lg' : 'rounded-lg'">
+                    <div v-if="ganttTasks.length === 0" class="flex flex-col items-center justify-center py-16 text-gray-500">
                         <svg class="w-16 h-16 mb-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5m-9-6h.008v.008H12v-.008zM12 15h.008v.008H12V15zm0 2.25h.008v.008H12v-.008zM9.75 15h.008v.008H9.75V15zm0 2.25h.008v.008H9.75v-.008zM7.5 15h.008v.008H7.5V15zm0 2.25h.008v.008H7.5v-.008zm6.75-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V15zm0 2.25h.008v.008h-.008v-.008zm2.25-4.5h.008v.008H16.5v-.008zm0 2.25h.008v.008H16.5V15z" />
                         </svg>
