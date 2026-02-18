@@ -22,6 +22,7 @@ use App\Service\HtmlSanitizer;
 use App\Service\NotificationService;
 use App\Service\PermissionChecker;
 use App\Service\PersonalProjectService;
+use App\Service\RecurrenceService;
 use App\Service\TaskStatusService;
 use App\Security\Voter\TaskVoter;
 use Doctrine\ORM\EntityManagerInterface;
@@ -47,6 +48,7 @@ class TaskController extends AbstractController
         private readonly PermissionChecker $permissionChecker,
         private readonly PersonalProjectService $personalProjectService,
         private readonly TaskStatusService $taskStatusService,
+        private readonly RecurrenceService $recurrenceService,
     ) {
     }
 
@@ -519,14 +521,40 @@ class TaskController extends AbstractController
             );
         }
 
+        // If task is completed and has recurrence, create the next instance
+        $nextTask = null;
+        if ($isCompleted && $task->isRecurring()) {
+            $nextTask = $this->recurrenceService->createNextInstance($task, $user);
+            if ($nextTask !== null) {
+                $this->activityService->logTaskCreated(
+                    $project,
+                    $user,
+                    $nextTask->getId(),
+                    $nextTask->getTitle()
+                );
+            }
+        }
+
         $this->entityManager->flush();
 
-        return $this->json([
+        $response = [
             'success' => true,
             'status' => $task->getEffectiveStatusValue(),
             'statusLabel' => $task->getEffectiveStatusLabel(),
             'statusColor' => $task->getEffectiveStatusColor(),
-        ]);
+        ];
+
+        // Include next task info if a recurrence was created
+        if ($nextTask !== null) {
+            $response['nextRecurringTask'] = [
+                'id' => $nextTask->getId()->toString(),
+                'title' => $nextTask->getTitle(),
+                'dueDate' => $nextTask->getDueDate()?->format('Y-m-d'),
+                'dueDateFormatted' => $nextTask->getDueDate()?->format('M d, Y'),
+            ];
+        }
+
+        return $this->json($response);
     }
 
     #[Route('/tasks/{id}/priority', name: 'app_task_update_priority', methods: ['POST'])]
@@ -1894,6 +1922,189 @@ class TaskController extends AbstractController
         return $this->json([
             'success' => true,
             'members' => $members,
+        ]);
+    }
+
+    #[Route('/tasks/{id}/recurrence', name: 'app_task_set_recurrence', methods: ['POST'])]
+    public function setRecurrence(Request $request, Task $task): JsonResponse
+    {
+        $project = $task->getProject();
+        $this->denyAccessUnlessGranted('PROJECT_EDIT', $project);
+
+        $data = json_decode($request->getContent(), true);
+
+        // Build the recurrence rule
+        $rule = [];
+
+        $frequency = $data['frequency'] ?? null;
+        if (!$frequency) {
+            return $this->json(['error' => 'Frequency is required'], Response::HTTP_BAD_REQUEST);
+        }
+        $rule['frequency'] = $frequency;
+        $rule['interval'] = max(1, (int) ($data['interval'] ?? 1));
+
+        // Optional fields based on frequency
+        if (isset($data['weekdaysOnly'])) {
+            $rule['weekdaysOnly'] = (bool) $data['weekdaysOnly'];
+        }
+        if (isset($data['weekDays']) && is_array($data['weekDays'])) {
+            $rule['weekDays'] = array_map('intval', $data['weekDays']);
+        }
+        if (isset($data['monthlyType'])) {
+            $rule['monthlyType'] = $data['monthlyType'];
+        }
+        if (isset($data['weekOfMonth'])) {
+            $rule['weekOfMonth'] = (int) $data['weekOfMonth'];
+        }
+        if (isset($data['dayOfWeek'])) {
+            $rule['dayOfWeek'] = (int) $data['dayOfWeek'];
+        }
+
+        // End conditions
+        $endsAt = null;
+        if (!empty($data['endsAt'])) {
+            try {
+                $endsAt = new \DateTimeImmutable($data['endsAt']);
+            } catch (\Exception $e) {
+                return $this->json(['error' => 'Invalid end date format'], Response::HTTP_BAD_REQUEST);
+            }
+        }
+
+        $count = null;
+        if (isset($data['count']) && $data['count'] !== null) {
+            $count = min(52, max(1, (int) $data['count']));
+        }
+
+        try {
+            $this->recurrenceService->setupRecurrence($task, $rule, $endsAt, $count);
+            $this->entityManager->flush();
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+
+        return $this->json([
+            'success' => true,
+            'recurrence' => [
+                'rule' => $task->getRecurrenceRule(),
+                'description' => $task->getRecurrenceDescription(),
+                'endsAt' => $task->getRecurrenceEndsAt()?->format('Y-m-d'),
+                'countRemaining' => $task->getRecurrenceCountRemaining(),
+                'seriesId' => $task->getRecurrenceSeriesId()?->toString(),
+            ],
+        ]);
+    }
+
+    #[Route('/tasks/{id}/recurrence', name: 'app_task_remove_recurrence', methods: ['DELETE'])]
+    public function removeRecurrence(Task $task): JsonResponse
+    {
+        $project = $task->getProject();
+        $this->denyAccessUnlessGranted('PROJECT_EDIT', $project);
+
+        $this->recurrenceService->removeRecurrence($task);
+        $this->entityManager->flush();
+
+        return $this->json([
+            'success' => true,
+            'message' => 'Recurrence removed',
+        ]);
+    }
+
+    #[Route('/tasks/{id}/recurrence/series', name: 'app_task_recurrence_series', methods: ['GET'])]
+    public function getRecurrenceSeries(Task $task): JsonResponse
+    {
+        $project = $task->getProject();
+        $this->denyAccessUnlessGranted('PROJECT_VIEW', $project);
+
+        if (!$task->isPartOfRecurrenceSeries()) {
+            return $this->json([
+                'success' => true,
+                'instances' => [],
+            ]);
+        }
+
+        $instances = $this->taskRepository->findByRecurrenceSeries($task->getRecurrenceSeriesId());
+
+        $instancesData = [];
+        foreach ($instances as $instance) {
+            $instancesData[] = [
+                'id' => $instance->getId()->toString(),
+                'title' => $instance->getTitle(),
+                'status' => $instance->getEffectiveStatusValue(),
+                'statusLabel' => $instance->getEffectiveStatusLabel(),
+                'dueDate' => $instance->getDueDate()?->format('Y-m-d'),
+                'dueDateFormatted' => $instance->getDueDate()?->format('M d, Y'),
+                'isCompleted' => $instance->isEffectivelyCompleted(),
+            ];
+        }
+
+        return $this->json([
+            'success' => true,
+            'instances' => $instancesData,
+        ]);
+    }
+
+    #[Route('/tasks/{id}/recurrence/info', name: 'app_task_recurrence_info', methods: ['GET'])]
+    public function getRecurrenceInfo(Task $task): JsonResponse
+    {
+        $project = $task->getProject();
+        $this->denyAccessUnlessGranted('PROJECT_VIEW', $project);
+
+        return $this->json([
+            'success' => true,
+            'isRecurring' => $task->isRecurring(),
+            'isPartOfSeries' => $task->isPartOfRecurrenceSeries(),
+            'recurrence' => $task->isRecurring() ? [
+                'rule' => $task->getRecurrenceRule(),
+                'description' => $task->getRecurrenceDescription(),
+                'endsAt' => $task->getRecurrenceEndsAt()?->format('Y-m-d'),
+                'countRemaining' => $task->getRecurrenceCountRemaining(),
+                'seriesId' => $task->getRecurrenceSeriesId()?->toString(),
+            ] : null,
+        ]);
+    }
+
+    #[Route('/tasks/{id}/delete-recurring', name: 'app_task_delete_recurring', methods: ['POST'])]
+    public function deleteRecurring(Request $request, Task $task): JsonResponse
+    {
+        $project = $task->getProject();
+        $this->denyAccessUnlessGranted('PROJECT_EDIT', $project);
+
+        $data = json_decode($request->getContent(), true);
+        $scope = $data['scope'] ?? 'this';
+
+        $deletedIds = [];
+
+        if ($scope === 'this') {
+            // Delete only this instance
+            $deletedIds[] = $task->getId()->toString();
+            $this->entityManager->remove($task);
+        } elseif ($scope === 'future') {
+            // Delete this and all future instances
+            $tasksToDelete = $this->recurrenceService->deleteFutureInstances($task);
+            foreach ($tasksToDelete as $t) {
+                $deletedIds[] = $t->getId()->toString();
+                $this->entityManager->remove($t);
+            }
+        } elseif ($scope === 'all') {
+            // Delete all instances in the series
+            if ($task->isPartOfRecurrenceSeries()) {
+                $allTasks = $this->taskRepository->findByRecurrenceSeries($task->getRecurrenceSeriesId());
+                foreach ($allTasks as $t) {
+                    $deletedIds[] = $t->getId()->toString();
+                    $this->entityManager->remove($t);
+                }
+            } else {
+                $deletedIds[] = $task->getId()->toString();
+                $this->entityManager->remove($task);
+            }
+        }
+
+        $this->entityManager->flush();
+
+        return $this->json([
+            'success' => true,
+            'deletedIds' => $deletedIds,
+            'count' => count($deletedIds),
         ]);
     }
 

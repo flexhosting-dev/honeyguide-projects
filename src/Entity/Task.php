@@ -10,6 +10,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use App\Enum\RecurrenceFrequency;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -21,6 +22,7 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
 #[ORM\Index(name: 'idx_task_status_type', columns: ['status_type_id'])]
 #[ORM\Index(name: 'idx_task_priority', columns: ['priority'])]
 #[ORM\Index(name: 'idx_task_due_date', columns: ['due_date'])]
+#[ORM\Index(name: 'idx_task_recurrence_series', columns: ['recurrence_series_id'])]
 #[Assert\Callback('validateDates')]
 class Task
 {
@@ -92,6 +94,31 @@ class Task
     #[ORM\ManyToMany(targetEntity: Tag::class, inversedBy: 'tasks')]
     #[ORM\JoinTable(name: 'task_tag')]
     private Collection $tags;
+
+    /** Recurrence rule storing frequency, interval, weekDays, etc. */
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    private ?array $recurrenceRule = null;
+
+    /** UUID linking all instances in the same recurrence series */
+    #[ORM\Column(type: 'uuid', nullable: true)]
+    private ?UuidInterface $recurrenceSeriesId = null;
+
+    /** Points to the task that spawned this recurring instance */
+    #[ORM\ManyToOne(targetEntity: Task::class)]
+    #[ORM\JoinColumn(name: 'recurrence_parent_id', nullable: true, onDelete: 'SET NULL')]
+    private ?Task $recurrenceParent = null;
+
+    /** Optional end date for recurrence */
+    #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $recurrenceEndsAt = null;
+
+    /** Optional remaining occurrences (max 52) */
+    #[ORM\Column(nullable: true)]
+    private ?int $recurrenceCountRemaining = null;
+
+    /** Tracks which fields were edited for "this instance only" */
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    private ?array $recurrenceOverrides = null;
 
     public function __construct()
     {
@@ -456,5 +483,188 @@ class Task
                 ->atPath('dueDate')
                 ->addViolation();
         }
+    }
+
+    // Recurrence getters and setters
+
+    public function getRecurrenceRule(): ?array
+    {
+        return $this->recurrenceRule;
+    }
+
+    public function setRecurrenceRule(?array $recurrenceRule): static
+    {
+        $this->recurrenceRule = $recurrenceRule;
+        return $this;
+    }
+
+    public function getRecurrenceSeriesId(): ?UuidInterface
+    {
+        return $this->recurrenceSeriesId;
+    }
+
+    public function setRecurrenceSeriesId(?UuidInterface $recurrenceSeriesId): static
+    {
+        $this->recurrenceSeriesId = $recurrenceSeriesId;
+        return $this;
+    }
+
+    public function getRecurrenceParent(): ?Task
+    {
+        return $this->recurrenceParent;
+    }
+
+    public function setRecurrenceParent(?Task $recurrenceParent): static
+    {
+        $this->recurrenceParent = $recurrenceParent;
+        return $this;
+    }
+
+    public function getRecurrenceEndsAt(): ?\DateTimeImmutable
+    {
+        return $this->recurrenceEndsAt;
+    }
+
+    public function setRecurrenceEndsAt(?\DateTimeImmutable $recurrenceEndsAt): static
+    {
+        $this->recurrenceEndsAt = $recurrenceEndsAt;
+        return $this;
+    }
+
+    public function getRecurrenceCountRemaining(): ?int
+    {
+        return $this->recurrenceCountRemaining;
+    }
+
+    public function setRecurrenceCountRemaining(?int $recurrenceCountRemaining): static
+    {
+        $this->recurrenceCountRemaining = $recurrenceCountRemaining;
+        return $this;
+    }
+
+    public function getRecurrenceOverrides(): ?array
+    {
+        return $this->recurrenceOverrides;
+    }
+
+    public function setRecurrenceOverrides(?array $recurrenceOverrides): static
+    {
+        $this->recurrenceOverrides = $recurrenceOverrides;
+        return $this;
+    }
+
+    // Recurrence helper methods
+
+    /**
+     * Check if this task has a recurrence rule
+     */
+    public function isRecurring(): bool
+    {
+        return $this->recurrenceRule !== null && !empty($this->recurrenceRule);
+    }
+
+    /**
+     * Check if this task is part of a recurrence series
+     */
+    public function isPartOfRecurrenceSeries(): bool
+    {
+        return $this->recurrenceSeriesId !== null;
+    }
+
+    /**
+     * Get human-readable description of the recurrence rule
+     */
+    public function getRecurrenceDescription(): string
+    {
+        if (!$this->isRecurring()) {
+            return 'Does not repeat';
+        }
+
+        $rule = $this->recurrenceRule;
+        $frequency = RecurrenceFrequency::tryFrom($rule['frequency'] ?? '');
+        if ($frequency === null) {
+            return 'Does not repeat';
+        }
+
+        $interval = $rule['interval'] ?? 1;
+
+        // Handle daily with weekdays only
+        if ($frequency === RecurrenceFrequency::DAILY && ($rule['weekdaysOnly'] ?? false)) {
+            return 'Every weekday (Mon-Fri)';
+        }
+
+        // Handle weekly with specific days
+        if ($frequency === RecurrenceFrequency::WEEKLY && !empty($rule['weekDays'])) {
+            $dayNames = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+            $days = array_map(fn($d) => $dayNames[$d] ?? '', $rule['weekDays']);
+            $daysStr = implode(', ', $days);
+            if ($interval === 1) {
+                return "Weekly on $daysStr";
+            }
+            return "Every $interval weeks on $daysStr";
+        }
+
+        // Handle monthly by day of week
+        if ($frequency === RecurrenceFrequency::MONTHLY && ($rule['monthlyType'] ?? '') === 'dayOfWeek') {
+            $dayNames = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+            $weekNames = [1 => 'first', 2 => 'second', 3 => 'third', 4 => 'fourth', -1 => 'last'];
+            $weekOfMonth = $rule['weekOfMonth'] ?? 1;
+            $dayOfWeek = $rule['dayOfWeek'] ?? 1;
+            $weekStr = $weekNames[$weekOfMonth] ?? 'first';
+            $dayStr = $dayNames[$dayOfWeek] ?? 'Monday';
+            if ($interval === 1) {
+                return "Monthly on the $weekStr $dayStr";
+            }
+            return "Every $interval months on the $weekStr $dayStr";
+        }
+
+        // Simple interval description
+        if ($interval === 1) {
+            return $frequency->label();
+        }
+        return "Every $interval " . $frequency->pluralLabel();
+    }
+
+    /**
+     * Check if a specific field has been overridden for this instance
+     */
+    public function hasRecurrenceOverride(string $field): bool
+    {
+        return isset($this->recurrenceOverrides[$field]) && $this->recurrenceOverrides[$field] === true;
+    }
+
+    /**
+     * Mark a field as overridden for this instance only
+     */
+    public function addRecurrenceOverride(string $field): void
+    {
+        if ($this->recurrenceOverrides === null) {
+            $this->recurrenceOverrides = [];
+        }
+        $this->recurrenceOverrides[$field] = true;
+    }
+
+    /**
+     * Remove an override for a field
+     */
+    public function removeRecurrenceOverride(string $field): void
+    {
+        if ($this->recurrenceOverrides !== null) {
+            unset($this->recurrenceOverrides[$field]);
+            if (empty($this->recurrenceOverrides)) {
+                $this->recurrenceOverrides = null;
+            }
+        }
+    }
+
+    /**
+     * Get the recurrence frequency enum
+     */
+    public function getRecurrenceFrequency(): ?RecurrenceFrequency
+    {
+        if (!$this->isRecurring()) {
+            return null;
+        }
+        return RecurrenceFrequency::tryFrom($this->recurrenceRule['frequency'] ?? '');
     }
 }

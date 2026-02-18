@@ -12,6 +12,7 @@ use App\Enum\TaskStatus;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
+use Ramsey\Uuid\UuidInterface;
 
 /**
  * @extends ServiceEntityRepository<Task>
@@ -429,5 +430,20 @@ class TaskRepository extends ServiceEntityRepository
         $this->applyFilter($qb, $filter);
 
         return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * Find all tasks in a recurrence series, ordered by due date
+     *
+     * @return Task[]
+     */
+    public function findByRecurrenceSeries(UuidInterface $seriesId): array
+    {
+        return $this->createQueryBuilder('t')
+            ->where('t.recurrenceSeriesId = :seriesId')
+            ->setParameter('seriesId', $seriesId)
+            ->orderBy('t.dueDate', 'ASC')
+            ->getQuery()
+            ->getResult();
     }
 }

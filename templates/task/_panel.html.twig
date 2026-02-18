@@ -221,7 +221,7 @@
         </div>
 
         {# Details Grid #}
-        <div class="mb-6 grid grid-cols-2 gap-4">
+        <div class="mb-6 grid grid-cols-3 gap-4">
             {# Start Date - Editable only if canEdit #}
             <div>
                 <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Start Date</dt>
@@ -229,13 +229,13 @@
                     {% if canEdit %}
                     <div class="relative">
                         <input type="date"
-                               class="start-date-input text-sm border-0 p-0 bg-transparent cursor-pointer hover:text-primary-600 focus:ring-0 {{ task.startDate ? 'text-gray-900' : 'text-transparent' }}"
+                               class="start-date-input text-sm border-0 p-0 bg-transparent cursor-pointer hover:text-primary-600 focus:ring-0 {{ task.startDate ? 'text-gray-900' : 'text-transparent' }} w-full"
                                value="{{ task.startDate ? task.startDate|date('Y-m-d') : '' }}"
                                data-original="{{ task.startDate ? task.startDate|date('Y-m-d') : '' }}"
                                data-endpoint="{{ path('app_task_update_start_date', {id: task.id}) }}"
                                onchange="updateStartDate(this)">
                         {% if not task.startDate %}
-                            <span class="start-date-placeholder text-sm text-gray-400 italic pointer-events-none absolute left-0 top-0">No start date</span>
+                            <span class="start-date-placeholder text-sm text-gray-400 italic pointer-events-none absolute left-0 top-0">Not set</span>
                         {% endif %}
                     </div>
                     {% else %}
@@ -250,13 +250,13 @@
                     {% if canEdit %}
                     <div class="relative">
                         <input type="date"
-                               class="due-date-input text-sm border-0 p-0 bg-transparent cursor-pointer hover:text-primary-600 focus:ring-0 {{ task.dueDate ? (task.isOverdue ? 'text-red-600 font-medium' : 'text-gray-900') : 'text-transparent' }}"
+                               class="due-date-input text-sm border-0 p-0 bg-transparent cursor-pointer hover:text-primary-600 focus:ring-0 {{ task.dueDate ? (task.isOverdue ? 'text-red-600 font-medium' : 'text-gray-900') : 'text-transparent' }} w-full"
                                value="{{ task.dueDate ? task.dueDate|date('Y-m-d') : '' }}"
                                data-original="{{ task.dueDate ? task.dueDate|date('Y-m-d') : '' }}"
                                data-endpoint="{{ path('app_task_update_due_date', {id: task.id}) }}"
                                onchange="updateDueDate(this)">
                         {% if not task.dueDate %}
-                            <span class="due-date-placeholder text-sm text-gray-400 italic pointer-events-none absolute left-0 top-0">No due date</span>
+                            <span class="due-date-placeholder text-sm text-gray-400 italic pointer-events-none absolute left-0 top-0">Not set</span>
                         {% endif %}
                     </div>
                     {% else %}
@@ -270,8 +270,35 @@
                     {% endif %}
                 </dd>
             </div>
+            {# Recurrence - Editable only if canEdit #}
+            <div>
+                <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Repeat</dt>
+                <dd class="mt-1">
+                    {% if canEdit %}
+                    <div class="relative inline-block recurrence-container" data-task-id="{{ task.id }}">
+                        <button type="button"
+                                class="recurrence-btn text-sm hover:text-primary-600 flex items-center {{ task.recurring ? 'text-primary-600' : 'text-gray-900' }}"
+                                onclick="openRecurrenceModal('{{ task.id }}')">
+                            <svg class="mr-1 h-3.5 w-3.5 flex-shrink-0 {{ task.recurring ? 'text-primary-500' : 'text-gray-400' }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                            </svg>
+                            <span class="recurrence-label truncate">{{ task.recurrenceDescription }}</span>
+                        </button>
+                    </div>
+                    {% else %}
+                    <span class="text-sm text-gray-900 flex items-center">
+                        {% if task.recurring %}
+                        <svg class="mr-1 h-3.5 w-3.5 text-primary-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                        </svg>
+                        {% endif %}
+                        <span class="truncate">{{ task.recurrenceDescription }}</span>
+                    </span>
+                    {% endif %}
+                </dd>
+            </div>
             {# Milestone - Editable only if canEdit #}
-            <div class="col-span-2">
+            <div class="col-span-3">
                 <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Milestone</dt>
                 <dd class="mt-1">
                     {% if canEdit %}

@@ -305,6 +305,141 @@
         </div>
     </div>
 
+    {# Recurrence Modal #}
+    <div id="recurrence-modal" class="fixed inset-0 z-[100] hidden">
+        <div class="fixed inset-0 bg-gray-600 bg-opacity-50" onclick="closeRecurrenceModal()"></div>
+        <div class="fixed inset-0 overflow-y-auto">
+            <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                <div class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+                    <div class="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+                        <div class="sm:flex sm:items-start">
+                            <div class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-primary-100 sm:mx-0 sm:h-10 sm:w-10">
+                                <svg class="h-6 w-6 text-primary-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                                </svg>
+                            </div>
+                            <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
+                                <h3 class="text-base font-semibold leading-6 text-gray-900" id="modal-title">Set Recurrence</h3>
+                                <div class="mt-4 space-y-4">
+                                    {# Frequency #}
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Repeat</label>
+                                        <select id="recurrence-frequency" onchange="updateRecurrenceOptions()" class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm">
+                                            <option value="">Does not repeat</option>
+                                            <option value="daily">Daily</option>
+                                            <option value="weekly">Weekly</option>
+                                            <option value="monthly">Monthly</option>
+                                            <option value="quarterly">Quarterly</option>
+                                            <option value="yearly">Yearly</option>
+                                        </select>
+                                    </div>
+
+                                    {# Interval #}
+                                    <div id="recurrence-interval-container" class="hidden">
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Every</label>
+                                        <div class="flex items-center gap-2">
+                                            <input type="number" id="recurrence-interval" value="1" min="1" max="12" class="w-20 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm">
+                                            <span id="recurrence-interval-label" class="text-sm text-gray-600">days</span>
+                                        </div>
+                                    </div>
+
+                                    {# Weekdays Only (for daily) #}
+                                    <div id="recurrence-weekdays-container" class="hidden">
+                                        <label class="flex items-center gap-2">
+                                            <input type="checkbox" id="recurrence-weekdays-only" class="rounded border-gray-300 text-primary-600 focus:ring-primary-500">
+                                            <span class="text-sm text-gray-700">Weekdays only (Mon-Fri)</span>
+                                        </label>
+                                    </div>
+
+                                    {# Week Days (for weekly) #}
+                                    <div id="recurrence-weekdays-select" class="hidden">
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">On days</label>
+                                        <div class="flex gap-1.5 flex-wrap">
+                                            <label class="weekday-btn"><input type="checkbox" value="1" class="hidden"><span class="px-3 py-1.5 text-sm rounded-md border cursor-pointer hover:bg-gray-50">Mon</span></label>
+                                            <label class="weekday-btn"><input type="checkbox" value="2" class="hidden"><span class="px-3 py-1.5 text-sm rounded-md border cursor-pointer hover:bg-gray-50">Tue</span></label>
+                                            <label class="weekday-btn"><input type="checkbox" value="3" class="hidden"><span class="px-3 py-1.5 text-sm rounded-md border cursor-pointer hover:bg-gray-50">Wed</span></label>
+                                            <label class="weekday-btn"><input type="checkbox" value="4" class="hidden"><span class="px-3 py-1.5 text-sm rounded-md border cursor-pointer hover:bg-gray-50">Thu</span></label>
+                                            <label class="weekday-btn"><input type="checkbox" value="5" class="hidden"><span class="px-3 py-1.5 text-sm rounded-md border cursor-pointer hover:bg-gray-50">Fri</span></label>
+                                            <label class="weekday-btn"><input type="checkbox" value="6" class="hidden"><span class="px-3 py-1.5 text-sm rounded-md border cursor-pointer hover:bg-gray-50">Sat</span></label>
+                                            <label class="weekday-btn"><input type="checkbox" value="7" class="hidden"><span class="px-3 py-1.5 text-sm rounded-md border cursor-pointer hover:bg-gray-50">Sun</span></label>
+                                        </div>
+                                    </div>
+
+                                    {# Monthly Type (for monthly) #}
+                                    <div id="recurrence-monthly-container" class="hidden">
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Repeat on</label>
+                                        <div class="space-y-2">
+                                            <label class="flex items-center gap-2">
+                                                <input type="radio" name="monthly-type" value="dayOfMonth" checked class="text-primary-600 focus:ring-primary-500">
+                                                <span class="text-sm text-gray-700">Same day of month</span>
+                                            </label>
+                                            <label class="flex items-center gap-2">
+                                                <input type="radio" name="monthly-type" value="dayOfWeek" class="text-primary-600 focus:ring-primary-500">
+                                                <span class="text-sm text-gray-700">Same day of week</span>
+                                            </label>
+                                        </div>
+                                        <div id="monthly-dow-options" class="hidden mt-3 pl-6 space-y-2">
+                                            <select id="monthly-week-of-month" class="rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm">
+                                                <option value="1">First</option>
+                                                <option value="2">Second</option>
+                                                <option value="3">Third</option>
+                                                <option value="4">Fourth</option>
+                                                <option value="-1">Last</option>
+                                            </select>
+                                            <select id="monthly-day-of-week" class="rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm">
+                                                <option value="1">Monday</option>
+                                                <option value="2">Tuesday</option>
+                                                <option value="3">Wednesday</option>
+                                                <option value="4">Thursday</option>
+                                                <option value="5">Friday</option>
+                                                <option value="6">Saturday</option>
+                                                <option value="7">Sunday</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {# End Conditions #}
+                                    <div id="recurrence-end-container" class="hidden">
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Ends</label>
+                                        <div class="space-y-2">
+                                            <label class="flex items-center gap-2">
+                                                <input type="radio" name="end-type" value="never" checked class="text-primary-600 focus:ring-primary-500">
+                                                <span class="text-sm text-gray-700">End of year</span>
+                                            </label>
+                                            <label class="flex items-center gap-2">
+                                                <input type="radio" name="end-type" value="date" class="text-primary-600 focus:ring-primary-500">
+                                                <span class="text-sm text-gray-700">On date</span>
+                                                <input type="date" id="recurrence-end-date" class="ml-2 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" disabled>
+                                            </label>
+                                            <label class="flex items-center gap-2">
+                                                <input type="radio" name="end-type" value="count" class="text-primary-600 focus:ring-primary-500">
+                                                <span class="text-sm text-gray-700">After</span>
+                                                <input type="number" id="recurrence-count" value="10" min="1" max="52" class="ml-2 w-16 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" disabled>
+                                                <span class="text-sm text-gray-700">occurrences</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+                        <button type="button" onclick="saveRecurrence()" class="inline-flex w-full justify-center rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500 sm:ml-3 sm:w-auto">Save</button>
+                        <button type="button" onclick="closeRecurrenceModal()" class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto">Cancel</button>
+                        <button type="button" id="remove-recurrence-btn" onclick="removeRecurrence()" class="hidden mt-3 sm:mt-0 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-red-600 shadow-sm ring-1 ring-inset ring-red-300 hover:bg-red-50 sm:w-auto sm:mr-auto">Remove</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <style>
+    .weekday-btn input:checked + span {
+        background-color: #4f46e5;
+        color: white;
+        border-color: #4f46e5;
+    }
+    </style>
+
     <script>
     // Base path for all API calls (handles proxy prefix)
     window.BASE_PATH = '{{ app.request.basePath }}';
@@ -2488,6 +2623,312 @@
             return ` changed start date from <span class="font-medium">${escapeHtml(from)}</span> to <span class="font-medium">${escapeHtml(to)}</span>`;
         }
         return ' updated this task';
+    }
+
+    // ===== RECURRENCE FUNCTIONS =====
+    window.currentRecurrenceTaskId = null;
+
+    function openRecurrenceModal(taskId) {
+        currentRecurrenceTaskId = taskId;
+        const modal = document.getElementById('recurrence-modal');
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+
+        // Load current recurrence settings
+        loadRecurrenceInfo(taskId);
+    }
+
+    function closeRecurrenceModal() {
+        const modal = document.getElementById('recurrence-modal');
+        modal.classList.add('hidden');
+        document.body.style.overflow = '';
+        currentRecurrenceTaskId = null;
+        resetRecurrenceForm();
+    }
+
+    function resetRecurrenceForm() {
+        document.getElementById('recurrence-frequency').value = '';
+        document.getElementById('recurrence-interval').value = '1';
+        document.getElementById('recurrence-weekdays-only').checked = false;
+        document.querySelectorAll('.weekday-btn input').forEach(cb => cb.checked = false);
+        document.querySelectorAll('input[name="monthly-type"]')[0].checked = true;
+        document.querySelectorAll('input[name="end-type"]')[0].checked = true;
+        document.getElementById('recurrence-end-date').value = '';
+        document.getElementById('recurrence-count').value = '10';
+        document.getElementById('remove-recurrence-btn').classList.add('hidden');
+        updateRecurrenceOptions();
+    }
+
+    async function loadRecurrenceInfo(taskId) {
+        try {
+            const response = await fetch(`${BASE_PATH}/tasks/${taskId}/recurrence/info`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            if (!response.ok) return;
+
+            const data = await response.json();
+            if (data.isRecurring && data.recurrence) {
+                const rule = data.recurrence.rule;
+                document.getElementById('recurrence-frequency').value = rule.frequency || '';
+                document.getElementById('recurrence-interval').value = rule.interval || 1;
+
+                if (rule.weekdaysOnly) {
+                    document.getElementById('recurrence-weekdays-only').checked = true;
+                }
+
+                if (rule.weekDays) {
+                    document.querySelectorAll('.weekday-btn input').forEach(cb => {
+                        cb.checked = rule.weekDays.includes(parseInt(cb.value));
+                    });
+                }
+
+                if (rule.monthlyType === 'dayOfWeek') {
+                    document.querySelectorAll('input[name="monthly-type"]')[1].checked = true;
+                    document.getElementById('monthly-week-of-month').value = rule.weekOfMonth || 1;
+                    document.getElementById('monthly-day-of-week').value = rule.dayOfWeek || 1;
+                }
+
+                if (data.recurrence.endsAt) {
+                    document.querySelectorAll('input[name="end-type"]')[1].checked = true;
+                    document.getElementById('recurrence-end-date').value = data.recurrence.endsAt;
+                } else if (data.recurrence.countRemaining) {
+                    document.querySelectorAll('input[name="end-type"]')[2].checked = true;
+                    document.getElementById('recurrence-count').value = data.recurrence.countRemaining;
+                }
+
+                document.getElementById('remove-recurrence-btn').classList.remove('hidden');
+                updateRecurrenceOptions();
+            }
+        } catch (error) {
+            console.error('Error loading recurrence info:', error);
+        }
+    }
+
+    function updateRecurrenceOptions() {
+        const frequency = document.getElementById('recurrence-frequency').value;
+        const intervalContainer = document.getElementById('recurrence-interval-container');
+        const intervalLabel = document.getElementById('recurrence-interval-label');
+        const weekdaysContainer = document.getElementById('recurrence-weekdays-container');
+        const weekdaysSelect = document.getElementById('recurrence-weekdays-select');
+        const monthlyContainer = document.getElementById('recurrence-monthly-container');
+        const endContainer = document.getElementById('recurrence-end-container');
+
+        // Hide all optional sections
+        intervalContainer.classList.add('hidden');
+        weekdaysContainer.classList.add('hidden');
+        weekdaysSelect.classList.add('hidden');
+        monthlyContainer.classList.add('hidden');
+        endContainer.classList.add('hidden');
+
+        if (!frequency) return;
+
+        // Show interval and end options for all frequencies
+        intervalContainer.classList.remove('hidden');
+        endContainer.classList.remove('hidden');
+
+        // Update interval label based on frequency
+        const labels = {
+            daily: 'days',
+            weekly: 'weeks',
+            monthly: 'months',
+            quarterly: 'quarters',
+            yearly: 'years'
+        };
+        intervalLabel.textContent = labels[frequency] || 'periods';
+
+        // Show frequency-specific options
+        if (frequency === 'daily') {
+            weekdaysContainer.classList.remove('hidden');
+        } else if (frequency === 'weekly') {
+            weekdaysSelect.classList.remove('hidden');
+        } else if (frequency === 'monthly') {
+            monthlyContainer.classList.remove('hidden');
+        }
+
+        // Update weekday button styles
+        document.querySelectorAll('.weekday-btn input').forEach(cb => {
+            const span = cb.nextElementSibling;
+            if (cb.checked) {
+                span.classList.add('bg-primary-600', 'text-white', 'border-primary-600');
+                span.classList.remove('border-gray-300');
+            } else {
+                span.classList.remove('bg-primary-600', 'text-white', 'border-primary-600');
+                span.classList.add('border-gray-300');
+            }
+        });
+    }
+
+    // Add event listeners for weekday buttons
+    document.addEventListener('change', function(e) {
+        if (e.target.closest('.weekday-btn')) {
+            updateRecurrenceOptions();
+        }
+    });
+
+    // Handle monthly type change
+    document.addEventListener('change', function(e) {
+        if (e.target.name === 'monthly-type') {
+            const dowOptions = document.getElementById('monthly-dow-options');
+            if (e.target.value === 'dayOfWeek') {
+                dowOptions.classList.remove('hidden');
+            } else {
+                dowOptions.classList.add('hidden');
+            }
+        }
+    });
+
+    // Handle end type change
+    document.addEventListener('change', function(e) {
+        if (e.target.name === 'end-type') {
+            const endDate = document.getElementById('recurrence-end-date');
+            const endCount = document.getElementById('recurrence-count');
+            endDate.disabled = e.target.value !== 'date';
+            endCount.disabled = e.target.value !== 'count';
+        }
+    });
+
+    async function saveRecurrence() {
+        const taskId = currentRecurrenceTaskId;
+        if (!taskId) return;
+
+        const frequency = document.getElementById('recurrence-frequency').value;
+
+        if (!frequency) {
+            // Remove recurrence
+            await removeRecurrence();
+            return;
+        }
+
+        const data = {
+            frequency: frequency,
+            interval: parseInt(document.getElementById('recurrence-interval').value) || 1
+        };
+
+        // Daily options
+        if (frequency === 'daily') {
+            data.weekdaysOnly = document.getElementById('recurrence-weekdays-only').checked;
+        }
+
+        // Weekly options
+        if (frequency === 'weekly') {
+            const weekDays = [];
+            document.querySelectorAll('.weekday-btn input:checked').forEach(cb => {
+                weekDays.push(parseInt(cb.value));
+            });
+            if (weekDays.length > 0) {
+                data.weekDays = weekDays;
+            }
+        }
+
+        // Monthly options
+        if (frequency === 'monthly') {
+            const monthlyType = document.querySelector('input[name="monthly-type"]:checked').value;
+            data.monthlyType = monthlyType;
+            if (monthlyType === 'dayOfWeek') {
+                data.weekOfMonth = parseInt(document.getElementById('monthly-week-of-month').value);
+                data.dayOfWeek = parseInt(document.getElementById('monthly-day-of-week').value);
+            }
+        }
+
+        // End conditions
+        const endType = document.querySelector('input[name="end-type"]:checked').value;
+        if (endType === 'date') {
+            const endDate = document.getElementById('recurrence-end-date').value;
+            if (endDate) {
+                data.endsAt = endDate;
+            }
+        } else if (endType === 'count') {
+            const count = parseInt(document.getElementById('recurrence-count').value);
+            if (count > 0) {
+                data.count = Math.min(count, 52);
+            }
+        }
+
+        try {
+            const response = await fetch(`${BASE_PATH}/tasks/${taskId}/recurrence`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify(data)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                Toastr.error(errorData.error || 'Failed to set recurrence');
+                return;
+            }
+
+            const result = await response.json();
+            closeRecurrenceModal();
+            Toastr.success('Recurrence set');
+
+            // Update the recurrence label in the panel
+            updateRecurrenceLabel(taskId, result.recurrence.description);
+
+            // Notify other components
+            document.dispatchEvent(new CustomEvent('task-updated', {
+                detail: { taskId, field: 'recurrence', value: result.recurrence }
+            }));
+        } catch (error) {
+            console.error('Error saving recurrence:', error);
+            Toastr.error('Failed to set recurrence');
+        }
+    }
+
+    async function removeRecurrence() {
+        const taskId = currentRecurrenceTaskId;
+        if (!taskId) return;
+
+        try {
+            const response = await fetch(`${BASE_PATH}/tasks/${taskId}/recurrence`, {
+                method: 'DELETE',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+
+            if (!response.ok) {
+                Toastr.error('Failed to remove recurrence');
+                return;
+            }
+
+            closeRecurrenceModal();
+            Toastr.success('Recurrence removed');
+
+            // Update the recurrence label in the panel
+            updateRecurrenceLabel(taskId, 'Does not repeat');
+
+            // Notify other components
+            document.dispatchEvent(new CustomEvent('task-updated', {
+                detail: { taskId, field: 'recurrence', value: null }
+            }));
+        } catch (error) {
+            console.error('Error removing recurrence:', error);
+            Toastr.error('Failed to remove recurrence');
+        }
+    }
+
+    function updateRecurrenceLabel(taskId, description) {
+        const container = document.querySelector(`.recurrence-container[data-task-id="${taskId}"]`);
+        if (container) {
+            const label = container.querySelector('.recurrence-label');
+            if (label) {
+                label.textContent = description;
+            }
+            const btn = container.querySelector('.recurrence-btn');
+            const icon = btn.querySelector('svg');
+            if (description !== 'Does not repeat') {
+                btn.classList.add('text-primary-600');
+                btn.classList.remove('text-gray-900');
+                icon.classList.add('text-primary-500');
+                icon.classList.remove('text-gray-400');
+            } else {
+                btn.classList.remove('text-primary-600');
+                btn.classList.add('text-gray-900');
+                icon.classList.remove('text-primary-500');
+                icon.classList.add('text-gray-400');
+            }
+        }
     }
     </script>
 </div>
