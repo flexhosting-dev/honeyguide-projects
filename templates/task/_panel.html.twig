@@ -271,28 +271,28 @@
                 </dd>
             </div>
             {# Recurrence - Editable only if canEdit #}
-            <div>
+            <div class="min-w-0">
                 <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Repeat</dt>
                 <dd class="mt-1">
                     {% if canEdit %}
-                    <div class="relative inline-block recurrence-container" data-task-id="{{ task.id }}">
+                    <div class="relative recurrence-container" data-task-id="{{ task.id }}">
                         <button type="button"
-                                class="recurrence-btn text-sm hover:text-primary-600 flex items-center {{ task.recurring ? 'text-primary-600' : 'text-gray-900' }}"
+                                class="recurrence-btn text-sm hover:text-primary-600 flex items-start text-left w-full {{ task.recurring ? 'text-primary-600' : 'text-gray-900' }}"
                                 onclick="openRecurrenceModal('{{ task.id }}')">
-                            <svg class="mr-1 h-3.5 w-3.5 flex-shrink-0 {{ task.recurring ? 'text-primary-500' : 'text-gray-400' }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <svg class="mr-1 h-3.5 w-3.5 flex-shrink-0 mt-0.5 {{ task.recurring ? 'text-primary-500' : 'text-gray-400' }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
                             </svg>
-                            <span class="recurrence-label truncate">{{ task.recurrenceDescription }}</span>
+                            <span class="recurrence-label break-words">{{ task.recurrenceDescription }}</span>
                         </button>
                     </div>
                     {% else %}
-                    <span class="text-sm text-gray-900 flex items-center">
+                    <span class="text-sm text-gray-900 flex items-start">
                         {% if task.recurring %}
-                        <svg class="mr-1 h-3.5 w-3.5 text-primary-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <svg class="mr-1 h-3.5 w-3.5 text-primary-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
                         </svg>
                         {% endif %}
-                        <span class="truncate">{{ task.recurrenceDescription }}</span>
+                        <span class="break-words">{{ task.recurrenceDescription }}</span>
                     </span>
                     {% endif %}
                 </dd>
