@@ -3,6 +3,7 @@
 namespace App\Security;
 
 use App\Entity\User;
+use App\Service\PersonalProjectService;
 use App\Service\RegistrationRequestService;
 use Doctrine\ORM\EntityManagerInterface;
 use KnpU\OAuth2ClientBundle\Client\ClientRegistry;
@@ -30,6 +31,7 @@ class GoogleAuthenticator extends OAuth2Authenticator implements AuthenticationE
         private EntityManagerInterface $entityManager,
         private RouterInterface $router,
         private RegistrationRequestService $registrationRequestService,
+        private PersonalProjectService $personalProjectService,
         #[Autowire('%env(bool:GOOGLE_AUTH_ENABLED)%')]
         bool $enabled = true,
     ) {
@@ -98,6 +100,10 @@ class GoogleAuthenticator extends OAuth2Authenticator implements AuthenticationE
                 $user->setIsVerified(true); // Google accounts are verified
 
                 $this->entityManager->persist($user);
+                $this->entityManager->flush();
+
+                // Create personal project for new user
+                $this->personalProjectService->createPersonalProject($user);
                 $this->entityManager->flush();
 
                 return $user;

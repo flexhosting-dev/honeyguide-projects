@@ -23,6 +23,7 @@ class RegistrationRequestService
         private readonly PendingRegistrationRequestRepository $pendingRequestRepository,
         private readonly UserRepository $userRepository,
         private readonly NotificationService $notificationService,
+        private readonly PersonalProjectService $personalProjectService,
     ) {
         $this->allowedDomains = array_filter(array_map('trim', explode(',', $allowedDomains)));
     }
@@ -150,6 +151,10 @@ class RegistrationRequestService
         }
 
         $this->entityManager->persist($user);
+        $this->entityManager->flush();
+
+        // Create personal project for new user
+        $this->personalProjectService->createPersonalProject($user);
         $this->entityManager->flush();
 
         return $user;
