@@ -185,8 +185,8 @@ function toggleProjectReordering() {
             </svg>
             Save Order
         `;
-        toggleBtn.classList.remove('bg-white', 'text-gray-700', 'border-gray-300');
-        toggleBtn.classList.add('bg-primary-600', 'text-white', 'border-primary-600');
+        toggleBtn.classList.remove('bg-white', 'text-gray-700', 'border-gray-300', 'hover:bg-gray-50');
+        toggleBtn.classList.add('bg-primary-600', 'text-white', 'border-primary-600', 'hover:bg-primary-700');
 
         initializeReorderDrag();
     } else {
@@ -214,8 +214,8 @@ function exitReorderMode() {
         </svg>
         Reorder<span class="hidden sm:inline"> Projects</span>
     `;
-    toggleBtn.classList.remove('bg-primary-600', 'text-white', 'border-primary-600');
-    toggleBtn.classList.add('bg-white', 'text-gray-700', 'border-gray-300');
+    toggleBtn.classList.remove('bg-primary-600', 'text-white', 'border-primary-600', 'hover:bg-primary-700');
+    toggleBtn.classList.add('bg-white', 'text-gray-700', 'border-gray-300', 'hover:bg-gray-50');
 }
 
 function initializeReorderDrag() {
