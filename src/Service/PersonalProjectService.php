@@ -54,6 +54,8 @@ class PersonalProjectService
         $milestone = new Milestone();
         $milestone->setName('General');
         $milestone->setProject($project);
+        $milestone->setPosition(0);
+        $milestone->setIsDefault(true);
 
         $this->entityManager->persist($project);
         $this->entityManager->persist($milestone);

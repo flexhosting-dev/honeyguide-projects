@@ -469,6 +469,7 @@ class TaskController extends AbstractController
 
         $data = json_decode($request->getContent(), true);
         $newStatusValue = $data['status'] ?? null;
+        $completeSubtasks = $data['completeSubtasks'] ?? false;
 
         if (!$newStatusValue) {
             return $this->json(['error' => 'Status is required'], Response::HTTP_BAD_REQUEST);
@@ -477,6 +478,30 @@ class TaskController extends AbstractController
         // Try to find the new status type by slug
         $newStatusType = $this->taskStatusService->findBySlug($newStatusValue);
 
+        // Determine if this is a completed status
+        $isCompleted = false;
+        if ($newStatusType) {
+            $isCompleted = $newStatusType->isClosed();
+        } else {
+            $newStatus = TaskStatus::tryFrom($newStatusValue);
+            if ($newStatus) {
+                $isCompleted = $newStatus === TaskStatus::COMPLETED;
+            }
+        }
+
+        // Check for open subtasks when completing a parent task
+        if ($isCompleted) {
+            $openSubtaskCount = $this->countOpenSubtasksRecursively($task);
+            if ($openSubtaskCount > 0 && !$completeSubtasks) {
+                // Return warning with open subtask count - let frontend decide what to do
+                return $this->json([
+                    'warning' => true,
+                    'openSubtaskCount' => $openSubtaskCount,
+                    'message' => "This task has {$openSubtaskCount} open subtask(s). How would you like to proceed?",
+                ]);
+            }
+        }
+
         // Get old status info
         $oldStatusLabel = $task->getEffectiveStatusLabel();
 
@@ -484,7 +509,6 @@ class TaskController extends AbstractController
             // Use the new statusType system
             $task->setStatusType($newStatusType);
             $newStatusLabel = $newStatusType->getName();
-            $isCompleted = $newStatusType->isClosed();
         } else {
             // Fall back to enum for backwards compatibility
             $newStatus = TaskStatus::tryFrom($newStatusValue);
@@ -493,7 +517,6 @@ class TaskController extends AbstractController
             }
             $task->setStatus($newStatus);
             $newStatusLabel = $newStatus->label();
-            $isCompleted = $newStatus === TaskStatus::COMPLETED;
         }
 
         $this->activityService->logTaskStatusChanged(
@@ -521,6 +544,15 @@ class TaskController extends AbstractController
             );
         }
 
+        // If completing subtasks too, do that now
+        $completedSubtaskIds = [];
+        if ($isCompleted && $completeSubtasks) {
+            $completedStatus = $this->taskStatusService->getDefaultClosedStatus();
+            if ($completedStatus) {
+                $this->completeSubtasksRecursively($task, $completedStatus, $user, $project, $completedSubtaskIds);
+            }
+        }
+
         // If task is completed and has recurrence, create the next instance
         $nextTask = null;
         if ($isCompleted && $task->isRecurring()) {
@@ -544,6 +576,11 @@ class TaskController extends AbstractController
             'statusColor' => $task->getEffectiveStatusColor(),
         ];
 
+        // Include completed subtask IDs if any were completed
+        if (!empty($completedSubtaskIds)) {
+            $response['completedSubtaskIds'] = $completedSubtaskIds;
+        }
+
         // Include next task info if a recurrence was created
         if ($nextTask !== null) {
             $response['nextRecurringTask'] = [
@@ -555,6 +592,21 @@ class TaskController extends AbstractController
         }
 
         return $this->json($response);
+    }
+
+    /**
+     * Count open (non-completed) subtasks recursively
+     */
+    private function countOpenSubtasksRecursively(Task $task): int
+    {
+        $count = 0;
+        foreach ($task->getSubtasks() as $subtask) {
+            if (!$subtask->isEffectivelyCompleted()) {
+                $count++;
+            }
+            $count += $this->countOpenSubtasksRecursively($subtask);
+        }
+        return $count;
     }
 
     #[Route('/tasks/{id}/priority', name: 'app_task_update_priority', methods: ['POST'])]
@@ -1376,13 +1428,21 @@ class TaskController extends AbstractController
         }
 
         $milestoneId = $data['milestone'] ?? null;
-        if (empty($milestoneId)) {
-            return $this->json(['error' => 'Milestone is required'], Response::HTTP_BAD_REQUEST);
-        }
+        $assignedToDefault = false;
 
-        $milestone = $this->milestoneRepository->find($milestoneId);
-        if (!$milestone || $milestone->getProject()->getId()->toString() !== $project->getId()->toString()) {
-            return $this->json(['error' => 'Invalid milestone'], Response::HTTP_BAD_REQUEST);
+        if (empty($milestoneId)) {
+            // Auto-assign to default "General" milestone
+            $defaultMilestone = $project->getDefaultMilestone();
+            if (!$defaultMilestone) {
+                return $this->json(['error' => 'No default milestone found'], Response::HTTP_INTERNAL_SERVER_ERROR);
+            }
+            $milestone = $defaultMilestone;
+            $assignedToDefault = true;
+        } else {
+            $milestone = $this->milestoneRepository->find($milestoneId);
+            if (!$milestone || $milestone->getProject()->getId()->toString() !== $project->getId()->toString()) {
+                return $this->json(['error' => 'Invalid milestone'], Response::HTTP_BAD_REQUEST);
+            }
         }
 
         // Create the task
@@ -1495,6 +1555,8 @@ class TaskController extends AbstractController
 
         return $this->json([
             'success' => true,
+            'assignedToDefault' => $assignedToDefault,
+            'milestoneName' => $milestone->getName(),
             'task' => [
                 'id' => $task->getId()->toString(),
                 'title' => $task->getTitle(),
@@ -1714,6 +1776,76 @@ class TaskController extends AbstractController
             'success' => true,
             'children' => $children,
         ]);
+    }
+
+    #[Route('/tasks/{id}/eligible-parents', name: 'app_task_eligible_parents', methods: ['GET'])]
+    public function getEligibleParents(Task $task): JsonResponse
+    {
+        $project = $task->getProject();
+        $this->denyAccessUnlessGranted('PROJECT_VIEW', $project);
+
+        $milestone = $task->getMilestone();
+        if (!$milestone) {
+            return $this->json(['tasks' => []]);
+        }
+
+        // Get all descendants of the current task (to exclude them)
+        $descendantIds = $this->getDescendantIds($task);
+
+        // Get max depth of the task's subtree
+        $maxSubtreeDepth = $this->getMaxSubtreeDepth($task);
+
+        $eligibleTasks = [];
+        foreach ($milestone->getTasks() as $candidateTask) {
+            // Skip self
+            if ($candidateTask->getId()->toString() === $task->getId()->toString()) {
+                continue;
+            }
+
+            // Skip descendants
+            if (in_array($candidateTask->getId()->toString(), $descendantIds)) {
+                continue;
+            }
+
+            // Check depth limit: new parent depth + 1 (for task) + subtree depth <= 2
+            $candidateDepth = $candidateTask->getDepth();
+            if ($candidateDepth + 1 + $maxSubtreeDepth > 2) {
+                continue;
+            }
+
+            $eligibleTasks[] = [
+                'id' => $candidateTask->getId()->toString(),
+                'title' => $candidateTask->getTitle(),
+                'status' => [
+                    'value' => $candidateTask->getStatus()->value,
+                    'label' => $candidateTask->getStatus()->label(),
+                ],
+                'depth' => $candidateDepth,
+                'parentId' => $candidateTask->getParent()?->getId()->toString(),
+                'subtaskCount' => $candidateTask->getSubtaskCount(),
+            ];
+        }
+
+        // Sort by position/depth for better UX
+        usort($eligibleTasks, fn($a, $b) => ($a['depth'] ?? 0) <=> ($b['depth'] ?? 0));
+
+        return $this->json([
+            'success' => true,
+            'tasks' => $eligibleTasks,
+        ]);
+    }
+
+    /**
+     * Get all descendant IDs of a task recursively
+     */
+    private function getDescendantIds(Task $task): array
+    {
+        $ids = [];
+        foreach ($task->getSubtasks() as $subtask) {
+            $ids[] = $subtask->getId()->toString();
+            $ids = array_merge($ids, $this->getDescendantIds($subtask));
+        }
+        return $ids;
     }
 
     #[Route('/tasks/{id}/duplicate', name: 'app_task_duplicate', methods: ['POST'])]
@@ -2106,6 +2238,67 @@ class TaskController extends AbstractController
             'deletedIds' => $deletedIds,
             'count' => count($deletedIds),
         ]);
+    }
+
+    #[Route('/tasks/{id}/subtasks/complete-all', name: 'app_task_complete_all_subtasks', methods: ['POST'])]
+    public function completeAllSubtasks(Task $task): JsonResponse
+    {
+        $project = $task->getProject();
+        $this->denyAccessUnlessGranted('PROJECT_EDIT', $project);
+
+        /** @var User $user */
+        $user = $this->getUser();
+
+        // Get the completed status for this project
+        $completedStatus = $this->taskStatusService->getDefaultClosedStatus();
+        if (!$completedStatus) {
+            return $this->json(['error' => 'No completed status found'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        $completedIds = [];
+        $this->completeSubtasksRecursively($task, $completedStatus, $user, $project, $completedIds);
+
+        $this->entityManager->flush();
+
+        return $this->json([
+            'success' => true,
+            'completedCount' => count($completedIds),
+            'completedIds' => $completedIds,
+        ]);
+    }
+
+    /**
+     * Recursively complete all open subtasks of a task
+     */
+    private function completeSubtasksRecursively(Task $task, $completedStatus, User $user, $project, array &$completedIds): void
+    {
+        foreach ($task->getSubtasks() as $subtask) {
+            // Skip already completed subtasks
+            if ($subtask->isEffectivelyCompleted()) {
+                // Still recurse to handle nested subtasks
+                $this->completeSubtasksRecursively($subtask, $completedStatus, $user, $project, $completedIds);
+                continue;
+            }
+
+            $oldStatusLabel = $subtask->getEffectiveStatusLabel();
+
+            // Set the completed status
+            $subtask->setStatusType($completedStatus);
+
+            $completedIds[] = $subtask->getId()->toString();
+
+            $this->activityService->logTaskStatusChanged(
+                $project,
+                $user,
+                $subtask->getId(),
+                $subtask->getTitle(),
+                $oldStatusLabel,
+                $completedStatus->getName()
+            );
+
+            // Recurse to handle nested subtasks
+            $this->completeSubtasksRecursively($subtask, $completedStatus, $user, $project, $completedIds);
+        }
     }
 
     private function serializeAttachments(array $attachments, string $basePath): array

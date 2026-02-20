@@ -393,7 +393,48 @@
 
     {# Footer Actions #}
     <div class="flex-shrink-0 px-6 py-4 border-t border-gray-200 bg-gray-50">
-        <div class="flex justify-center">
+        <div class="flex items-center justify-between gap-4">
+            {# Left side: Move Task dropdown (only for subtasks) #}
+            <div class="flex items-center gap-2">
+                {% if canEdit and task.parent %}
+                <div class="relative">
+                    <button type="button"
+                            id="move-task-btn-{{ task.id }}"
+                            onclick="toggleMoveTaskDropdown(this, event)"
+                            class="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100">
+                        <svg class="mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                        </svg>
+                        Move Task
+                        <svg class="ml-1 h-3 w-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                        </svg>
+                    </button>
+                    <div class="move-task-dropdown hidden absolute bottom-full left-0 mb-1 w-48 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-10">
+                        <div class="py-1">
+                            <button type="button"
+                                    onclick="promoteTask('{{ task.id }}')"
+                                    class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
+                                <svg class="mr-2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" />
+                                </svg>
+                                Promote to parent level
+                            </button>
+                            <button type="button"
+                                    onclick="openMoveToParentModal('{{ task.id }}', '{{ task.milestone.id }}', '{{ project.id }}')"
+                                    class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
+                                <svg class="mr-2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h5.25m5.25-.75L17.25 9m0 0L21 12.75M17.25 9v12" />
+                                </svg>
+                                Move to different parent
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            {# Center: Open full page link #}
             <a href="{{ path('app_task_show', {id: task.id}) }}"
                class="inline-flex items-center text-sm text-gray-600 hover:text-gray-900">
                 <svg class="mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -401,6 +442,18 @@
                 </svg>
                 Open Full Page
             </a>
+
+            {# Right side: Delete button #}
+            {% if canEdit %}
+            <button type="button"
+                    onclick="confirmDeleteTask('{{ task.id }}', '{{ task.title|e('js') }}', {{ task.subtaskCount }})"
+                    class="inline-flex items-center text-sm text-red-600 hover:text-red-800 px-2 py-1 rounded hover:bg-red-50">
+                <svg class="mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                </svg>
+                Delete
+            </button>
+            {% endif %}
         </div>
     </div>
 </div>

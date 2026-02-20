@@ -22,6 +22,11 @@ class MilestoneRepository extends ServiceEntityRepository
      */
     public function findByProject(Project $project): array
     {
-        return $this->findBy(['project' => $project], ['dueDate' => 'ASC']);
+        return $this->findBy(['project' => $project], ['position' => 'ASC']);
+    }
+
+    public function findDefaultForProject(Project $project): ?Milestone
+    {
+        return $this->findOneBy(['project' => $project, 'isDefault' => true]);
     }
 }

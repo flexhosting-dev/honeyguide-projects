@@ -2617,3 +2617,249 @@ Email notifications are now sent automatically when in-app notifications are cre
 ---
 
 *Last updated: 17 February 2026*
+
+---
+
+## Pending Feature Requests
+
+### 1. Auto-assign Tasks to Current User in My Tasks
+**Priority:** Medium
+**Status:** Pending
+
+When creating tasks from the "My Tasks" page, automatically assign the task to the currently logged-in user.
+
+**Requirements:**
+- Detect task creation context (My Tasks page vs Project page)
+- Auto-populate assignee field with current user
+- Show visual feedback that task was auto-assigned
+- Allow user to remove themselves if needed
+
+**Implementation:**
+- Update TaskController to check request context
+- Add `auto_assign_to_me` parameter in task creation
+- Update TaskTable component to pass context flag
+- Show notification: "Task assigned to you"
+
+---
+
+### 2. Move Task Options for Root Tasks
+**Priority:** High
+**Status:** Pending
+
+Add comprehensive move/reorganize options for root-level tasks in the task panel footer.
+
+**Requirements:**
+- Show move options in footer (similar to subtask move option)
+- Available only for root tasks (no parent)
+- Three move options:
+  1. **Move to Different Project**: Select target project → Select milestone → Confirm
+  2. **Move to Different Milestone**: Select milestone in same project → Confirm
+  3. **Make Subtask Of**: Select parent task in same milestone → Confirm
+- Prevent circular references (task becoming its own ancestor)
+- Update task position in new location
+- Show confirmation with undo option
+
+**Implementation:**
+- Add move button to task panel footer for root tasks
+- Create move modal with three tabs/options
+- API endpoint: `POST /tasks/{id}/move`
+- Validate circular reference on backend
+- Update all related caches and views
+- Activity log for move operation
+
+**Additional Options to Consider:**
+- Convert to standalone task (if currently a subtask)
+- Duplicate task to another project/milestone
+- Archive task (soft delete)
+
+---
+
+### 3. Task Footer on Detail Page
+**Priority:** Medium
+**Status:** Pending
+
+Add the same footer actions from task panel to the dedicated task detail page.
+
+**Requirements:**
+- Include all footer actions from task panel
+- Exclude "Open in full" option (already on full page)
+- Keep: Move, Convert to subtask, Delete, Archive, etc.
+- Responsive layout for mobile
+
+**Implementation:**
+- Extract footer component to reusable partial
+- Include in both task panel and detail page templates
+- Add parameter to hide "Open in full" button
+- Ensure consistent styling and behavior
+
+---
+
+### 4. Default "General" Milestone ✅
+**Priority:** High
+**Status:** COMPLETED (v1.0.1)
+
+Create mandatory default milestone for all projects.
+
+**Completed Features:**
+- ✅ Default "General" milestone created for all projects
+- ✅ Always listed first (position 0)
+- ✅ Auto-assignment for tasks without milestone
+- ✅ Migration for existing projects
+- ✅ Milestone reordering logic (drag-and-drop)
+- ✅ Project/milestone/task ordering on "All Tasks" page
+- ✅ Admin-only project reordering
+- ✅ Project manager milestone reordering
+- ✅ Cannot delete or rename default milestone
+- ✅ Visual "Default" badge in UI
+
+**Implementation Details:**
+See migrations:
+- Version20260220120000 - Position and isDefault fields
+- Version20260220120100 - Project positions
+- Version20260220120200 - Create default milestones
+- Version20260220120300 - Changelog entry
+
+---
+
+### 5. Profile Hover Cards
+**Priority:** Medium
+**Status:** Pending
+
+Display user profile information in hover cards throughout the application.
+
+**Requirements:**
+- Trigger on hover over user names/avatars
+- Show on: Activity feeds, notifications, assignee lists, comments, etc.
+- Card content:
+  - Profile photo
+  - Full name and title
+  - Email address
+  - Department/team
+  - Active projects count
+  - Quick actions: Message, View Profile, Add to Project
+- Smooth animation (fade in/out)
+- Delay before showing (500ms)
+- Dismiss on mouse leave
+
+**Implementation:**
+- Create reusable ProfileCard Vue component
+- Use Tippy.js or custom positioning logic
+- Lazy load profile data on hover
+- Cache profile data for performance
+- Responsive design for mobile (tap to show)
+
+**Public Profile Page:**
+- URL: `/users/{id}/profile`
+- Show: Bio, projects, activity timeline, stats
+- Privacy settings for what's visible to non-admins
+- Edit button for own profile
+
+---
+
+### 6. Enhanced Project Member Management
+**Priority:** High
+**Status:** Pending
+
+Improve project member addition workflow with bulk operations and invitation system.
+
+**Requirements:**
+
+#### A. Add Members Offcanvas Panel
+- Open dedicated right-side panel when "Add Member" clicked
+- List all eligible portal users (not already in project)
+- Search/filter users by name, email, department
+- Select multiple users at once (checkboxes)
+- Show selected count badge
+- Bulk assign role (default: Project Member)
+- "Add Selected" button to add all at once
+
+#### B. Invite Non-Portal Users
+- Form at top of panel to invite by email
+- For Portal Admins:
+  - If email in allowed domains → Send invite to portal + project
+  - If email NOT in allowed domains → Send invite anyway (admin override)
+- For Non-Admins:
+  - If email in allowed domains → Send invite to portal + project
+  - If email NOT in allowed domains → Create approval request for admin
+  
+#### C. Visual Feedback & Notifications
+- Show status indicators:
+  - ✅ "Invited to portal and project"
+  - ⏳ "Pending admin approval"
+  - ❌ "Email not allowed (request admin approval)"
+- Email notifications:
+  - User: "You've been invited to [Project]"
+  - Admin: "Approval requested for [User] to join portal"
+- Toast notifications for success/errors
+
+#### D. Bulk Project Assignment from User Profile
+- When viewing another user's profile
+- Show section: "Projects where I can add [User]"
+- List all projects where logged-in user has PROJECT_EDIT permission
+- Checkboxes to select multiple projects
+- "Add to Selected Projects" button
+- Bulk add in single operation
+
+**Implementation:**
+- New controller: `ProjectMemberController`
+- Offcanvas component: `AddMembersPanel.vue`
+- API endpoints:
+  - `GET /projects/{id}/eligible-members` - List users not in project
+  - `POST /projects/{id}/members/bulk-add` - Add multiple members
+  - `POST /projects/{id}/members/invite` - Invite by email
+  - `POST /users/{id}/add-to-projects` - Bulk add user to projects
+- Email templates:
+  - `project_invitation.html.twig`
+  - `admin_approval_request.html.twig`
+- Notification types:
+  - PROJECT_MEMBER_ADDED
+  - PROJECT_INVITATION_RECEIVED
+  - ADMIN_APPROVAL_REQUESTED
+
+**Allowed Domains Integration:**
+- Check `portal_settings` table for allowed_domains JSON
+- Validate email domain before sending invitation
+- Show domain restrictions in UI
+- Admin can override restrictions
+
+**Admin Approval Workflow:**
+- Create `user_approval_requests` table
+- Track: requested_by, user_email, project_id, status, notes
+- Admin dashboard showing pending approvals
+- One-click approve/reject actions
+- Email notifications on approval/rejection
+
+---
+
+## Implementation Priority Order
+
+Based on impact and dependencies:
+
+1. **Default "General" Milestone** ✅ - COMPLETED
+2. **Move Task Options for Root Tasks** - High impact, frequently requested
+3. **Enhanced Project Member Management** - Improves onboarding workflow
+4. **Profile Hover Cards** - Enhances UX across entire app
+5. **Auto-assign Tasks in My Tasks** - Small but useful improvement
+6. **Task Footer on Detail Page** - UI consistency improvement
+
+---
+
+## Technical Notes
+
+### Shared Components Needed
+- `MoveTaskModal.vue` - Reusable for all move operations
+- `ProfileCard.vue` - User profile hover card
+- `AddMembersPanel.vue` - Offcanvas member selection
+- `BulkActionBar.vue` - Already exists, may need enhancement
+
+### Database Tables to Add
+- `user_approval_requests` - Track admin approval requests
+- Consider adding `task_move_history` for audit trail
+
+### API Consistency
+- Follow RESTful patterns
+- Return consistent error formats
+- Include validation messages
+- Use proper HTTP status codes
+- Document all new endpoints in API section above
+

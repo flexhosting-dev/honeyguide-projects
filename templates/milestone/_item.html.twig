@@ -9,7 +9,14 @@
                     </svg>
                 </span>
                 <div class="ml-4">
-                    <h4 class="text-lg font-medium text-gray-900">{{ milestone.name }}</h4>
+                    <div class="flex items-center gap-2">
+                        <h4 class="text-lg font-medium text-gray-900">{{ milestone.name }}</h4>
+                        {% if milestone.isDefault %}
+                        <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 border border-gray-300">
+                            Default
+                        </span>
+                        {% endif %}
+                    </div>
                     <div class="flex items-center space-x-3 mt-1">
                         <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium {{ milestone.status.value == 'open' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700' }}">
                             {{ milestone.status.value == 'open' ? 'Open' : 'Closed' }}
@@ -22,11 +29,16 @@
             </div>
 
             <div class="flex items-center space-x-2">
-                {% if canEditMilestone|default(false) %}
+                {% if canEditMilestone|default(false) and not milestone.isDefault %}
                 <a href="{{ path('app_milestone_edit', {projectId: project.id, id: milestone.id}) }}"
                    class="inline-flex items-center rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
                     Edit
                 </a>
+                {% endif %}
+                {% if milestone.isDefault %}
+                <span class="inline-flex items-center rounded-md bg-gray-100 px-2.5 py-1.5 text-sm font-semibold text-gray-400 cursor-not-allowed" title="Default milestone cannot be edited or deleted">
+                    Edit
+                </span>
                 {% endif %}
             </div>
         </div>

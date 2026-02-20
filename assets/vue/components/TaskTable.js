@@ -60,6 +60,10 @@ export default {
             type: String,
             default: ''
         },
+        createUrlTemplate: {
+            type: String,
+            default: ''
+        },
         projectId: {
             type: String,
             default: ''
@@ -1512,12 +1516,6 @@ export default {
             const title = formData.title?.trim();
             if (!title || isCreating.value) return;
 
-            if (!props.createUrl) {
-                console.warn('No create URL configured');
-                cancelQuickAdd();
-                return;
-            }
-
             // Need a milestone to create task
             let milestoneId = formData.milestone;
             if (!milestoneId && props.milestones.length > 0) {
@@ -1531,10 +1529,26 @@ export default {
                 return;
             }
 
+            // Determine the correct create URL based on the milestone's project
+            const milestone = props.milestones.find(m => m.id === milestoneId);
+            const milestoneProjectId = milestone?.projectId;
+
+            let createUrl = props.createUrl;
+            if (milestoneProjectId && milestoneProjectId !== props.projectId && props.createUrlTemplate) {
+                // Use the template to create URL for the milestone's project
+                createUrl = props.createUrlTemplate.replace('__PROJECT_ID__', milestoneProjectId);
+            }
+
+            if (!createUrl) {
+                console.warn('No create URL configured');
+                cancelQuickAdd();
+                return;
+            }
+
             isCreating.value = true;
 
             try {
-                const response = await fetch(props.createUrl, {
+                const response = await fetch(createUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1564,7 +1578,17 @@ export default {
                 tasks.value.push(newTask);
 
                 if (typeof Toastr !== 'undefined') {
-                    Toastr.success('Task Created', `"${title}" created successfully`);
+                    if (data.assignedToDefault) {
+                        Toastr.info('Task Created', `"${title}" created and assigned to "${data.milestoneName}" milestone`);
+                    } else {
+                        Toastr.success('Task Created', `"${title}" created successfully`);
+                    }
+                } else if (typeof window.showNotification === 'function') {
+                    if (data.assignedToDefault) {
+                        window.showNotification(`Task "${title}" assigned to "${data.milestoneName}"`, 'info');
+                    } else {
+                        window.showNotification(`Task "${title}" created successfully`, 'success');
+                    }
                 }
 
                 if (!continueAdding) {
@@ -2125,12 +2149,6 @@ export default {
             const title = formData.title?.trim();
             if (!title || isCreatingInlineTask.value) return;
 
-            if (!props.createUrl) {
-                console.warn('No create URL configured');
-                cancelInlineAdd();
-                return;
-            }
-
             const targetTaskId = inlineAddAboveTaskId.value || inlineAddBelowTaskId.value;
             const isAbove = !!inlineAddAboveTaskId.value;
             const targetTask = tasks.value.find(t => t.id === targetTaskId);
@@ -2153,6 +2171,22 @@ export default {
                 return;
             }
 
+            // Determine the correct create URL based on the milestone's project
+            const milestone = props.milestones.find(m => m.id === milestoneId);
+            const milestoneProjectId = milestone?.projectId;
+
+            let createUrl = props.createUrl;
+            if (milestoneProjectId && milestoneProjectId !== props.projectId && props.createUrlTemplate) {
+                // Use the template to create URL for the milestone's project
+                createUrl = props.createUrlTemplate.replace('__PROJECT_ID__', milestoneProjectId);
+            }
+
+            if (!createUrl) {
+                console.warn('No create URL configured');
+                cancelInlineAdd();
+                return;
+            }
+
             // Calculate position
             const targetPosition = targetTask.position ?? 0;
             const newPosition = isAbove ? targetPosition - 0.5 : targetPosition + 0.5;
@@ -2160,7 +2194,7 @@ export default {
             isCreatingInlineTask.value = true;
 
             try {
-                const response = await fetch(props.createUrl, {
+                const response = await fetch(createUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2271,12 +2305,41 @@ export default {
             }
         };
 
+        // Helper to count subtasks recursively (includes all descendants)
+        const countAllSubtasks = (task) => {
+            let count = task.subtaskCount || 0;
+            // Also count subtasks of loaded children in the tasks array
+            const children = tasks.value.filter(t => t.parentId === task.id);
+            for (const child of children) {
+                count += countAllSubtasks(child);
+            }
+            return count;
+        };
+
         const handleContextDelete = async (contextTasks) => {
             const count = contextTasks.length;
             const title = count === 1 ? 'Delete Task' : `Delete ${count} Tasks`;
-            const message = count === 1
-                ? `Are you sure you want to delete "${contextTasks[0].title}"? This action cannot be undone.`
-                : `Are you sure you want to delete ${count} tasks? This action cannot be undone.`;
+
+            // Calculate total subtask count for all selected tasks
+            let totalSubtaskCount = 0;
+            for (const task of contextTasks) {
+                totalSubtaskCount += countAllSubtasks(task);
+            }
+
+            let message;
+            if (count === 1) {
+                if (totalSubtaskCount > 0) {
+                    message = `Are you sure you want to delete "${contextTasks[0].title}"? This task has ${totalSubtaskCount} subtask${totalSubtaskCount > 1 ? 's' : ''} that will also be deleted. This action cannot be undone.`;
+                } else {
+                    message = `Are you sure you want to delete "${contextTasks[0].title}"? This action cannot be undone.`;
+                }
+            } else {
+                if (totalSubtaskCount > 0) {
+                    message = `Are you sure you want to delete ${count} tasks? These tasks have ${totalSubtaskCount} subtask${totalSubtaskCount > 1 ? 's' : ''} that will also be deleted. This action cannot be undone.`;
+                } else {
+                    message = `Are you sure you want to delete ${count} tasks? This action cannot be undone.`;
+                }
+            }
 
             const confirmed = await confirmDialogRef.value?.show({
                 title,

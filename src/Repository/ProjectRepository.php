@@ -27,7 +27,17 @@ class ProjectRepository extends ServiceEntityRepository
             ->orWhere('p.isPublic = true')
             ->setParameter('user', $user)
             ->distinct()
-            ->orderBy('p.createdAt', 'DESC');
+            ->orderBy('p.position', 'ASC');
+    }
+
+    /**
+     * @return Project[]
+     */
+    public function findAllOrderedByPosition(): array
+    {
+        return $this->createQueryBuilder('p')
+            ->orderBy('p.position', 'ASC')
+            ->getQuery()->getResult();
     }
 
     /**

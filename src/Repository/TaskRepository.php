@@ -393,8 +393,9 @@ class TaskRepository extends ServiceEntityRepository
                 ->join('m.project', 'p')
                 ->andWhere('p.isPersonal = false OR p.owner = :user')
                 ->setParameter('user', $user)
-                ->orderBy('t.dueDate', 'ASC')
-                ->addOrderBy('t.priority', 'DESC');
+                ->orderBy('p.position', 'ASC')
+                ->addOrderBy('m.position', 'ASC')
+                ->addOrderBy('t.position', 'ASC');
         } else {
             // Regular user sees tasks from projects they are members of, own, or are public
             // Excludes other users' personal projects
@@ -420,8 +421,9 @@ class TaskRepository extends ServiceEntityRepository
                 ->join('m.project', 'p')
                 ->where('p.id IN (:accessibleProjects)')
                 ->setParameter('accessibleProjects', $accessibleProjects)
-                ->orderBy('t.dueDate', 'ASC')
-                ->addOrderBy('t.priority', 'DESC');
+                ->orderBy('p.position', 'ASC')
+                ->addOrderBy('m.position', 'ASC')
+                ->addOrderBy('t.position', 'ASC');
         }
 
         // Exclude tasks from user's hidden projects

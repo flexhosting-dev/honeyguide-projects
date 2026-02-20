@@ -71,6 +71,7 @@
     data-vue-milestone-url-template="{{ path('app_task_update_milestone', {id: '__TASK_ID__'}) }}"
     data-vue-project-id="{{ project ? project.id : '' }}"
     data-vue-create-url="{{ project is defined and project ? path('app_task_create_json', {projectId: project.id}) : '' }}"
+    data-vue-create-url-template="{{ path('app_task_create_json', {projectId: '__PROJECT_ID__'}) }}"
     data-vue-storage-key="{{ storageKey|default('task_table') }}"
     data-vue-children-url-template="{{ path('app_task_children', {id: '__TASK_ID__'}) }}"
     data-vue-bulk-update-url="{{ path('app_task_bulk_update') }}"

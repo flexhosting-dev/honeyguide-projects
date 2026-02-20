@@ -58,26 +58,259 @@ function loadMoreTasks(listId, buttonId, url) {
         button.disabled = false;
     });
 }
+
+// Milestone Reordering
+{% if canEditMilestone|default(false) %}
+let milestoneDraggedElement = null;
+
+function toggleMilestoneReordering() {
+    const normalView = document.getElementById('milestones-list');
+    const reorderList = document.getElementById('milestones-reorder-list');
+    const toggleBtn = document.getElementById('reorder-milestones-btn');
+    const newMilestoneBtn = document.getElementById('new-milestone-btn');
+
+    const isReorderMode = reorderList.classList.contains('hidden');
+
+    if (isReorderMode) {
+        // Enter reorder mode
+        normalView.classList.add('hidden');
+        reorderList.classList.remove('hidden');
+        if (newMilestoneBtn) newMilestoneBtn.classList.add('hidden');
+
+        toggleBtn.innerHTML = `
+            <svg class="h-5 w-5 -ml-0.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+            </svg>
+            Save Order
+        `;
+        toggleBtn.classList.remove('bg-white', 'text-gray-700', 'border-gray-300');
+        toggleBtn.classList.add('bg-primary-600', 'text-white', 'border-primary-600');
+
+        initializeMilestoneReorderDrag();
+    } else {
+        // Exit reorder mode and save
+        saveMilestoneOrder();
+    }
+}
+
+function exitMilestoneReorderMode() {
+    const normalView = document.getElementById('milestones-list');
+    const reorderList = document.getElementById('milestones-reorder-list');
+    const toggleBtn = document.getElementById('reorder-milestones-btn');
+    const newMilestoneBtn = document.getElementById('new-milestone-btn');
+
+    normalView.classList.remove('hidden');
+    reorderList.classList.add('hidden');
+    if (newMilestoneBtn) newMilestoneBtn.classList.remove('hidden');
+
+    toggleBtn.innerHTML = `
+        <svg class="h-5 w-5 -ml-0.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+        </svg>
+        Reorder<span class="hidden sm:inline"> Milestones</span>
+    `;
+    toggleBtn.classList.remove('bg-primary-600', 'text-white', 'border-primary-600');
+    toggleBtn.classList.add('bg-white', 'text-gray-700', 'border-gray-300');
+}
+
+function initializeMilestoneReorderDrag() {
+    const reorderList = document.getElementById('milestones-reorder-list');
+    const reorderContainer = reorderList.querySelector('.bg-white.shadow');
+
+    if (!reorderContainer) {
+        console.error('Milestone reorder container not found');
+        return;
+    }
+
+    reorderContainer.addEventListener('dragstart', handleMilestoneDragStart);
+    reorderContainer.addEventListener('dragover', handleMilestoneDragOver);
+    reorderContainer.addEventListener('drop', handleMilestoneDrop);
+    reorderContainer.addEventListener('dragend', handleMilestoneDragEnd);
+}
+
+function handleMilestoneDragStart(e) {
+    const item = e.target.closest('.milestone-reorder-item');
+    if (!item) return;
+
+    milestoneDraggedElement = item;
+    milestoneDraggedElement.style.opacity = '0.4';
+    milestoneDraggedElement.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleMilestoneDragOver(e) {
+    e.preventDefault();
+    if (!milestoneDraggedElement) return;
+
+    const reorderContainer = e.currentTarget;
+    const afterElement = getMilestoneDragAfterElement(reorderContainer, e.clientY);
+
+    if (afterElement == null) {
+        reorderContainer.appendChild(milestoneDraggedElement);
+    } else {
+        reorderContainer.insertBefore(milestoneDraggedElement, afterElement);
+    }
+
+    return false;
+}
+
+function handleMilestoneDrop(e) {
+    e.stopPropagation();
+    return false;
+}
+
+function handleMilestoneDragEnd(e) {
+    if (milestoneDraggedElement) {
+        milestoneDraggedElement.style.opacity = '1';
+        milestoneDraggedElement.classList.remove('dragging');
+        milestoneDraggedElement = null;
+    }
+}
+
+function getMilestoneDragAfterElement(container, y) {
+    const draggableElements = [...container.querySelectorAll('.milestone-reorder-item:not(.dragging)')];
+
+    return draggableElements.reduce((closest, child) => {
+        if (child === milestoneDraggedElement) return closest;
+
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+
+        if (offset < 0 && offset > closest.offset) {
+            return { offset: offset, element: child };
+        } else {
+            return closest;
+        }
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+}
+
+function saveMilestoneOrder() {
+    const milestoneIds = [];
+    document.querySelectorAll('.milestone-reorder-item').forEach(item => {
+        milestoneIds.push(item.dataset.milestoneId);
+    });
+
+    console.log('Saving milestone order:', milestoneIds);
+
+    const basePath = '{{ app.request.basePath }}';
+    const projectId = '{{ project.id }}';
+    const url = `${basePath}/projects/${projectId}/milestones/reorder`;
+
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ milestoneIds })
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(data => {
+                throw new Error(data.error || 'Server error');
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            if (typeof Toastr !== 'undefined') {
+                Toastr.success(`Updated ${data.updated || 0} milestones`);
+            }
+            exitMilestoneReorderMode();
+            // Reload page to reflect new order
+            setTimeout(() => window.location.reload(), 500);
+        } else {
+            if (typeof Toastr !== 'undefined') {
+                Toastr.error(data.error || 'Failed to update order');
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        if (typeof Toastr !== 'undefined') {
+            Toastr.error(error.message || 'Failed to update order');
+        }
+    });
+}
+{% endif %}
 </script>
+
 <div class="space-y-4">
     <div class="flex items-center justify-between">
         <h3 class="text-base font-semibold leading-6 text-gray-900">Milestones</h3>
-        {% if canCreateMilestone|default(false) %}
-        <a href="{{ path('app_milestone_new', {projectId: project.id}) }}"
-           class="inline-flex items-center rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500">
-            <svg class="-ml-0.5 mr-1.5 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-            </svg>
-            New Milestone
-        </a>
-        {% endif %}
+        <div class="flex items-center gap-2">
+            {% if canEditMilestone|default(false) %}
+            <button type="button" id="reorder-milestones-btn"
+                    onclick="toggleMilestoneReordering()"
+                    class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+                <svg class="h-5 w-5 -ml-0.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                </svg>
+                Reorder<span class="hidden sm:inline"> Milestones</span>
+            </button>
+            {% endif %}
+            {% if canCreateMilestone|default(false) %}
+            <a href="{{ path('app_milestone_new', {projectId: project.id}) }}"
+               id="new-milestone-btn"
+               class="inline-flex items-center rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500">
+                <svg class="-ml-0.5 mr-1.5 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+                </svg>
+                New Milestone
+            </a>
+            {% endif %}
+        </div>
     </div>
 
     {% if milestones|length > 0 %}
-        <div class="space-y-4">
+        {# Normal View #}
+        <div class="space-y-4 relative" id="milestones-list" data-project-id="{{ project.id }}">
             {% for milestone in milestones %}
-                {% include 'milestone/_item.html.twig' with {milestone: milestone, project: project} %}
+                <div class="milestone-item relative" data-milestone-id="{{ milestone.id }}" data-is-default="{{ milestone.isDefault ? 'true' : 'false' }}">
+                    {% include 'milestone/_item.html.twig' with {milestone: milestone, project: project} %}
+                </div>
             {% endfor %}
+        </div>
+
+        {# Reorder List View (hidden by default) #}
+        <div id="milestones-reorder-list" class="hidden max-w-3xl">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <div class="flex">
+                    <svg class="h-5 w-5 text-blue-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                    </svg>
+                    <div class="ml-3">
+                        <p class="text-sm text-blue-700">
+                            Drag milestones to reorder. The default milestone will always appear first.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white shadow rounded-lg divide-y divide-gray-200">
+            {% for milestone in milestones %}
+            <div class="milestone-reorder-item flex items-center p-4 hover:bg-gray-50 cursor-move"
+                 data-milestone-id="{{ milestone.id }}"
+                 draggable="true">
+                <svg class="h-5 w-5 text-gray-400 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                </svg>
+                <div class="flex-1 flex items-center justify-between">
+                    <span class="text-sm font-medium text-gray-900">{{ milestone.name }}</span>
+                    <div class="flex items-center gap-2">
+                        {% if milestone.isDefault %}
+                        <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 border border-gray-300">Default</span>
+                        {% endif %}
+                        {% if milestone.dueDate %}
+                        <span class="text-xs text-gray-500">
+                            Due: {{ milestone.dueDate|date('M d, Y') }}
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            </div>
         </div>
     {% else %}
         {% include 'components/_empty_state.html.twig' with {

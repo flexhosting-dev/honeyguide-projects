@@ -40,6 +40,12 @@ class Milestone
     private MilestoneStatus $status = MilestoneStatus::OPEN;
 
     #[ORM\Column]
+    private int $position = 0;
+
+    #[ORM\Column(type: 'boolean', options: ['default' => false])]
+    private bool $isDefault = false;
+
+    #[ORM\Column]
     private \DateTimeImmutable $createdAt;
 
     #[ORM\Column]
@@ -132,6 +138,28 @@ class Milestone
     public function setStatus(MilestoneStatus $status): static
     {
         $this->status = $status;
+        return $this;
+    }
+
+    public function getPosition(): int
+    {
+        return $this->position;
+    }
+
+    public function setPosition(int $position): static
+    {
+        $this->position = $position;
+        return $this;
+    }
+
+    public function isDefault(): bool
+    {
+        return $this->isDefault;
+    }
+
+    public function setIsDefault(bool $isDefault): static
+    {
+        $this->isDefault = $isDefault;
         return $this;
     }
 

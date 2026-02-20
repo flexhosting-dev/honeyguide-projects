@@ -53,12 +53,16 @@ class Project
     #[ORM\Column(options: ['default' => false])]
     private bool $isPersonal = false;
 
+    #[ORM\Column]
+    private int $position = 0;
+
     /** @var Collection<int, ProjectMember> */
     #[ORM\OneToMany(targetEntity: ProjectMember::class, mappedBy: 'project', orphanRemoval: true, cascade: ['persist'])]
     private Collection $members;
 
     /** @var Collection<int, Milestone> */
     #[ORM\OneToMany(targetEntity: Milestone::class, mappedBy: 'project', orphanRemoval: true)]
+    #[ORM\OrderBy(['position' => 'ASC'])]
     private Collection $milestones;
 
     /** @var Collection<int, Activity> */
@@ -168,6 +172,17 @@ class Project
         return $this;
     }
 
+    public function getPosition(): int
+    {
+        return $this->position;
+    }
+
+    public function setPosition(int $position): static
+    {
+        $this->position = $position;
+        return $this;
+    }
+
     public function getOwner(): User
     {
         return $this->owner;
@@ -218,6 +233,16 @@ class Project
     public function getMilestones(): Collection
     {
         return $this->milestones;
+    }
+
+    public function getDefaultMilestone(): ?Milestone
+    {
+        foreach ($this->milestones as $milestone) {
+            if ($milestone->isDefault()) {
+                return $milestone;
+            }
+        }
+        return null;
     }
 
     /** @return Collection<int, Activity> */

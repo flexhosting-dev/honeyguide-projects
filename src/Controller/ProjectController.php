@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\DTO\TaskFilterDTO;
+use App\Entity\Milestone;
 use App\Entity\Project;
 use App\Entity\ProjectMember;
 use App\Entity\User;
@@ -98,6 +99,15 @@ class ProjectController extends AbstractController
             $project->addMember($member);
 
             $this->entityManager->persist($project);
+
+            // Create default "General" milestone
+            $milestone = new Milestone();
+            $milestone->setName('General');
+            $milestone->setProject($project);
+            $milestone->setPosition(0);
+            $milestone->setIsDefault(true);
+
+            $this->entityManager->persist($milestone);
 
             // Log activity
             $this->activityService->logProjectCreated($project, $user);
@@ -452,5 +462,47 @@ class ProjectController extends AbstractController
             'success' => true,
             'description' => $newDescription,
         ]);
+    }
+
+    #[Route('/reorder', name: 'app_project_reorder', methods: ['POST'])]
+    public function reorder(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+
+        if (!$user->isPortalAdmin()) {
+            return $this->json(['success' => false, 'error' => 'Admin only'], 403);
+        }
+
+        try {
+            $data = json_decode($request->getContent(), true);
+            $projectIds = $data['projectIds'] ?? [];
+
+            if (empty($projectIds)) {
+                return $this->json(['success' => false, 'error' => 'No project IDs provided'], 400);
+            }
+
+            $updated = 0;
+            foreach ($projectIds as $index => $projectId) {
+                $project = $this->projectRepository->find($projectId);
+                if ($project) {
+                    $project->setPosition($index);
+                    $updated++;
+                }
+            }
+
+            $this->entityManager->flush();
+
+            return $this->json([
+                'success' => true,
+                'updated' => $updated,
+                'total' => count($projectIds)
+            ]);
+        } catch (\Exception $e) {
+            return $this->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }

@@ -62,6 +62,50 @@ export default {
             subtasks.value.filter(s => s.status?.value === 'completed').length
         );
 
+        const incompleteCount = computed(() =>
+            subtasks.value.filter(s => s.status?.value !== 'completed').length
+        );
+
+        const completingAll = ref(false);
+
+        const completeAllSubtasks = async () => {
+            if (completingAll.value || incompleteCount.value === 0) return;
+
+            completingAll.value = true;
+            error.value = '';
+
+            try {
+                const res = await fetch(`${basePath}/tasks/${props.taskId}/subtasks/complete-all`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    error.value = data.error || 'Failed to complete subtasks';
+                    return;
+                }
+
+                // Update all subtasks to completed status
+                const completedIds = new Set(data.completedIds || []);
+                subtasks.value.forEach(subtask => {
+                    if (completedIds.has(subtask.id)) {
+                        subtask.status = { value: 'completed', label: 'Completed' };
+                    }
+                });
+
+                if (typeof Toastr !== 'undefined') {
+                    Toastr.success('Subtasks Completed', `${data.completedCount} subtask(s) marked as completed`);
+                }
+            } catch (e) {
+                error.value = 'Network error';
+            } finally {
+                completingAll.value = false;
+            }
+        };
+
         const filteredMembers = computed(() => {
             if (!memberSearch.value) return members.value;
             const q = memberSearch.value.toLowerCase();
@@ -390,14 +434,16 @@ export default {
         };
 
         return {
-            subtasks, newTitle, saving, error, completedCount, addSubtask, handleKeydown, handleInput,
+            subtasks, newTitle, saving, error, completedCount, incompleteCount, addSubtask, handleKeydown, handleInput,
             openSubtask, statusClass, basePath, inputEl,
             selectedAssignee, selectedDueDate, showMemberDropdown, showDateDropdown, dropUp, scrollInputIntoView,
             filteredMembers, selectMember, removeMember, quickDateOptions, selectQuickDate, selectCustomDate, removeDate, dateInputEl,
             isOverdue, formatDisplayDate, getInitials,
             // Drag and drop
             draggedItem, dragOverIndex,
-            handleDragStart, handleDragEnd, handleDragOver, handleDragLeave, handleDrop
+            handleDragStart, handleDragEnd, handleDragOver, handleDragLeave, handleDrop,
+            // Complete all
+            completingAll, completeAllSubtasks
         };
     },
 
@@ -412,6 +458,20 @@ export default {
                     <div class="bg-primary-600 h-2 rounded-full transition-all"
                          :style="{ width: (subtasks.length > 0 ? (completedCount / subtasks.length * 100) : 0) + '%' }"></div>
                 </div>
+                <!-- Complete all subtasks button -->
+                <button v-if="canEdit && incompleteCount > 0"
+                        @click="completeAllSubtasks"
+                        :disabled="completingAll"
+                        class="mt-2 inline-flex items-center text-xs text-primary-600 hover:text-primary-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <svg v-if="completingAll" class="animate-spin -ml-0.5 mr-1 h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <svg v-else class="mr-1 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                    </svg>
+                    Complete all subtasks
+                </button>
             </div>
 
             <div class="space-y-1">

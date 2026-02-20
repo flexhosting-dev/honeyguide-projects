@@ -23,7 +23,7 @@
 
     {# Personal Project Section #}
     {% if personalProject is defined and personalProject %}
-    <div>
+    <div id="personal-project-section">
         <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4">Personal Workspace</h2>
         <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {% include 'project/_card.html.twig' with {project: personalProject} %}
@@ -34,13 +34,71 @@
     {# Team Projects Section #}
     {% if projects|length > 0 %}
         <div>
-            {% if personalProject is defined and personalProject %}
-            <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4">Team Projects</h2>
-            {% endif %}
+            <div class="flex items-center justify-between mb-4">
+                {% if personalProject is defined and personalProject %}
+                <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wider">Team Projects</h2>
+                {% else %}
+                <div></div>
+                {% endif %}
+                {% if app.user.portalAdmin %}
+                <button type="button" id="reorder-toggle-btn"
+                        onclick="toggleProjectReordering()"
+                        class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+                    <svg class="h-5 w-5 -ml-0.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                    </svg>
+                    Reorder<span class="hidden sm:inline"> Projects</span>
+                </button>
+                {% endif %}
+            </div>
+
+            {# Normal Grid View #}
             <div id="projects-grid" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {% for project in projects %}
-                    {% include 'project/_card.html.twig' with {project: project, isHidden: false} %}
+                    <div class="project-card-wrapper" data-project-id="{{ project.id }}">
+                        {% include 'project/_card.html.twig' with {project: project, isHidden: false} %}
+                    </div>
                 {% endfor %}
+            </div>
+
+            {# Reorder List View (hidden by default) #}
+            <div id="projects-reorder-list" class="hidden max-w-3xl">
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                    <div class="flex">
+                        <svg class="h-5 w-5 text-blue-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                        </svg>
+                        <div class="ml-3">
+                            <p class="text-sm text-blue-700">
+                                Drag projects to reorder. This affects the order for all users. Hidden projects are included when reordering.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white shadow rounded-lg divide-y divide-gray-200">
+                {% set allProjects = projects %}
+                {% if hiddenProjects is defined and hiddenProjects|length > 0 %}
+                    {% set allProjects = projects|merge(hiddenProjects) %}
+                {% endif %}
+                {# Sort by position #}
+                {% set allProjects = allProjects|sort((a, b) => a.position <=> b.position) %}
+                {% for project in allProjects %}
+                <div class="reorder-item flex items-center p-4 hover:bg-gray-50 cursor-move"
+                     data-project-id="{{ project.id }}"
+                     draggable="true">
+                    <svg class="h-5 w-5 text-gray-400 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                    </svg>
+                    <span class="text-sm font-medium text-gray-900">{{ project.name }}</span>
+                    {% if project.isPersonal %}
+                    <span class="ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700">Personal</span>
+                    {% endif %}
+                    {% if hiddenProjects is defined and project in hiddenProjects %}
+                    <span class="ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600">Hidden</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                </div>
             </div>
         </div>
     {% elseif not (personalProject is defined and personalProject) %}
@@ -75,4 +133,213 @@
     </div>
     {% endif %}
 </div>
+
+<script>
+// Hidden projects toggle
+function toggleHiddenProjects() {
+    const grid = document.getElementById('hidden-projects-grid');
+    const chevron = document.getElementById('hidden-projects-chevron');
+    if (grid && chevron) {
+        grid.classList.toggle('hidden');
+        chevron.classList.toggle('-rotate-90');
+        chevron.classList.toggle('rotate-0');
+    }
+}
+
+// Project reordering
+{% if app.user.portalAdmin %}
+let draggedElement = null;
+let placeholder = null;
+
+function toggleProjectReordering() {
+    const projectsGrid = document.getElementById('projects-grid');
+    const reorderList = document.getElementById('projects-reorder-list');
+    const toggleBtn = document.getElementById('reorder-toggle-btn');
+    const hiddenSection = document.getElementById('hidden-projects-section');
+    const hiddenProjectsGrid = document.getElementById('hidden-projects-grid');
+    const personalSection = document.getElementById('personal-project-section');
+
+    const isReorderMode = reorderList.classList.contains('hidden');
+
+    if (isReorderMode) {
+        // Enter reorder mode - hide all normal views
+        projectsGrid.classList.add('hidden');
+        reorderList.classList.remove('hidden');
+
+        // Hide all other project sections
+        if (personalSection) personalSection.classList.add('hidden');
+        if (hiddenSection) hiddenSection.classList.add('hidden');
+        if (hiddenProjectsGrid) hiddenProjectsGrid.classList.add('hidden');
+
+        // Debug: Log what projects are in the reorder list
+        const reorderItems = document.querySelectorAll('.reorder-item');
+        console.log('Reorder list contains', reorderItems.length, 'projects:');
+        reorderItems.forEach((item, index) => {
+            const name = item.querySelector('span').textContent.trim();
+            console.log(`  ${index + 1}. ${name} (ID: ${item.dataset.projectId})`);
+        });
+
+        toggleBtn.innerHTML = `
+            <svg class="h-5 w-5 -ml-0.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+            </svg>
+            Save Order
+        `;
+        toggleBtn.classList.remove('bg-white', 'text-gray-700', 'border-gray-300');
+        toggleBtn.classList.add('bg-primary-600', 'text-white', 'border-primary-600');
+
+        initializeReorderDrag();
+    } else {
+        // Exit reorder mode and save
+        saveProjectOrder();
+    }
+}
+
+function exitReorderMode() {
+    const projectsGrid = document.getElementById('projects-grid');
+    const reorderList = document.getElementById('projects-reorder-list');
+    const toggleBtn = document.getElementById('reorder-toggle-btn');
+    const hiddenSection = document.getElementById('hidden-projects-section');
+    const personalSection = document.getElementById('personal-project-section');
+
+    projectsGrid.classList.remove('hidden');
+    reorderList.classList.add('hidden');
+    if (personalSection) personalSection.classList.remove('hidden');
+    if (hiddenSection) hiddenSection.classList.remove('hidden');
+    // Note: hiddenProjectsGrid stays collapsed by default
+
+    toggleBtn.innerHTML = `
+        <svg class="h-5 w-5 -ml-0.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+        </svg>
+        Reorder<span class="hidden sm:inline"> Projects</span>
+    `;
+    toggleBtn.classList.remove('bg-primary-600', 'text-white', 'border-primary-600');
+    toggleBtn.classList.add('bg-white', 'text-gray-700', 'border-gray-300');
+}
+
+function initializeReorderDrag() {
+    const reorderList = document.getElementById('projects-reorder-list');
+    const reorderContainer = reorderList.querySelector('.bg-white.shadow');
+
+    if (!reorderContainer) {
+        console.error('Reorder container not found');
+        return;
+    }
+
+    reorderContainer.addEventListener('dragstart', handleDragStart);
+    reorderContainer.addEventListener('dragover', handleDragOver);
+    reorderContainer.addEventListener('drop', handleDrop);
+    reorderContainer.addEventListener('dragend', handleDragEnd);
+}
+
+function handleDragStart(e) {
+    const item = e.target.closest('.reorder-item');
+    if (!item) return;
+
+    draggedElement = item;
+    draggedElement.style.opacity = '0.4';
+    draggedElement.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    if (!draggedElement) return;
+
+    const reorderContainer = e.currentTarget;
+    const afterElement = getDragAfterElement(reorderContainer, e.clientY);
+
+    if (afterElement == null) {
+        reorderContainer.appendChild(draggedElement);
+    } else {
+        reorderContainer.insertBefore(draggedElement, afterElement);
+    }
+
+    return false;
+}
+
+function handleDrop(e) {
+    e.stopPropagation();
+    return false;
+}
+
+function handleDragEnd(e) {
+    if (draggedElement) {
+        draggedElement.style.opacity = '1';
+        draggedElement.classList.remove('dragging');
+        draggedElement = null;
+    }
+}
+
+function getDragAfterElement(container, y) {
+    const draggableElements = [...container.querySelectorAll('.reorder-item:not(.dragging)')];
+
+    return draggableElements.reduce((closest, child) => {
+        if (child === draggedElement) return closest;
+
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+
+        if (offset < 0 && offset > closest.offset) {
+            return { offset: offset, element: child };
+        } else {
+            return closest;
+        }
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+}
+
+function saveProjectOrder() {
+    const projectIds = [];
+    document.querySelectorAll('.reorder-item').forEach(item => {
+        projectIds.push(item.dataset.projectId);
+    });
+
+    console.log('Saving project order:', projectIds);
+
+    const basePath = '{{ app.request.basePath }}';
+    const url = basePath + '/projects/reorder';
+    console.log('Fetching URL:', url);
+
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ projectIds })
+    })
+    .then(response => {
+        console.log('Response status:', response.status);
+        if (!response.ok) {
+            return response.json().then(data => {
+                throw new Error(data.error || 'Server error');
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Response data:', data);
+        if (data.success) {
+            if (typeof Toastr !== 'undefined') {
+                Toastr.success(`Updated ${data.updated || 0} projects`);
+            }
+            exitReorderMode();
+            // Reload page to reflect new order
+            setTimeout(() => window.location.reload(), 500);
+        } else {
+            if (typeof Toastr !== 'undefined') {
+                Toastr.error(data.error || 'Failed to update order');
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        if (typeof Toastr !== 'undefined') {
+            Toastr.error(error.message || 'Failed to update order');
+        }
+    });
+}
+{% endif %}
+</script>
 {% endblock %}

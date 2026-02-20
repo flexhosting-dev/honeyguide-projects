@@ -432,6 +432,82 @@
             </div>
         </div>
     </div>
+
+    {# Subtask Completion Warning Modal #}
+    <div id="subtask-completion-modal" class="fixed inset-0 z-[100] hidden">
+        <div class="fixed inset-0 bg-gray-600 bg-opacity-50" onclick="closeSubtaskCompletionModal()"></div>
+        <div class="fixed inset-0 overflow-y-auto">
+            <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                <div class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-md">
+                    <div class="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+                        <div class="sm:flex sm:items-start">
+                            <div class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-yellow-100 sm:mx-0 sm:h-10 sm:w-10">
+                                <svg class="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+                                </svg>
+                            </div>
+                            <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left">
+                                <h3 class="text-base font-semibold leading-6 text-gray-900">Open Subtasks</h3>
+                                <div class="mt-2">
+                                    <p class="text-sm text-gray-500" id="subtask-completion-message">
+                                        This task has open subtasks. How would you like to proceed?
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 px-4 py-3 flex flex-col sm:flex-row-reverse gap-2 sm:px-6">
+                        <button type="button" onclick="confirmCompleteWithSubtasks()" class="inline-flex w-full justify-center rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500 sm:w-auto">
+                            Complete All
+                        </button>
+                        <button type="button" onclick="confirmCompleteParentOnly()" class="inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:w-auto">
+                            Complete Anyway
+                        </button>
+                        <button type="button" onclick="closeSubtaskCompletionModal()" class="inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-500 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:w-auto sm:mr-auto">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# Task Picker Modal for selecting new parent #}
+    <div id="task-picker-modal" class="fixed inset-0 z-[100] hidden">
+        <div class="fixed inset-0 bg-gray-600 bg-opacity-50" onclick="closeTaskPickerModal()"></div>
+        <div class="fixed inset-0 overflow-y-auto">
+            <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                <div class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+                    <div class="bg-white px-4 pb-4 pt-5 sm:p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-semibold text-gray-900">Select New Parent Task</h3>
+                            <button type="button" onclick="closeTaskPickerModal()" class="text-gray-400 hover:text-gray-500">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="mb-4">
+                            <input type="text"
+                                   id="task-picker-search"
+                                   oninput="filterTaskPickerList()"
+                                   placeholder="Search tasks..."
+                                   class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm">
+                        </div>
+                        <div id="task-picker-list" class="max-h-80 overflow-y-auto border border-gray-200 rounded-md" data-tasks="[]">
+                            <div class="px-4 py-8 text-center text-gray-500">Loading...</div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 px-4 py-3 flex justify-end sm:px-6">
+                        <button type="button" onclick="closeTaskPickerModal()" class="inline-flex justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <style>
     .weekday-btn input:checked + span {
         background-color: #4f46e5;
@@ -724,14 +800,14 @@
 
     // Close all dropdowns
     function closeAllDropdowns() {
-        document.querySelectorAll('.status-dropdown, .priority-dropdown, .milestone-dropdown, .add-assignee-dropdown').forEach(d => {
+        document.querySelectorAll('.status-dropdown, .priority-dropdown, .milestone-dropdown, .add-assignee-dropdown, .move-task-dropdown').forEach(d => {
             d.classList.add('hidden');
         });
     }
 
     // Click outside to close dropdowns
     document.addEventListener('click', function(e) {
-        if (!e.target.closest('.status-badge-btn, .status-dropdown, .priority-badge-btn, .priority-dropdown, .milestone-btn, .milestone-dropdown, .add-assignee-btn, .add-assignee-dropdown')) {
+        if (!e.target.closest('.status-badge-btn, .status-dropdown, .priority-badge-btn, .priority-dropdown, .milestone-btn, .milestone-dropdown, .add-assignee-btn, .add-assignee-dropdown, #move-task-btn, .move-task-dropdown')) {
             closeAllDropdowns();
         }
     });
@@ -769,20 +845,62 @@
         }
     }
 
+    // Subtask completion modal state
+    let _pendingStatusUpdate = null;
+
+    function openSubtaskCompletionModal(taskId, status, btn, openSubtaskCount) {
+        _pendingStatusUpdate = { taskId, status, btn };
+        const message = document.getElementById('subtask-completion-message');
+        message.textContent = `This task has ${openSubtaskCount} open subtask${openSubtaskCount > 1 ? 's' : ''}. How would you like to proceed?`;
+        document.getElementById('subtask-completion-modal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeSubtaskCompletionModal() {
+        document.getElementById('subtask-completion-modal').classList.add('hidden');
+        document.body.style.overflow = '';
+        _pendingStatusUpdate = null;
+    }
+
+    async function confirmCompleteParentOnly() {
+        if (!_pendingStatusUpdate) return;
+        const { taskId, status, btn } = _pendingStatusUpdate;
+        closeSubtaskCompletionModal();
+        // Re-call with completeSubtasks=false to force completion
+        await doUpdateTaskStatus(taskId, status, btn, false, true);
+    }
+
+    async function confirmCompleteWithSubtasks() {
+        if (!_pendingStatusUpdate) return;
+        const { taskId, status, btn } = _pendingStatusUpdate;
+        closeSubtaskCompletionModal();
+        // Complete parent and all subtasks
+        await doUpdateTaskStatus(taskId, status, btn, true, true);
+    }
+
     // Update Task Status
     async function updateTaskStatus(taskId, status, btn) {
+        await doUpdateTaskStatus(taskId, status, btn, false, false);
+    }
+
+    async function doUpdateTaskStatus(taskId, status, btn, completeSubtasks, forceComplete) {
         // Get label and color from the clicked button (dynamic from database)
         const statusLabel = btn.textContent.trim();
         const statusColor = btn.getAttribute('data-color') || '#6B7280';
 
         try {
+            const body = { status };
+            if (completeSubtasks) {
+                body.completeSubtasks = true;
+            }
+
             const response = await fetch(`${BASE_PATH}/tasks/${taskId}/status`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest'
                 },
-                body: JSON.stringify({ status: status })
+                body: JSON.stringify(body)
             });
 
             if (!response.ok) {
@@ -792,6 +910,13 @@
             }
 
             const data = await response.json();
+
+            // Check if we got a warning about open subtasks
+            if (data.warning && data.openSubtaskCount > 0 && !forceComplete) {
+                closeAllDropdowns();
+                openSubtaskCompletionModal(taskId, status, btn, data.openSubtaskCount);
+                return;
+            }
 
             // Prefer color from response (more authoritative), fallback to button data
             const finalColor = data.statusColor || statusColor;
@@ -806,11 +931,16 @@
             badgeBtn.setAttribute('data-color', finalColor);
 
             closeAllDropdowns();
-            Toastr.success('Status updated');
+
+            if (data.completedSubtaskIds && data.completedSubtaskIds.length > 0) {
+                Toastr.success('Status updated', `Task and ${data.completedSubtaskIds.length} subtask(s) completed`);
+            } else {
+                Toastr.success('Status updated');
+            }
 
             // Notify other components (e.g., KanbanBoard, GanttView)
             document.dispatchEvent(new CustomEvent('task-updated', {
-                detail: { taskId, field: 'status', value: status, label: finalLabel, color: finalColor }
+                detail: { taskId, field: 'status', value: status, label: finalLabel, color: finalColor, completedSubtaskIds: data.completedSubtaskIds }
             }));
         } catch (error) {
             console.error('Error updating status:', error);
@@ -1314,6 +1444,252 @@
         } catch (error) {
             console.error('Error adding assignee:', error);
             Toastr.error('Failed to add assignee');
+        }
+    }
+
+    // Move Task Dropdown
+    function toggleMoveTaskDropdown(btn, event) {
+        if (event) event.stopPropagation();
+        const dropdown = btn.parentElement.querySelector('.move-task-dropdown');
+        const isHidden = dropdown.classList.contains('hidden');
+        closeAllDropdowns();
+        if (isHidden) {
+            dropdown.classList.remove('hidden');
+        }
+    }
+
+    // Promote task (move to parent's level)
+    async function promoteTask(taskId) {
+        closeAllDropdowns();
+        try {
+            const response = await fetch(`${BASE_PATH}/tasks/${taskId}/parent`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ parentId: null })
+            });
+
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                Toastr.error(data.error || 'Failed to promote task');
+                return;
+            }
+
+            Toastr.success('Task promoted to parent level');
+
+            // Refresh the panel to show updated state
+            const panelContent = document.getElementById('task-panel-content');
+            if (panelContent) {
+                openTaskPanel(taskId);
+            }
+
+            // Notify other components
+            document.dispatchEvent(new CustomEvent('task-updated', {
+                detail: { taskId, field: 'parent', value: null }
+            }));
+        } catch (error) {
+            console.error('Error promoting task:', error);
+            Toastr.error('Failed to promote task');
+        }
+    }
+
+    // Task picker modal state
+    let _taskPickerResolve = null;
+    let _taskPickerTaskId = null;
+
+    function openMoveToParentModal(taskId, milestoneId, projectId) {
+        closeAllDropdowns();
+        _taskPickerTaskId = taskId;
+
+        // Load eligible parent tasks
+        loadEligibleParents(taskId, milestoneId, projectId);
+
+        document.getElementById('task-picker-modal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+
+        // Focus search input
+        setTimeout(() => {
+            document.getElementById('task-picker-search')?.focus();
+        }, 100);
+    }
+
+    function closeTaskPickerModal() {
+        document.getElementById('task-picker-modal').classList.add('hidden');
+        document.body.style.overflow = '';
+        _taskPickerTaskId = null;
+        document.getElementById('task-picker-search').value = '';
+    }
+
+    async function loadEligibleParents(taskId, milestoneId, projectId) {
+        const container = document.getElementById('task-picker-list');
+        container.innerHTML = '<div class="px-4 py-8 text-center text-gray-500">Loading...</div>';
+
+        try {
+            const response = await fetch(`${BASE_PATH}/tasks/${taskId}/eligible-parents`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to load tasks');
+            }
+
+            const data = await response.json();
+            const tasks = data.tasks || [];
+
+            if (tasks.length === 0) {
+                container.innerHTML = '<div class="px-4 py-8 text-center text-gray-500">No eligible parent tasks found</div>';
+                return;
+            }
+
+            // Store tasks for filtering
+            container.dataset.tasks = JSON.stringify(tasks);
+            renderTaskPickerList(tasks);
+        } catch (e) {
+            console.error('Error loading eligible parents:', e);
+            container.innerHTML = '<div class="px-4 py-8 text-center text-red-500">Failed to load tasks</div>';
+        }
+    }
+
+    function renderTaskPickerList(tasks) {
+        const container = document.getElementById('task-picker-list');
+
+        if (tasks.length === 0) {
+            container.innerHTML = '<div class="px-4 py-8 text-center text-gray-500">No matching tasks</div>';
+            return;
+        }
+
+        container.innerHTML = tasks.map(task => {
+            const depthPadding = '\u00A0'.repeat((task.depth || 0) * 4);
+            const depthPrefix = task.depth > 0 ? depthPadding + '\u2514\u2500 ' : '';
+            const statusClass = {
+                'completed': 'bg-green-100 text-green-700',
+                'in_progress': 'bg-blue-100 text-blue-700',
+                'in_review': 'bg-yellow-100 text-yellow-700',
+                'todo': 'bg-gray-100 text-gray-700'
+            }[task.status?.value] || 'bg-gray-100 text-gray-700';
+
+            return `
+                <button type="button"
+                        onclick="selectNewParent('${task.id}')"
+                        class="w-full text-left px-4 py-3 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none border-b border-gray-100 last:border-0">
+                    <div class="flex items-center">
+                        <span class="text-gray-400 text-sm font-mono whitespace-pre">${depthPrefix}</span>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-medium text-gray-900 truncate">${escapeHtml(task.title)}</div>
+                            <div class="text-xs text-gray-500 mt-0.5">
+                                <span class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium ${statusClass}">
+                                    ${task.status?.label || 'To Do'}
+                                </span>
+                                ${task.subtaskCount > 0 ? `<span class="ml-2 text-gray-400">${task.subtaskCount} subtask${task.subtaskCount > 1 ? 's' : ''}</span>` : ''}
+                            </div>
+                        </div>
+                        <svg class="h-4 w-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                        </svg>
+                    </div>
+                </button>
+            `;
+        }).join('');
+    }
+
+    function filterTaskPickerList() {
+        const container = document.getElementById('task-picker-list');
+        const search = document.getElementById('task-picker-search').value.toLowerCase();
+        const allTasks = JSON.parse(container.dataset.tasks || '[]');
+
+        if (!search) {
+            renderTaskPickerList(allTasks);
+            return;
+        }
+
+        const filtered = allTasks.filter(t => t.title.toLowerCase().includes(search));
+        renderTaskPickerList(filtered);
+    }
+
+    async function selectNewParent(newParentId) {
+        if (!_taskPickerTaskId) return;
+
+        try {
+            const response = await fetch(`${BASE_PATH}/tasks/${_taskPickerTaskId}/parent`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ parentId: newParentId })
+            });
+
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                Toastr.error(data.error || 'Failed to move task');
+                return;
+            }
+
+            closeTaskPickerModal();
+            Toastr.success('Task moved to new parent');
+
+            // Refresh the panel to show updated state
+            const taskId = _taskPickerTaskId;
+            openTaskPanel(taskId);
+
+            // Notify other components
+            document.dispatchEvent(new CustomEvent('task-updated', {
+                detail: { taskId, field: 'parent', value: newParentId }
+            }));
+        } catch (error) {
+            console.error('Error moving task:', error);
+            Toastr.error('Failed to move task');
+        }
+    }
+
+    // Helper function to escape HTML
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Delete task with subtask count warning
+    async function confirmDeleteTask(taskId, taskTitle, subtaskCount) {
+        let message = `Are you sure you want to delete "${taskTitle}"?`;
+        if (subtaskCount > 0) {
+            message += ` This task has ${subtaskCount} subtask${subtaskCount > 1 ? 's' : ''} that will also be deleted.`;
+        }
+        message += ' This action cannot be undone.';
+
+        if (!confirm(message)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`${BASE_PATH}/tasks/bulk-delete`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ taskIds: [taskId] })
+            });
+
+            if (!response.ok) {
+                Toastr.error('Failed to delete task');
+                return;
+            }
+
+            Toastr.success('Task deleted');
+
+            // Close the panel
+            closeTaskPanel();
+
+            // Notify other components
+            document.dispatchEvent(new CustomEvent('task-deleted', {
+                detail: { taskId }
+            }));
+        } catch (error) {
+            console.error('Error deleting task:', error);
+            Toastr.error('Failed to delete task');
         }
     }
 
@@ -2930,6 +3306,60 @@
             }
         }
     }
+
+    // Global notification function
+    window.showNotification = function(message, type = 'success') {
+        const flashContainer = document.querySelector('.px-4.sm\\:px-6.lg\\:px-8');
+        if (!flashContainer) return;
+
+        const colors = {
+            success: { bg: 'bg-green-50', text: 'text-green-800', icon: 'text-green-400', hover: 'text-green-500 hover:bg-green-100' },
+            error: { bg: 'bg-red-50', text: 'text-red-800', icon: 'text-red-400', hover: 'text-red-500 hover:bg-red-100' },
+            warning: { bg: 'bg-yellow-50', text: 'text-yellow-800', icon: 'text-yellow-400', hover: 'text-yellow-500 hover:bg-yellow-100' },
+            info: { bg: 'bg-blue-50', text: 'text-blue-800', icon: 'text-blue-400', hover: 'text-blue-500 hover:bg-blue-100' }
+        };
+
+        const color = colors[type] || colors.info;
+
+        const icons = {
+            success: '<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />',
+            error: '<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />',
+            warning: '<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />',
+            info: '<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />'
+        };
+
+        const icon = icons[type] || icons.info;
+
+        const flashDiv = document.createElement('div');
+        flashDiv.className = `mb-4 rounded-md p-4 ${color.bg}`;
+        flashDiv.innerHTML = `
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 ${color.icon}" viewBox="0 0 20 20" fill="currentColor">
+                        ${icon}
+                    </svg>
+                </div>
+                <div class="ml-3 flex-1">
+                    <p class="text-sm font-medium ${color.text}">${message}</p>
+                </div>
+                <div class="ml-auto pl-3">
+                    <button type="button" class="-m-1.5 inline-flex rounded-md p-1.5 ${color.hover}" onclick="this.closest('.mb-4').remove()">
+                        <span class="sr-only">Dismiss</span>
+                        <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        `;
+
+        flashContainer.insertBefore(flashDiv, flashContainer.firstChild);
+
+        setTimeout(() => {
+            flashDiv.classList.add('opacity-0', 'transition-opacity', 'duration-300');
+            setTimeout(() => flashDiv.remove(), 300);
+        }, 5000);
+    };
     </script>
 </div>
 {% endblock %}

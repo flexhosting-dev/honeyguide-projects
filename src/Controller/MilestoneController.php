@@ -7,6 +7,7 @@ use App\Entity\MilestoneTarget;
 use App\Entity\Project;
 use App\Entity\User;
 use App\Form\MilestoneFormType;
+use App\Repository\MilestoneRepository;
 use App\Repository\ProjectRepository;
 use App\Service\ActivityService;
 use App\Service\HtmlSanitizer;
@@ -23,6 +24,7 @@ class MilestoneController extends AbstractController
 {
     public function __construct(
         private readonly ProjectRepository $projectRepository,
+        private readonly MilestoneRepository $milestoneRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly ActivityService $activityService,
         private readonly HtmlSanitizer $htmlSanitizer,
@@ -115,6 +117,12 @@ class MilestoneController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            // Prevent renaming default milestone
+            if ($milestone->isDefault() && $milestone->getName() !== 'General') {
+                $this->addFlash('error', 'Cannot rename default milestone.');
+                return $this->redirectToRoute('app_project_show', ['id' => $project->getId()]);
+            }
+
             $this->entityManager->flush();
 
             $this->addFlash('success', 'Milestone updated successfully.');
@@ -143,6 +151,12 @@ class MilestoneController extends AbstractController
         }
 
         $this->denyAccessUnlessGranted('PROJECT_EDIT', $project);
+
+        // Prevent deletion of default milestone
+        if ($milestone->isDefault()) {
+            $this->addFlash('error', 'Cannot delete default milestone.');
+            return $this->redirectToRoute('app_project_show', ['id' => $project->getId()]);
+        }
 
         if ($this->isCsrfTokenValid('delete' . $milestone->getId(), $request->request->get('_token'))) {
             $this->entityManager->remove($milestone);
@@ -270,5 +284,41 @@ class MilestoneController extends AbstractController
             'success' => true,
             'description' => $newDescription,
         ]);
+    }
+
+    #[Route('/reorder', name: 'app_milestone_reorder', methods: ['POST'])]
+    public function reorder(Request $request, string $projectId): JsonResponse
+    {
+        $project = $this->projectRepository->find($projectId);
+        if (!$project) {
+            throw $this->createNotFoundException();
+        }
+        $this->denyAccessUnlessGranted('PROJECT_EDIT', $project);
+
+        $data = json_decode($request->getContent(), true);
+        $milestoneIds = $data['milestoneIds'] ?? [];
+
+        $updated = 0;
+
+        // Keep default milestone at position 0
+        $defaultMilestone = $project->getDefaultMilestone();
+        if ($defaultMilestone) {
+            $defaultMilestone->setPosition(0);
+            $updated++;
+        }
+
+        // Reorder others starting at position 1
+        $position = 1;
+        foreach ($milestoneIds as $milestoneId) {
+            $milestone = $this->milestoneRepository->find($milestoneId);
+            if ($milestone && !$milestone->isDefault() && $milestone->getProject()->getId()->equals($project->getId())) {
+                $milestone->setPosition($position++);
+                $updated++;
+            }
+        }
+
+        $this->entityManager->flush();
+
+        return new JsonResponse(['success' => true, 'updated' => $updated]);
     }
 }
