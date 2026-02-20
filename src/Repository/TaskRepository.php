@@ -38,7 +38,8 @@ class TaskRepository extends ServiceEntityRepository
             ->join('t.milestone', 'm')
             ->where('m.project = :project')
             ->setParameter('project', $project)
-            ->orderBy('t.position', 'ASC');
+            ->orderBy('m.position', 'ASC')
+            ->addOrderBy('t.position', 'ASC');
     }
 
     /**
@@ -57,8 +58,9 @@ class TaskRepository extends ServiceEntityRepository
             ->join('m.project', 'p')
             ->where('a.user = :user')
             ->setParameter('user', $user)
-            ->orderBy('t.dueDate', 'ASC')
-            ->addOrderBy('t.priority', 'DESC');
+            ->orderBy('p.position', 'ASC')
+            ->addOrderBy('m.position', 'ASC')
+            ->addOrderBy('t.position', 'ASC');
 
         // Exclude tasks from hidden projects
         $this->excludeHiddenProjects($qb, $user);
@@ -285,12 +287,60 @@ class TaskRepository extends ServiceEntityRepository
     }
 
     /**
+     * Apply sorting to the query builder based on filter settings.
+     */
+    public function applySorting(QueryBuilder $qb, TaskFilterDTO $filter): QueryBuilder
+    {
+        // Clear existing order by clauses
+        $qb->resetDQLPart('orderBy');
+
+        // Ensure required joins exist for sorting
+        $aliases = $qb->getAllAliases();
+
+        switch ($filter->sortBy) {
+            case 'due_date':
+                $qb->orderBy('t.dueDate', 'ASC')
+                    ->addOrderBy('t.priority', 'DESC')
+                    ->addOrderBy('t.title', 'ASC');
+                break;
+
+            case 'priority':
+                $qb->orderBy('t.priority', 'DESC')
+                    ->addOrderBy('t.dueDate', 'ASC')
+                    ->addOrderBy('t.title', 'ASC');
+                break;
+
+            case 'title':
+                $qb->orderBy('t.title', 'ASC');
+                break;
+
+            case 'position':
+            default:
+                // Hierarchical ordering: project -> milestone -> task
+                // Ensure joins exist
+                if (!in_array('m', $aliases)) {
+                    $qb->join('t.milestone', 'm');
+                }
+                if (!in_array('p', $aliases)) {
+                    $qb->join('m.project', 'p');
+                }
+                $qb->orderBy('p.position', 'ASC')
+                    ->addOrderBy('m.position', 'ASC')
+                    ->addOrderBy('t.position', 'ASC');
+                break;
+        }
+
+        return $qb;
+    }
+
+    /**
      * @return Task[]
      */
     public function findUserTasksFiltered(User $user, TaskFilterDTO $filter): array
     {
         $qb = $this->createQueryBuilderForUserTasks($user);
         $this->applyFilter($qb, $filter);
+        $this->applySorting($qb, $filter);
 
         return $qb->getQuery()->getResult();
     }
@@ -309,12 +359,15 @@ class TaskRepository extends ServiceEntityRepository
 
         $qb = $this->createQueryBuilder('t')
             ->join('t.milestone', 'm')
+            ->join('m.project', 'p')
             ->where('m.project IN (:projects)')
             ->setParameter('projects', $projects)
-            ->orderBy('t.dueDate', 'ASC')
-            ->addOrderBy('t.priority', 'DESC');
+            ->orderBy('p.position', 'ASC')
+            ->addOrderBy('m.position', 'ASC')
+            ->addOrderBy('t.position', 'ASC');
 
         $this->applyFilter($qb, $filter);
+        $this->applySorting($qb, $filter);
 
         return $qb->getQuery()->getResult();
     }
@@ -430,6 +483,7 @@ class TaskRepository extends ServiceEntityRepository
         $this->excludeHiddenProjects($qb, $user);
 
         $this->applyFilter($qb, $filter);
+        $this->applySorting($qb, $filter);
 
         return $qb->getQuery()->getResult();
     }

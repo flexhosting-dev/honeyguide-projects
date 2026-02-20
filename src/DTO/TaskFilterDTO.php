@@ -16,6 +16,7 @@ class TaskFilterDTO
      * @param string[] $assigneeIds
      * @param string[] $milestoneIds
      * @param string[] $projectIds
+     * @param string|null $sortBy Sort field: 'position' (default), 'due_date', 'priority', 'title'
      */
     public function __construct(
         public readonly array $statuses = [],
@@ -28,6 +29,7 @@ class TaskFilterDTO
         public readonly ?string $dueDateTo = null,
         public readonly ?string $search = null,
         public readonly array $projectIds = [],
+        public readonly ?string $sortBy = 'position',
     ) {
     }
 
@@ -81,6 +83,13 @@ class TaskFilterDTO
 
         $search = $request->query->get('search');
 
+        $sortBy = $request->query->get('sort', 'position');
+        // Validate sort field
+        $validSorts = ['position', 'due_date', 'priority', 'title'];
+        if (!in_array($sortBy, $validSorts)) {
+            $sortBy = 'position';
+        }
+
         return new self(
             statuses: [],
             statusSlugs: $statusSlugs,
@@ -92,6 +101,7 @@ class TaskFilterDTO
             dueDateTo: $dueDateTo,
             search: $search ?: null,
             projectIds: $projectIds,
+            sortBy: $sortBy,
         );
     }
 
@@ -162,6 +172,9 @@ class TaskFilterDTO
         }
         if (!empty($this->projectIds)) {
             $params['project'] = implode(',', $this->projectIds);
+        }
+        if ($this->sortBy && $this->sortBy !== 'position') {
+            $params['sort'] = $this->sortBy;
         }
 
         return $params;
