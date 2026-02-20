@@ -32,6 +32,58 @@
             </svg>
         </button>
 
+        {# Sort Dropdown - Always visible #}
+        <div class="relative" x-data="{ open: false }">
+            <button type="button" @click="open = !open"
+                    class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"/>
+                </svg>
+                <span>Sort:
+                    {% if filter.sortBy == 'due_date' %}Due Date
+                    {% elseif filter.sortBy == 'priority' %}Priority
+                    {% elseif filter.sortBy == 'title' %}Title
+                    {% else %}Default
+                    {% endif %}
+                </span>
+                <svg class="w-4 h-4 text-gray-400 transition-transform" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+            <div x-show="open" x-transition @click.outside="open = false" class="absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                <div class="p-1">
+                    <a href="?{{ app.request.query.all|merge({sort: 'position'})|url_encode }}"
+                       class="flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-50 text-sm {{ filter.sortBy == 'position' ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-700' }}">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4"/>
+                        </svg>
+                        Default Order
+                    </a>
+                    <a href="?{{ app.request.query.all|merge({sort: 'due_date'})|url_encode }}"
+                       class="flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-50 text-sm {{ filter.sortBy == 'due_date' ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-700' }}">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        Due Date
+                    </a>
+                    <a href="?{{ app.request.query.all|merge({sort: 'priority'})|url_encode }}"
+                       class="flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-50 text-sm {{ filter.sortBy == 'priority' ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-700' }}">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
+                        </svg>
+                        Priority
+                    </a>
+                    <a href="?{{ app.request.query.all|merge({sort: 'title'})|url_encode }}"
+                       class="flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-50 text-sm {{ filter.sortBy == 'title' ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-700' }}">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"/>
+                        </svg>
+                        Title (A-Z)
+                    </a>
+                </div>
+            </div>
+        </div>
+
         {% if hasFilters %}
             {# Active filter pills shown inline when collapsed #}
             <div x-show="!open" class="flex flex-wrap items-center gap-2">
