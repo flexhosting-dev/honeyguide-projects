@@ -403,7 +403,9 @@ export default {
                     return (milestone?.name || '').toLowerCase();
                 case 'position':
                 default:
-                    return task.position ?? 0;
+                    // Use hierarchyKey to preserve backend hierarchical ordering (project → milestone → task)
+                    // hierarchyKey = (projectPosition * 1000000) + (milestonePosition * 1000) + taskPosition
+                    return task.hierarchyKey ?? task.position ?? 0;
             }
         };
 
