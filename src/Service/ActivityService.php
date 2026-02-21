@@ -203,4 +203,22 @@ class ActivityService
             ['member' => $memberName],
         );
     }
+
+    public function logTaskProjectChanged(
+        Project $newProject,
+        User $user,
+        UuidInterface $taskId,
+        string $taskTitle,
+        string $oldProjectName
+    ): Activity {
+        return $this->log(
+            $newProject,
+            $user,
+            'task',
+            $taskId,
+            ActivityAction::PROJECT_CHANGED,
+            $taskTitle,
+            ['from' => $oldProjectName],
+        );
+    }
 }

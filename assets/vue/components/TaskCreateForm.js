@@ -19,6 +19,14 @@ export default {
         basePath: {
             type: String,
             default: ''
+        },
+        autoAssignToMe: {
+            type: Boolean,
+            default: false
+        },
+        currentUserId: {
+            type: String,
+            default: ''
         }
     },
 
@@ -92,7 +100,9 @@ export default {
                         status: status.value,
                         priority: priority.value,
                         dueDate: dueDate.value || null,
-                        description: description.value.trim() || null
+                        description: description.value.trim() || null,
+                        assignees: props.autoAssignToMe && props.currentUserId ? [props.currentUserId] : [],
+                        autoAssignedToMe: props.autoAssignToMe && props.currentUserId
                     })
                 });
 
@@ -109,7 +119,11 @@ export default {
 
                 // Show toast
                 if (typeof Toastr !== 'undefined') {
-                    Toastr.success('Task created successfully');
+                    if (data.autoAssignedToMe) {
+                        Toastr.success('Task created and assigned to you');
+                    } else {
+                        Toastr.success('Task created successfully');
+                    }
                 }
 
                 // Open the new task panel

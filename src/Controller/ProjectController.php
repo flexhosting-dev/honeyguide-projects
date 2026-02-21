@@ -74,6 +74,28 @@ class ProjectController extends AbstractController
         ]);
     }
 
+    #[Route('/json', name: 'app_project_list_json', methods: ['GET'])]
+    public function listJson(): JsonResponse
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+        $allProjects = $this->projectRepository->findByUser($user);
+
+        $projects = [];
+        foreach ($allProjects as $project) {
+            // Only include projects where user has PROJECT_EDIT permission
+            if ($this->permissionChecker->hasPermission($user, $project, Permission::PROJECT_EDIT)) {
+                $projects[] = [
+                    'id' => $project->getId()->toString(),
+                    'name' => $project->getName(),
+                    'isPersonal' => $project->isPersonal(),
+                ];
+            }
+        }
+
+        return new JsonResponse($projects);
+    }
+
     #[Route('/new', name: 'app_project_new', methods: ['GET', 'POST'])]
     public function new(Request $request): Response
     {

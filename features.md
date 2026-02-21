@@ -632,9 +632,6 @@ All errors should be user-friendly and actionable.
 - Time estimates vs actual tracking
 - Timesheet reports
 
-### Recurring Tasks
-See Feature #10 below for full specification.
-
 ### Advanced Search
 - Full-text search across all tasks
 - Filter by multiple criteria
@@ -1337,23 +1334,26 @@ Email notifications are now sent automatically when in-app notifications are cre
 
 ---
 
-## 11. Auto-assign Tasks to Current User in My Tasks
+## 11. Auto-assign Tasks to Current User in My Tasks ✅
 **Priority:** Medium
-**Status:** Pending
+**Status:** COMPLETED
 
 When creating tasks from the "My Tasks" page, automatically assign the task to the currently logged-in user.
 
-**Requirements:**
-- Detect task creation context (My Tasks page vs Project page)
-- Auto-populate assignee field with current user
-- Show visual feedback that task was auto-assigned
-- Allow user to remove themselves if needed
+**Completed Features:**
+- ✅ Detects task creation context (My Tasks page vs Project page)
+- ✅ Auto-populates assignee field with current user when creating from My Tasks
+- ✅ Shows visual feedback: "Task created and assigned to you"
+- ✅ User can remove themselves from assignees if needed
+- ✅ Backend tracks auto-assignment and returns appropriate feedback
+- ✅ Works seamlessly with existing personal project auto-assignment
 
-**Implementation:**
-- Update TaskController to check request context
-- Add `auto_assign_to_me` parameter in task creation
-- Update TaskTable component to pass context flag
-- Show notification: "Task assigned to you"
+**Implementation Details:**
+- Added `autoAssignToMe` prop to TaskCreateForm component
+- Updated `openTaskCreatePanel()` to accept auto-assign parameter
+- Modified TaskController to accept and handle `autoAssignToMe` query parameter
+- Enhanced createJson endpoint to return `autoAssignedToMe` flag
+- Custom success toast message when task is auto-assigned
 
 ---
 
@@ -1389,27 +1389,7 @@ Add comprehensive move/reorganize options for root-level tasks in the task panel
 
 ---
 
-## 13. Task Footer on Detail Page
-**Priority:** Medium
-**Status:** Pending
-
-Add the same footer actions from task panel to the dedicated task detail page.
-
-**Requirements:**
-- Include all footer actions from task panel
-- Exclude "Open in full" option (already on full page)
-- Keep: Move, Convert to subtask, Delete, Archive, etc.
-- Responsive layout for mobile
-
-**Implementation:**
-- Extract footer component to reusable partial
-- Include in both task panel and detail page templates
-- Add parameter to hide "Open in full" button
-- Ensure consistent styling and behavior
-
----
-
-## 14. Default "General" Milestone ✅
+## 13. Default "General" Milestone ✅
 **Priority:** High
 **Status:** COMPLETED (v1.0.1)
 
@@ -1436,7 +1416,7 @@ See migrations:
 
 ---
 
-## 15. Profile Hover Cards
+## 14. Profile Hover Cards
 **Priority:** Medium
 **Status:** Pending
 
@@ -1471,91 +1451,14 @@ Display user profile information in hover cards throughout the application.
 
 ---
 
-## 16. Enhanced Project Member Management
-**Priority:** High
-**Status:** Pending
-
-Improve project member addition workflow with bulk operations and invitation system.
-
-**Requirements:**
-
-#### A. Add Members Offcanvas Panel
-- Open dedicated right-side panel when "Add Member" clicked
-- List all eligible portal users (not already in project)
-- Search/filter users by name, email, department
-- Select multiple users at once (checkboxes)
-- Show selected count badge
-- Bulk assign role (default: Project Member)
-- "Add Selected" button to add all at once
-
-#### B. Invite Non-Portal Users
-- Form at top of panel to invite by email
-- For Portal Admins:
-  - If email in allowed domains → Send invite to portal + project
-  - If email NOT in allowed domains → Send invite anyway (admin override)
-- For Non-Admins:
-  - If email in allowed domains → Send invite to portal + project
-  - If email NOT in allowed domains → Create approval request for admin
-  
-#### C. Visual Feedback & Notifications
-- Show status indicators:
-  - ✅ "Invited to portal and project"
-  - ⏳ "Pending admin approval"
-  - ❌ "Email not allowed (request admin approval)"
-- Email notifications:
-  - User: "You've been invited to [Project]"
-  - Admin: "Approval requested for [User] to join portal"
-- Toast notifications for success/errors
-
-#### D. Bulk Project Assignment from User Profile
-- When viewing another user's profile
-- Show section: "Projects where I can add [User]"
-- List all projects where logged-in user has PROJECT_EDIT permission
-- Checkboxes to select multiple projects
-- "Add to Selected Projects" button
-- Bulk add in single operation
-
-**Implementation:**
-- New controller: `ProjectMemberController`
-- Offcanvas component: `AddMembersPanel.vue`
-- API endpoints:
-  - `GET /projects/{id}/eligible-members` - List users not in project
-  - `POST /projects/{id}/members/bulk-add` - Add multiple members
-  - `POST /projects/{id}/members/invite` - Invite by email
-  - `POST /users/{id}/add-to-projects` - Bulk add user to projects
-- Email templates:
-  - `project_invitation.html.twig`
-  - `admin_approval_request.html.twig`
-- Notification types:
-  - PROJECT_MEMBER_ADDED
-  - PROJECT_INVITATION_RECEIVED
-  - ADMIN_APPROVAL_REQUESTED
-
-**Allowed Domains Integration:**
-- Check `portal_settings` table for allowed_domains JSON
-- Validate email domain before sending invitation
-- Show domain restrictions in UI
-- Admin can override restrictions
-
-**Admin Approval Workflow:**
-- Create `user_approval_requests` table
-- Track: requested_by, user_email, project_id, status, notes
-- Admin dashboard showing pending approvals
-- One-click approve/reject actions
-- Email notifications on approval/rejection
-
----
-
 ## Implementation Priority Order
 
 Based on impact and dependencies:
 
 1. **Default "General" Milestone** ✅ - COMPLETED
-2. **Move Task Options for Root Tasks** - High impact, frequently requested
-3. **Enhanced Project Member Management** - Improves onboarding workflow
+2. **Auto-assign Tasks in My Tasks** ✅ - COMPLETED
+3. **Move Task Options for Root Tasks** - High impact, frequently requested
 4. **Profile Hover Cards** - Enhances UX across entire app
-5. **Auto-assign Tasks in My Tasks** - Small but useful improvement
-6. **Task Footer on Detail Page** - UI consistency improvement
 
 ---
 
@@ -1564,11 +1467,9 @@ Based on impact and dependencies:
 ### Shared Components Needed
 - `MoveTaskModal.vue` - Reusable for all move operations
 - `ProfileCard.vue` - User profile hover card
-- `AddMembersPanel.vue` - Offcanvas member selection
 - `BulkActionBar.vue` - Already exists, may need enhancement
 
 ### Database Tables to Add
-- `user_approval_requests` - Track admin approval requests
 - Consider adding `task_move_history` for audit trail
 
 ### API Consistency

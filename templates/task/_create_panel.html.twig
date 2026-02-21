@@ -27,7 +27,9 @@
                  data-vue-project-id="{{ project.id }}"
                  data-vue-milestones="{{ project.milestones|map(m => {id: m.id ~ '', name: m.name})|json_encode|e('html_attr') }}"
                  data-vue-default-milestone-id="{{ project.milestones|first ? (project.milestones|first.id ~ '') : '' }}"
-                 data-vue-base-path="{{ app.request.basePath }}">
+                 data-vue-base-path="{{ app.request.basePath }}"
+                 data-vue-auto-assign-to-me="{{ autoAssignToMe|default(false) ? 'true' : 'false' }}"
+                 data-vue-current-user-id="{{ app.user.id }}">
             </div>
         {% else %}
             {# No milestones - show message #}

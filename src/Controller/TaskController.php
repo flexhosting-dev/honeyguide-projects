@@ -1391,8 +1391,199 @@ class TaskController extends AbstractController
         return $maxDepth;
     }
 
+    /**
+     * Recursively update milestone for a task and all its subtasks
+     */
+    private function cascadeMilestoneChange(Task $task, Milestone $newMilestone): void
+    {
+        $task->setMilestone($newMilestone);
+        foreach ($task->getSubtasks() as $subtask) {
+            $this->cascadeMilestoneChange($subtask, $newMilestone);
+        }
+    }
+
+    #[Route('/tasks/{id}/move-to-milestone', name: 'app_task_move_to_milestone', methods: ['POST'])]
+    public function moveToMilestone(Request $request, Task $task): JsonResponse
+    {
+        $project = $task->getProject();
+        $this->denyAccessUnlessGranted('PROJECT_EDIT', $project);
+
+        /** @var User $user */
+        $user = $this->getUser();
+
+        $data = json_decode($request->getContent(), true);
+        $targetMilestoneId = $data['targetMilestoneId'] ?? null;
+
+        if (!$targetMilestoneId) {
+            return $this->json(['error' => 'Target milestone ID is required'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $targetMilestone = $this->milestoneRepository->find($targetMilestoneId);
+        if (!$targetMilestone) {
+            return $this->json(['error' => 'Target milestone not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        // Validate target milestone belongs to same project
+        if ($targetMilestone->getProject()->getId()->toString() !== $project->getId()->toString()) {
+            return $this->json(['error' => 'Target milestone must be in the same project'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $oldMilestone = $task->getMilestone();
+
+        // Update task milestone and cascade to all subtasks
+        $this->cascadeMilestoneChange($task, $targetMilestone);
+
+        // Set position to end of target milestone
+        $tasksInTargetMilestone = $this->taskRepository->findBy([
+            'milestone' => $targetMilestone,
+            'parent' => null
+        ]);
+        $maxPosition = 0;
+        foreach ($tasksInTargetMilestone as $t) {
+            if ($t->getId()->toString() !== $task->getId()->toString()) {
+                $maxPosition = max($maxPosition, $t->getPosition() ?? 0);
+            }
+        }
+        $task->setPosition($maxPosition + 1);
+
+        $this->entityManager->flush();
+
+        // Log activity
+        $this->activityService->logTaskMilestoneChanged(
+            $project,
+            $user,
+            $task->getId(),
+            $task->getTitle(),
+            $oldMilestone->getName(),
+            $targetMilestone->getName()
+        );
+
+        return $this->json([
+            'success' => true,
+            'task' => [
+                'id' => $task->getId()->toString(),
+                'milestone' => [
+                    'id' => $targetMilestone->getId()->toString(),
+                    'name' => $targetMilestone->getName()
+                ]
+            ]
+        ]);
+    }
+
+    #[Route('/tasks/{id}/move-to-project', name: 'app_task_move_to_project', methods: ['POST'])]
+    public function moveToProject(Request $request, Task $task): JsonResponse
+    {
+        $sourceProject = $task->getProject();
+        $this->denyAccessUnlessGranted('PROJECT_EDIT', $sourceProject);
+
+        /** @var User $user */
+        $user = $this->getUser();
+
+        $data = json_decode($request->getContent(), true);
+        $targetProjectId = $data['targetProjectId'] ?? null;
+        $targetMilestoneId = $data['targetMilestoneId'] ?? null;
+        $confirmed = $data['confirmed'] ?? false;
+
+        if (!$targetProjectId || !$targetMilestoneId) {
+            return $this->json(['error' => 'Target project and milestone IDs are required'], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Check task is root (has no parent)
+        if ($task->getParent() !== null) {
+            return $this->json(['error' => 'Only root tasks can be moved to different projects'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $targetProject = $this->projectRepository->find($targetProjectId);
+        if (!$targetProject) {
+            return $this->json(['error' => 'Target project not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        // Check PROJECT_EDIT permission on target project
+        $this->denyAccessUnlessGranted('PROJECT_EDIT', $targetProject);
+
+        $targetMilestone = $this->milestoneRepository->find($targetMilestoneId);
+        if (!$targetMilestone) {
+            return $this->json(['error' => 'Target milestone not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        // Validate milestone belongs to target project
+        if ($targetMilestone->getProject()->getId()->toString() !== $targetProject->getId()->toString()) {
+            return $this->json(['error' => 'Target milestone must belong to target project'], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Check assignees - warn if any are not members of target project
+        if (!$confirmed) {
+            $orphanedAssignees = [];
+            foreach ($task->getAssignees() as $assignee) {
+                $assigneeUser = $assignee->getUser();
+                $isMember = false;
+                foreach ($targetProject->getMembers() as $member) {
+                    if ($member->getUser()->getId()->toString() === $assigneeUser->getId()->toString()) {
+                        $isMember = true;
+                        break;
+                    }
+                }
+                if (!$isMember) {
+                    $orphanedAssignees[] = $assigneeUser->getFullName();
+                }
+            }
+
+            if (!empty($orphanedAssignees)) {
+                return $this->json([
+                    'requiresConfirmation' => true,
+                    'warning' => count($orphanedAssignees) . ' assignee(s) will not have access to this task in the target project',
+                    'orphanedAssignees' => $orphanedAssignees
+                ]);
+            }
+        }
+
+        $oldProjectName = $sourceProject->getName();
+
+        // Update task milestone (which implicitly changes project) and cascade to all subtasks
+        $this->cascadeMilestoneChange($task, $targetMilestone);
+
+        // Set position to end of target milestone
+        $tasksInTargetMilestone = $this->taskRepository->findBy([
+            'milestone' => $targetMilestone,
+            'parent' => null
+        ]);
+        $maxPosition = 0;
+        foreach ($tasksInTargetMilestone as $t) {
+            if ($t->getId()->toString() !== $task->getId()->toString()) {
+                $maxPosition = max($maxPosition, $t->getPosition() ?? 0);
+            }
+        }
+        $task->setPosition($maxPosition + 1);
+
+        $this->entityManager->flush();
+
+        // Log activity to NEW project
+        $this->activityService->logTaskProjectChanged(
+            $targetProject,
+            $user,
+            $task->getId(),
+            $task->getTitle(),
+            $oldProjectName
+        );
+
+        return $this->json([
+            'success' => true,
+            'task' => [
+                'id' => $task->getId()->toString(),
+                'project' => [
+                    'id' => $targetProject->getId()->toString(),
+                    'name' => $targetProject->getName()
+                ],
+                'milestone' => [
+                    'id' => $targetMilestone->getId()->toString(),
+                    'name' => $targetMilestone->getName()
+                ]
+            ]
+        ]);
+    }
+
     #[Route('/projects/{projectId}/tasks/create-panel', name: 'app_task_create_panel', methods: ['GET'])]
-    public function createPanel(string $projectId): Response
+    public function createPanel(Request $request, string $projectId): Response
     {
         $project = $this->projectRepository->find($projectId);
         if (!$project) {
@@ -1401,8 +1592,12 @@ class TaskController extends AbstractController
 
         $this->denyAccessUnlessGranted('PROJECT_EDIT', $project);
 
+        // Check if we should auto-assign to current user (e.g., from My Tasks page)
+        $autoAssignToMe = $request->query->getBoolean('autoAssignToMe', false);
+
         return $this->render('task/_create_panel.html.twig', [
             'project' => $project,
+            'autoAssignToMe' => $autoAssignToMe,
         ]);
     }
 
@@ -1509,10 +1704,12 @@ class TaskController extends AbstractController
         $assigneesData = [];
         $basePath = $request->getBasePath();
         $assigneeUserIds = $data['assignees'] ?? [];
+        $autoAssignedToMe = $data['autoAssignedToMe'] ?? false;
 
         // If personal project and no assignees specified, auto-assign to current user
         if ($project->isPersonal() && empty($assigneeUserIds)) {
             $assigneeUserIds = [$user->getId()->toString()];
+            $autoAssignedToMe = true;
         }
 
         // Build set of project member user IDs for quick lookup
@@ -1556,6 +1753,7 @@ class TaskController extends AbstractController
         return $this->json([
             'success' => true,
             'assignedToDefault' => $assignedToDefault,
+            'autoAssignedToMe' => $autoAssignedToMe,
             'milestoneName' => $milestone->getName(),
             'task' => [
                 'id' => $task->getId()->toString(),
