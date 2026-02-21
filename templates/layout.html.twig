@@ -890,32 +890,9 @@
     document.addEventListener('DOMContentLoaded', function() {
         const url = new URL(window.location);
         const taskId = url.searchParams.get('task');
-        const openTaskId = url.searchParams.get('openTask');
         const createTaskProjectId = url.searchParams.get('create-task');
 
-        console.log('URL params:', { taskId, openTaskId, createTaskProjectId, fullUrl: window.location.href });
-
-        // Debug: show params if task param is present (temporary debugging)
-        if (url.searchParams.has('task') || url.searchParams.has('openTask')) {
-            const debugMsg = `URL has task param. task=${taskId}, openTask=${openTaskId}, URL=${window.location.href.substring(0, 100)}`;
-            console.log(debugMsg);
-            // Show as toast for mobile debugging
-            if (!taskId && !openTaskId) {
-                Toastr.warning('Task param found but value is null');
-            }
-        }
-
-        if (openTaskId) {
-            // Task was just moved - show success and reopen with slight delay
-            Toastr.success('Task moved to new parent');
-            // Clean up URL first
-            url.searchParams.delete('openTask');
-            window.history.replaceState({}, '', url.toString());
-            // Small delay to ensure everything is ready
-            setTimeout(() => {
-                openTaskPanel(openTaskId, false);
-            }, 100);
-        } else if (taskId) {
+        if (taskId) {
             openTaskPanel(taskId, false);
         } else if (createTaskProjectId) {
             openTaskCreatePanel(createTaskProjectId, false);
@@ -2691,8 +2668,6 @@
 
     // Add an existing tag to the task
     async function addExistingTag(taskId, tagId, tagName, tagColor) {
-        console.log('addExistingTag called', { taskId, tagId, tagName, tagColor });
-
         const container = document.querySelector('.tags-container');
         const dropdown = container.querySelector('.tag-dropdown');
         const input = container.querySelector('.tag-search-input');
@@ -2701,7 +2676,6 @@
         input.value = '';
 
         try {
-            console.log('Sending POST to', `/tasks/${taskId}/tags`);
             const response = await fetch(`${BASE_PATH}/tasks/${taskId}/tags`, {
                 method: 'POST',
                 headers: {
@@ -2711,8 +2685,6 @@
                 body: JSON.stringify({ name: tagName })
             });
 
-            console.log('Response status:', response.status);
-
             if (!response.ok) {
                 const errorData = await response.json();
                 console.error('Error response:', errorData);
@@ -2720,7 +2692,6 @@
             }
 
             const data = await response.json();
-            console.log('Success response:', data);
             addTagChipToUI(data.tag);
             Toastr.success('Tag added');
             input.focus();
@@ -2738,10 +2709,7 @@
         const input = container.querySelector('.tag-search-input');
         const tagName = input.value.trim();
 
-        console.log('createTagWithColor called', { taskId, tagName, selectedTagColor });
-
         if (!tagName) {
-            console.log('Empty tag name, returning');
             return;
         }
 
@@ -2760,7 +2728,6 @@
         }
 
         try {
-            console.log('Sending POST to', `/tasks/${taskId}/tags`);
             const response = await fetch(`${BASE_PATH}/tasks/${taskId}/tags`, {
                 method: 'POST',
                 headers: {
@@ -2770,8 +2737,6 @@
                 body: JSON.stringify({ name: savedTagName, color: selectedTagColor })
             });
 
-            console.log('Response status:', response.status);
-
             if (!response.ok) {
                 const errorData = await response.json();
                 console.error('Error response:', errorData);
@@ -2779,7 +2744,6 @@
             }
 
             const data = await response.json();
-            console.log('Success response:', data);
             addTagChipToUI(data.tag);
             Toastr.success('Tag created');
             input.focus();
