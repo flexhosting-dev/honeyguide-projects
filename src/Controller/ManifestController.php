@@ -54,7 +54,7 @@ class ManifestController extends AbstractController
                 ],
                 [
                     'name' => 'My Tasks',
-                    'short_name' => 'Tasks',
+                    'short_name' => 'My Tasks',
                     'description' => 'View your tasks',
                     'url' => ($basePath ?: '') . '/my-tasks',
                     'icons' => [
@@ -68,7 +68,7 @@ class ManifestController extends AbstractController
                     'name' => 'All Tasks',
                     'short_name' => 'All Tasks',
                     'description' => 'View all tasks',
-                    'url' => ($basePath ?: '') . '/tasks',
+                    'url' => ($basePath ?: '') . '/all-tasks',
                     'icons' => [
                         [
                             'src' => ($basePath ?: '') . '/icon-192.png',
