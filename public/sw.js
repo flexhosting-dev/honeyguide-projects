@@ -1,5 +1,5 @@
 // Service Worker for Honeyguide Projects PWA
-const CACHE_NAME = 'honeyguide-v1';
+const CACHE_NAME = 'honeyguide-v2';
 
 // Determine basePath from service worker location
 // If SW is at /zohoclone/sw.js, basePath is /zohoclone
