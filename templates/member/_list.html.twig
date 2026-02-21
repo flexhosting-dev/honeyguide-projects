@@ -1,30 +1,27 @@
 {# Members List Partial #}
 <div class="space-y-6">
-    {# Invite Form #}
+    {# Add Members Section #}
     {% if canManageMembers|default(false) %}
-    <div class="bg-white shadow rounded-lg p-4">
-        <h4 class="text-sm font-semibold text-gray-900 mb-4">Invite a new member</h4>
-        <form action="{{ path('app_member_invite', {id: project.id}) }}" method="post" class="flex items-end gap-4">
-            <div class="flex-1">
-                <label for="email" class="block text-sm font-medium text-gray-700">Email address</label>
-                <input type="email" name="email" id="email" required
-                       class="mt-1 block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm sm:leading-6"
-                       placeholder="Enter email address">
+    <div data-controller="add-members"
+         data-add-members-project-id-value="{{ project.id }}"
+         data-add-members-base-path-value="{{ app.request.basePath }}">
+
+        <div class="bg-white shadow rounded-lg p-4">
+            <div class="flex items-center justify-between">
+                <h4 class="text-sm font-semibold text-gray-900">Project Members</h4>
+                <button type="button"
+                        data-action="click->add-members#open"
+                        class="inline-flex items-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                    Add Members
+                </button>
             </div>
-            <div class="w-48">
-                <label for="role" class="block text-sm font-medium text-gray-700">Role</label>
-                <select name="role" id="role"
-                        class="mt-1 block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm sm:leading-6">
-                    {% for role in projectRoles %}
-                    <option value="{{ role.slug }}" {% if role.slug == 'project-member' %}selected{% endif %}>{{ role.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <button type="submit"
-                    class="inline-flex items-center rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500">
-                Invite
-            </button>
-        </form>
+        </div>
+
+        {# Include the add members panel #}
+        {% include 'member/_add_panel.html.twig' %}
     </div>
     {% endif %}
 
@@ -33,15 +30,15 @@
         <ul role="list" class="divide-y divide-gray-200">
             {# Owner #}
             <li class="px-4 py-4 sm:px-6">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div class="flex items-center min-w-0 flex-1">
                         {% include 'components/_avatar.html.twig' with {user: project.owner, size: 'md'} %}
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-900">{{ project.owner.fullName }}</p>
-                            <p class="text-sm text-gray-500">{{ project.owner.email }}</p>
+                        <div class="ml-4 min-w-0 flex-1">
+                            <p class="text-sm font-medium text-gray-900 truncate">{{ project.owner.fullName }}</p>
+                            <p class="text-sm text-gray-500 truncate">{{ project.owner.email }}</p>
                         </div>
                     </div>
-                    <span class="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-700">
+                    <span class="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-700 shrink-0">
                         Owner
                     </span>
                 </div>
@@ -51,19 +48,20 @@
             {% for member in members %}
                 {% if not member.user.id.equals(project.owner.id) %}
                     <li class="px-4 py-4 sm:px-6">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div class="flex items-center min-w-0 flex-1">
                                 {% include 'components/_avatar.html.twig' with {user: member.user, size: 'md'} %}
-                                <div class="ml-4">
-                                    <p class="text-sm font-medium text-gray-900">{{ member.user.fullName }}</p>
-                                    <p class="text-sm text-gray-500">{{ member.user.email }}</p>
+                                <div class="ml-4 min-w-0 flex-1">
+                                    <p class="text-sm font-medium text-gray-900 truncate">{{ member.user.fullName }}</p>
+                                    <p class="text-sm text-gray-500 truncate">{{ member.user.email }}</p>
+                                    <p class="mt-1 text-xs text-gray-500">Joined {{ member.joinedAt|date('M d, Y') }}</p>
                                 </div>
                             </div>
-                            <div class="flex items-center space-x-4">
+                            <div class="flex items-center gap-2 sm:gap-4 shrink-0">
                                 {% if canManageMembers|default(false) %}
-                                <form action="{{ path('app_member_update_role', {id: project.id, memberId: member.id}) }}" method="post" class="flex items-center">
+                                <form action="{{ path('app_member_update_role', {id: project.id, memberId: member.id}) }}" method="post" class="flex items-center flex-1 sm:flex-initial">
                                     <select name="role" onchange="this.form.submit()"
-                                            class="rounded-md border-0 py-1 pl-3 pr-8 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-primary-600 sm:text-sm">
+                                            class="w-full sm:w-auto rounded-md border-0 py-1 pl-3 pr-8 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-primary-600 sm:text-sm text-xs">
                                         {% for role in projectRoles %}
                                         <option value="{{ role.slug }}" {% if member.role.slug == role.slug %}selected{% endif %}>{{ role.name }}</option>
                                         {% endfor %}
@@ -72,7 +70,7 @@
                                 <form action="{{ path('app_member_remove', {id: project.id, memberId: member.id}) }}" method="post"
                                       data-controller="confirm" data-confirm-message-value="Remove {{ member.user.fullName }} from this project?">
                                     <input type="hidden" name="_token" value="{{ csrf_token('remove' ~ member.id) }}">
-                                    <button type="submit" data-action="confirm#confirm" class="text-red-600 hover:text-red-800">
+                                    <button type="submit" data-action="confirm#confirm" class="text-red-600 hover:text-red-800 p-1">
                                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                                         </svg>
@@ -85,7 +83,6 @@
                                 {% endif %}
                             </div>
                         </div>
-                        <p class="mt-2 text-xs text-gray-500">Joined {{ member.joinedAt|date('M d, Y') }}</p>
                     </li>
                 {% endif %}
             {% endfor %}

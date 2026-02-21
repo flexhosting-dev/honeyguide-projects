@@ -6,6 +6,7 @@ use App\Entity\PendingRegistrationRequest;
 use App\Entity\User;
 use App\Enum\RoleType;
 use App\Repository\PendingRegistrationRequestRepository;
+use App\Repository\ProjectInvitationRepository;
 use App\Repository\RoleRepository;
 use App\Repository\UserRepository;
 use App\Service\RegistrationRequestService;
@@ -23,6 +24,7 @@ class UserController extends AbstractController
         private readonly RoleRepository $roleRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly PendingRegistrationRequestRepository $pendingRequestRepository,
+        private readonly ProjectInvitationRepository $invitationRepository,
         private readonly RegistrationRequestService $registrationRequestService,
     ) {
     }
@@ -41,7 +43,8 @@ class UserController extends AbstractController
         $users = $this->userRepository->findAllWithSearch($search);
         $portalRoles = $this->roleRepository->findPortalRoles();
         $pendingRequests = $this->pendingRequestRepository->findPending();
-        $pendingCount = count($pendingRequests);
+        $pendingInvitations = $this->invitationRepository->findPendingAdminApprovals();
+        $pendingCount = count($pendingRequests) + count($pendingInvitations);
         $actionedRequests = $this->pendingRequestRepository->findActioned();
 
         return $this->render('admin/users/index.html.twig', [
@@ -50,6 +53,7 @@ class UserController extends AbstractController
             'search' => $search,
             'tab' => $tab,
             'pendingRequests' => $pendingRequests,
+            'pendingInvitations' => $pendingInvitations,
             'pendingCount' => $pendingCount,
             'actionedRequests' => $actionedRequests,
         ]);

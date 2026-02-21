@@ -1,0 +1,94 @@
+{# Add Members Offcanvas Panel #}
+{# Overlay #}
+<div data-add-members-target="overlay"
+     class="hidden fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity z-40"
+     data-action="click->add-members#close"></div>
+
+    {# Panel #}
+    <div data-add-members-target="panel"
+         class="fixed top-0 right-0 w-full sm:w-96 h-full bg-white shadow-xl transform translate-x-full transition-transform duration-300 ease-in-out z-50 flex flex-col">
+
+        {# Header #}
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+            <div class="flex items-center gap-2">
+                <h3 class="text-lg font-semibold text-gray-900">Add Members</h3>
+                <span data-add-members-target="selectedBadge"
+                      class="hidden inline-flex items-center justify-center w-6 h-6 text-xs font-bold text-white bg-blue-600 rounded-full"></span>
+            </div>
+            <button type="button"
+                    data-action="click->add-members#close"
+                    class="text-gray-400 hover:text-gray-500">
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        {# Email Invitation Section #}
+        <div class="px-6 py-4 bg-blue-50 border-b border-blue-100">
+            <h4 class="text-sm font-semibold text-gray-900 mb-3">Invite by Email</h4>
+            <form data-action="submit->add-members#inviteByEmail" class="space-y-3">
+                <div>
+                    <input type="email"
+                           data-add-members-target="emailInput"
+                           placeholder="Enter email address"
+                           class="block w-full rounded-md border-0 py-2 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm">
+                </div>
+                <div class="flex gap-2">
+                    <select data-add-members-target="emailRoleSelect"
+                            class="flex-1 rounded-md border-0 py-2 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm">
+                        {% for role in projectRoles %}
+                            <option value="{{ role.slug }}" {% if role.slug == 'project-member' %}selected{% endif %}>{{ role.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit"
+                            class="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500">
+                        Send Invite
+                    </button>
+                </div>
+                <div data-add-members-target="emailResult"></div>
+            </form>
+        </div>
+
+        {# Search Section #}
+        <div class="px-6 py-4 border-b border-gray-200">
+            <div class="relative">
+                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                    <svg class="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <input type="text"
+                       data-add-members-target="searchInput"
+                       data-action="input->add-members#search"
+                       placeholder="Search users..."
+                       class="block w-full rounded-md border-0 py-2 pl-10 pr-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm">
+            </div>
+        </div>
+
+        {# User List #}
+        <div class="flex-1 overflow-y-auto">
+            <div data-add-members-target="userList">
+                <p class="text-gray-500 p-4 text-center">Loading users...</p>
+            </div>
+        </div>
+
+        {# Footer #}
+        <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
+            <div class="flex items-center gap-3">
+                <select data-add-members-target="bulkRoleSelect"
+                        class="flex-1 rounded-md border-0 py-2 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm">
+                    {% for role in projectRoles %}
+                        <option value="{{ role.slug }}" {% if role.slug == 'project-member' %}selected{% endif %}>{{ role.name }}</option>
+                    {% endfor %}
+                </select>
+                <button type="button"
+                        data-add-members-target="bulkAddButton"
+                        data-action="click->add-members#bulkAdd"
+                        disabled
+                        class="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 disabled:bg-gray-300 disabled:cursor-not-allowed">
+                    Add Selected
+                </button>
+            </div>
+        </div>
+    </div>

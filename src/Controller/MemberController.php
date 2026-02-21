@@ -12,6 +12,7 @@ use App\Repository\UserRepository;
 use App\Enum\NotificationType;
 use App\Service\ActivityService;
 use App\Service\NotificationService;
+use App\Service\ProjectInvitationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -29,6 +30,7 @@ class MemberController extends AbstractController
         private readonly EntityManagerInterface $entityManager,
         private readonly ActivityService $activityService,
         private readonly NotificationService $notificationService,
+        private readonly ProjectInvitationService $invitationService,
     ) {
     }
 
@@ -178,5 +180,216 @@ class MemberController extends AbstractController
         }
 
         return $this->redirectToRoute('app_project_show', ['id' => $project->getId()]);
+    }
+
+    #[Route('/eligible', name: 'app_member_eligible', methods: ['GET'])]
+    public function eligible(Request $request, Project $project): Response
+    {
+        $this->denyAccessUnlessGranted('PROJECT_MANAGE_MEMBERS', $project);
+
+        $search = $request->query->get('search', '');
+
+        // Get all users except current members and project owner
+        $qb = $this->userRepository->createQueryBuilder('u');
+
+        // Exclude project members
+        $qb->where('u NOT IN (
+            SELECT IDENTITY(pm.user)
+            FROM App\Entity\ProjectMember pm
+            WHERE pm.project = :project
+        )');
+        $qb->setParameter('project', $project);
+
+        // Apply search filter
+        if ($search !== '') {
+            $qb->andWhere('u.firstName LIKE :search OR u.lastName LIKE :search OR u.email LIKE :search');
+            $qb->setParameter('search', '%' . $search . '%');
+        }
+
+        $qb->orderBy('u.firstName', 'ASC')
+            ->addOrderBy('u.lastName', 'ASC')
+            ->setMaxResults(50);
+
+        $users = $qb->getQuery()->getResult();
+
+        return $this->json([
+            'users' => array_map(fn(User $u) => [
+                'id' => $u->getId()->toString(),
+                'name' => $u->getFullName(),
+                'email' => $u->getEmail(),
+                'initials' => $u->getInitials(),
+            ], $users),
+        ]);
+    }
+
+    #[Route('/bulk-add', name: 'app_member_bulk_add', methods: ['POST'])]
+    public function bulkAdd(Request $request, Project $project): Response
+    {
+        $this->denyAccessUnlessGranted('PROJECT_MANAGE_MEMBERS', $project);
+
+        /** @var User $currentUser */
+        $currentUser = $this->getUser();
+
+        $data = json_decode($request->getContent(), true);
+        $userIds = $data['userIds'] ?? [];
+        $roleSlug = $data['role'] ?? 'project-member';
+
+        if (empty($userIds)) {
+            return $this->json(['error' => 'No users selected.'], 400);
+        }
+
+        $role = $this->roleRepository->findBySlug($roleSlug);
+        if (!$role || !$role->isProjectRole()) {
+            $role = $this->roleRepository->findBySlug('project-member');
+        }
+
+        $added = [];
+        $errors = [];
+
+        foreach ($userIds as $userId) {
+            try {
+                $user = $this->userRepository->find($userId);
+                if (!$user) {
+                    $errors[] = "User with ID {$userId} not found.";
+                    continue;
+                }
+
+                $existingMember = $this->projectMemberRepository->findByProjectAndUser($project, $user);
+                if ($existingMember) {
+                    $errors[] = $user->getFullName() . ' is already a member.';
+                    continue;
+                }
+
+                $member = new ProjectMember();
+                $member->setProject($project);
+                $member->setUser($user);
+                $member->setRole($role);
+
+                $this->entityManager->persist($member);
+
+                $this->activityService->logMemberAdded(
+                    $project,
+                    $currentUser,
+                    $user->getFullName(),
+                    $role->getName()
+                );
+
+                $this->notificationService->notify(
+                    $user,
+                    NotificationType::PROJECT_INVITED,
+                    $currentUser,
+                    'project',
+                    $project->getId(),
+                    $project->getName(),
+                    ['projectId' => $project->getId()->toString()],
+                );
+
+                $added[] = $user->getFullName();
+            } catch (\Exception $e) {
+                $errors[] = 'Error adding user: ' . $e->getMessage();
+            }
+        }
+
+        $this->entityManager->flush();
+
+        $message = count($added) . ' user(s) added successfully.';
+        if (!empty($errors)) {
+            $message .= ' ' . implode(' ', $errors);
+        }
+
+        return $this->json([
+            'success' => true,
+            'message' => $message,
+            'added' => count($added),
+        ]);
+    }
+
+    #[Route('/invite-email', name: 'app_member_invite_email', methods: ['POST'])]
+    public function inviteEmail(Request $request, Project $project): Response
+    {
+        $this->denyAccessUnlessGranted('PROJECT_MANAGE_MEMBERS', $project);
+
+        /** @var User $currentUser */
+        $currentUser = $this->getUser();
+
+        $data = json_decode($request->getContent(), true);
+        $email = $data['email'] ?? '';
+        $roleSlug = $data['role'] ?? 'project-member';
+
+        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return $this->json(['error' => 'Valid email is required.'], 400);
+        }
+
+        $role = $this->roleRepository->findBySlug($roleSlug);
+        if (!$role || !$role->isProjectRole()) {
+            $role = $this->roleRepository->findBySlug('project-member');
+        }
+
+        try {
+            // Check if user exists
+            $user = $this->userRepository->findByEmail($email);
+
+            if ($user) {
+                // User exists - add directly
+                $existingMember = $this->projectMemberRepository->findByProjectAndUser($project, $user);
+                if ($existingMember) {
+                    return $this->json(['error' => 'User is already a member of this project.'], 400);
+                }
+
+                $member = new ProjectMember();
+                $member->setProject($project);
+                $member->setUser($user);
+                $member->setRole($role);
+
+                $this->entityManager->persist($member);
+
+                $this->activityService->logMemberAdded(
+                    $project,
+                    $currentUser,
+                    $user->getFullName(),
+                    $role->getName()
+                );
+
+                $this->notificationService->notify(
+                    $user,
+                    NotificationType::PROJECT_INVITED,
+                    $currentUser,
+                    'project',
+                    $project->getId(),
+                    $project->getName(),
+                    ['projectId' => $project->getId()->toString()],
+                );
+
+                $this->entityManager->flush();
+
+                return $this->json([
+                    'success' => true,
+                    'message' => $user->getFullName() . ' has been added to the project.',
+                ]);
+            } else {
+                // User doesn't exist - create invitation
+                $invitation = $this->invitationService->createInvitation(
+                    $project,
+                    $currentUser,
+                    $email,
+                    $role
+                );
+
+                if ($invitation->getStatus()->value === 'pending_admin_approval') {
+                    return $this->json([
+                        'success' => true,
+                        'message' => 'Invitation sent to administrators for approval (restricted domain).',
+                        'requiresApproval' => true,
+                    ]);
+                } else {
+                    return $this->json([
+                        'success' => true,
+                        'message' => 'Invitation sent to ' . $email,
+                    ]);
+                }
+            }
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], 400);
+        }
     }
 }

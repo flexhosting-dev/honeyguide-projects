@@ -55,6 +55,60 @@ class NotificationEmailService
         $this->mailer->send($email);
     }
 
+    public function sendProjectInvitationEmail(
+        string $toEmail,
+        string $projectName,
+        string $invitedByName,
+        string $roleName,
+        string $token,
+    ): void {
+        $acceptUrl = $this->urlGenerator->generate(
+            'app_invitation_accept',
+            ['token' => $token],
+            UrlGeneratorInterface::ABSOLUTE_URL,
+        );
+
+        $settingsUrl = $this->urlGenerator->generate('app_login', [], UrlGeneratorInterface::ABSOLUTE_URL);
+
+        $html = <<<HTML
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Project Invitation</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h1 style="color: #2563eb;">You're Invited to Join a Project</h1>
+        <p>Hi,</p>
+        <p>{$this->escape($invitedByName)} has invited you to join the project <strong>{$this->escape($projectName)}</strong> on Honeyguide Projects.</p>
+        <p><strong>Your role:</strong> {$this->escape($roleName)}</p>
+        <p style="margin: 30px 0;">
+            <a href="{$this->escape($acceptUrl)}"
+               style="background-color: #2563eb; color: white; padding: 12px 24px;
+                      text-decoration: none; border-radius: 6px; display: inline-block;">
+                Accept Invitation
+            </a>
+        </p>
+        <p style="color: #666; font-size: 14px;">This invitation will expire in 7 days.</p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+        <p style="color: #666; font-size: 12px;">
+            This is an automated invitation from Honeyguide Projects.
+        </p>
+    </div>
+</body>
+</html>
+HTML;
+
+        $email = (new Email())
+            ->from($this->fromAddress)
+            ->to($toEmail)
+            ->subject("You've been invited to join: " . $projectName)
+            ->html($html);
+
+        $this->mailer->send($email);
+    }
+
     private function getSubject(
         NotificationType $type,
         ?User $actor,
@@ -78,6 +132,8 @@ class NotificationEmailService
             NotificationType::MILESTONE_DUE => 'Milestone due: ' . ($entityName ?? 'a milestone'),
             NotificationType::ATTACHMENT_ADDED => 'New attachment on: ' . ($entityName ?? 'a task'),
             NotificationType::REGISTRATION_REQUEST => 'New Registration Request: ' . ($entityName ?? 'Unknown'),
+            NotificationType::PROJECT_INVITATION_APPROVAL_REQUIRED => 'Project Invitation Approval Required: ' . ($entityName ?? 'a project'),
+            NotificationType::PROJECT_INVITATION_APPROVED => 'Project Invitation Approved: ' . ($entityName ?? 'a project'),
         };
     }
 
@@ -109,6 +165,8 @@ class NotificationEmailService
             NotificationType::MILESTONE_DUE => $this->renderMilestoneDueEmail($firstName, $entityName, $data, $settingsUrl),
             NotificationType::ATTACHMENT_ADDED => $this->renderAttachmentAddedEmail($firstName, $actorName, $entityName, $data, $settingsUrl),
             NotificationType::REGISTRATION_REQUEST => $this->renderRegistrationRequestEmail($firstName, $entityName, $data, $settingsUrl),
+            NotificationType::PROJECT_INVITATION_APPROVAL_REQUIRED => $this->renderInvitationApprovalRequiredEmail($firstName, $actorName, $entityName, $data, $settingsUrl),
+            NotificationType::PROJECT_INVITATION_APPROVED => $this->renderInvitationApprovedEmail($firstName, $entityName, $data, $settingsUrl),
         };
     }
 
@@ -341,6 +399,65 @@ class NotificationEmailService
             </table>",
             $usersUrl,
             'Review Request',
+            $settingsUrl,
+        );
+    }
+
+    private function renderInvitationApprovalRequiredEmail(string $firstName, string $actorName, ?string $projectName, ?array $data, string $settingsUrl): string
+    {
+        $invitationsUrl = $this->urlGenerator->generate(
+            'admin_invitations_pending',
+            [],
+            UrlGeneratorInterface::ABSOLUTE_URL,
+        );
+
+        $inviteeEmail = $data['inviteeEmail'] ?? 'Unknown';
+        $role = $data['role'] ?? 'Unknown';
+
+        return $this->renderEmailTemplate(
+            'Project Invitation Approval Required',
+            $firstName,
+            "<p>{$this->escape($actorName)} has invited a user from a restricted domain to join the project <strong>{$this->escape($projectName ?? 'Untitled')}</strong>. Your approval is required.</p>
+            <table style=\"width: 100%; margin: 20px 0; border-collapse: collapse;\">
+                <tr>
+                    <td style=\"padding: 10px; border-bottom: 1px solid #eee; font-weight: bold;\">Invitee Email</td>
+                    <td style=\"padding: 10px; border-bottom: 1px solid #eee;\">{$this->escape($inviteeEmail)}</td>
+                </tr>
+                <tr>
+                    <td style=\"padding: 10px; border-bottom: 1px solid #eee; font-weight: bold;\">Project</td>
+                    <td style=\"padding: 10px; border-bottom: 1px solid #eee;\">{$this->escape($projectName ?? 'Untitled')}</td>
+                </tr>
+                <tr>
+                    <td style=\"padding: 10px; border-bottom: 1px solid #eee; font-weight: bold;\">Proposed Role</td>
+                    <td style=\"padding: 10px; border-bottom: 1px solid #eee;\">{$this->escape($role)}</td>
+                </tr>
+            </table>",
+            $invitationsUrl,
+            'Review Invitation',
+            $settingsUrl,
+        );
+    }
+
+    private function renderInvitationApprovedEmail(string $firstName, ?string $projectName, ?array $data, string $settingsUrl): string
+    {
+        $acceptUrl = isset($data['token']) ? $this->urlGenerator->generate(
+            'app_invitation_accept',
+            ['token' => $data['token']],
+            UrlGeneratorInterface::ABSOLUTE_URL,
+        ) : null;
+
+        $invitedBy = $data['invitedBy'] ?? 'A project manager';
+        $role = $data['role'] ?? 'project member';
+
+        return $this->renderEmailTemplate(
+            'Project Invitation Approved',
+            $firstName,
+            "<p>Your invitation to join the project <strong>{$this->escape($projectName ?? 'Untitled')}</strong> has been approved by an administrator.</p>
+            <p><strong>Invited by:</strong> {$this->escape($invitedBy)}</p>
+            <p><strong>Your role:</strong> {$this->escape($role)}</p>
+            <p>Click the button below to accept the invitation and join the project.</p>",
+            $acceptUrl,
+            'Accept Invitation',
             $settingsUrl,
         );
     }

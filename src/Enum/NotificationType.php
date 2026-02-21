@@ -18,6 +18,8 @@ enum NotificationType: string
     case TASK_STATUS_CHANGED = 'task_status_changed';
     case ATTACHMENT_ADDED = 'attachment_added';
     case REGISTRATION_REQUEST = 'registration_request';
+    case PROJECT_INVITATION_APPROVAL_REQUIRED = 'project_invitation_approval_required';
+    case PROJECT_INVITATION_APPROVED = 'project_invitation_approved';
 
     public function label(): string
     {
@@ -36,6 +38,8 @@ enum NotificationType: string
             self::TASK_STATUS_CHANGED => 'Task Status Changed',
             self::ATTACHMENT_ADDED => 'Attachment Added',
             self::REGISTRATION_REQUEST => 'Registration Request',
+            self::PROJECT_INVITATION_APPROVAL_REQUIRED => 'Invitation Approval Required',
+            self::PROJECT_INVITATION_APPROVED => 'Invitation Approved',
         };
     }
 
@@ -52,6 +56,8 @@ enum NotificationType: string
             self::TASK_STATUS_CHANGED => 'arrow-path',
             self::ATTACHMENT_ADDED => 'paper-clip',
             self::REGISTRATION_REQUEST => 'user-plus',
+            self::PROJECT_INVITATION_APPROVAL_REQUIRED => 'shield-check',
+            self::PROJECT_INVITATION_APPROVED => 'check-circle',
         };
     }
 
@@ -63,7 +69,8 @@ enum NotificationType: string
     public function defaultEmail(): bool
     {
         return match ($this) {
-            self::TASK_ASSIGNED, self::MENTIONED, self::PROJECT_INVITED, self::REGISTRATION_REQUEST => true,
+            self::TASK_ASSIGNED, self::MENTIONED, self::PROJECT_INVITED, self::REGISTRATION_REQUEST,
+            self::PROJECT_INVITATION_APPROVAL_REQUIRED, self::PROJECT_INVITATION_APPROVED => true,
             default => false,
         };
     }
@@ -76,7 +83,8 @@ enum NotificationType: string
             self::COMMENT_ADDED, self::MENTIONED, self::COMMENT_REPLY => 'Comments',
             self::PROJECT_INVITED, self::PROJECT_REMOVED, self::MILESTONE_DUE => 'Projects',
             self::ATTACHMENT_ADDED => 'Tasks',
-            self::REGISTRATION_REQUEST => 'System',
+            self::REGISTRATION_REQUEST, self::PROJECT_INVITATION_APPROVAL_REQUIRED,
+            self::PROJECT_INVITATION_APPROVED => 'System',
         };
     }
 }
