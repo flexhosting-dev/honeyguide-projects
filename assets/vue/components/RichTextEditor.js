@@ -130,7 +130,12 @@ export default {
                     if (typeof Toastr !== 'undefined') {
                         Toastr.error('Error', errorMsg);
                     } else {
-                        alert(errorMsg);
+                        await window.showConfirmDialog({
+                            title: 'Error',
+                            message: errorMsg,
+                            confirmText: 'OK',
+                            type: 'danger'
+                        });
                     }
                 }
             } catch (error) {
@@ -138,7 +143,12 @@ export default {
                 if (typeof Toastr !== 'undefined') {
                     Toastr.error('Error', 'Failed to save description');
                 } else {
-                    alert('Failed to save description');
+                    await window.showConfirmDialog({
+                        title: 'Error',
+                        message: 'Failed to save description',
+                        confirmText: 'OK',
+                        type: 'danger'
+                    });
                 }
             } finally {
                 isSaving.value = false;
@@ -193,7 +203,12 @@ export default {
                     updateAttachmentCount();
                 } else {
                     const data = await response.json();
-                    alert(data.error || 'Upload failed');
+                    await window.showConfirmDialog({
+                        title: 'Upload Failed',
+                        message: data.error || 'Upload failed',
+                        confirmText: 'OK',
+                        type: 'danger'
+                    });
                 }
             } catch (error) {
                 console.error('Error uploading files:', error);
@@ -203,7 +218,13 @@ export default {
         };
 
         const deleteAttachment = async (attachment) => {
-            if (!confirm('Delete this attachment?')) return;
+            const confirmed = await window.showConfirmDialog({
+                title: 'Delete Attachment',
+                message: 'Are you sure you want to delete this attachment?',
+                confirmText: 'Delete',
+                type: 'danger'
+            });
+            if (!confirmed) return;
 
             try {
                 const response = await fetch(`${basePath}/attachments/${attachment.id}`, {

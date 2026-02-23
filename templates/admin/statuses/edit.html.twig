@@ -111,7 +111,7 @@
                 <h2 class="text-lg font-medium text-red-600">Delete Status</h2>
                 <p class="mt-1 text-sm text-gray-500">Permanently remove this status and reassign tasks</p>
             </div>
-            <form method="post" action="{{ path('app_admin_statuses_delete', {id: status.id}) }}" class="p-6" onsubmit="return confirm('Are you sure you want to delete this status? {{ taskCount }} task(s) will be reassigned.');">
+            <form method="post" action="{{ path('app_admin_statuses_delete', {id: status.id}) }}" class="p-6" onsubmit="event.preventDefault();(async()=>{if(await showConfirmDialog({title:'Delete Status',message:'Are you sure you want to delete this status? {{ taskCount }} task(s) will be reassigned.',confirmText:'Delete',type:'danger'}))event.target.submit()})()">
                 <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ status.id) }}">
 
                 <div class="mb-4">
@@ -135,7 +135,7 @@
             <div class="px-6 py-4 border-b border-gray-200">
                 <h2 class="text-lg font-medium text-red-600">Delete Status</h2>
             </div>
-            <form method="post" action="{{ path('app_admin_statuses_delete', {id: status.id}) }}" class="p-6" onsubmit="return confirm('Are you sure you want to delete this status?');">
+            <form method="post" action="{{ path('app_admin_statuses_delete', {id: status.id}) }}" class="p-6" onsubmit="event.preventDefault();(async()=>{if(await showConfirmDialog({title:'Delete Status',message:'Are you sure you want to delete this status?',confirmText:'Delete',type:'danger'}))event.target.submit()})()">
                 <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ status.id) }}">
                 <p class="text-sm text-gray-500 mb-4">No tasks are using this status. It can be safely deleted.</p>
                 <button type="submit" class="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500">

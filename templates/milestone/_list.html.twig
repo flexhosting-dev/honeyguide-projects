@@ -61,9 +61,10 @@ function loadMoreTasks(listId, buttonId, url) {
 
 // Milestone Reordering
 {% if canEditMilestone|default(false) %}
-let milestoneDraggedElement = null;
+(function() {
+    let milestoneDraggedElement = null;
 
-function toggleMilestoneReordering() {
+    window.toggleMilestoneReordering = function() {
     const normalView = document.getElementById('milestones-list');
     const reorderList = document.getElementById('milestones-reorder-list');
     const toggleBtn = document.getElementById('reorder-milestones-btn');
@@ -93,7 +94,7 @@ function toggleMilestoneReordering() {
     }
 }
 
-function exitMilestoneReorderMode() {
+    function exitMilestoneReorderMode() {
     const normalView = document.getElementById('milestones-list');
     const reorderList = document.getElementById('milestones-reorder-list');
     const toggleBtn = document.getElementById('reorder-milestones-btn');
@@ -113,7 +114,7 @@ function exitMilestoneReorderMode() {
     toggleBtn.classList.add('bg-white', 'text-gray-700', 'border-gray-300', 'hover:bg-gray-50');
 }
 
-function initializeMilestoneReorderDrag() {
+    function initializeMilestoneReorderDrag() {
     const reorderList = document.getElementById('milestones-reorder-list');
     const reorderContainer = reorderList.querySelector('.bg-white.shadow');
 
@@ -128,7 +129,7 @@ function initializeMilestoneReorderDrag() {
     reorderContainer.addEventListener('dragend', handleMilestoneDragEnd);
 }
 
-function handleMilestoneDragStart(e) {
+    function handleMilestoneDragStart(e) {
     const item = e.target.closest('.milestone-reorder-item');
     if (!item) return;
 
@@ -138,7 +139,7 @@ function handleMilestoneDragStart(e) {
     e.dataTransfer.effectAllowed = 'move';
 }
 
-function handleMilestoneDragOver(e) {
+    function handleMilestoneDragOver(e) {
     e.preventDefault();
     if (!milestoneDraggedElement) return;
 
@@ -154,12 +155,12 @@ function handleMilestoneDragOver(e) {
     return false;
 }
 
-function handleMilestoneDrop(e) {
+    function handleMilestoneDrop(e) {
     e.stopPropagation();
     return false;
 }
 
-function handleMilestoneDragEnd(e) {
+    function handleMilestoneDragEnd(e) {
     if (milestoneDraggedElement) {
         milestoneDraggedElement.style.opacity = '1';
         milestoneDraggedElement.classList.remove('dragging');
@@ -167,7 +168,7 @@ function handleMilestoneDragEnd(e) {
     }
 }
 
-function getMilestoneDragAfterElement(container, y) {
+    function getMilestoneDragAfterElement(container, y) {
     const draggableElements = [...container.querySelectorAll('.milestone-reorder-item:not(.dragging)')];
 
     return draggableElements.reduce((closest, child) => {
@@ -184,7 +185,7 @@ function getMilestoneDragAfterElement(container, y) {
     }, { offset: Number.NEGATIVE_INFINITY }).element;
 }
 
-function saveMilestoneOrder() {
+    function saveMilestoneOrder() {
     const milestoneIds = [];
     document.querySelectorAll('.milestone-reorder-item').forEach(item => {
         milestoneIds.push(item.dataset.milestoneId);
@@ -232,7 +233,8 @@ function saveMilestoneOrder() {
             Toastr.error(error.message || 'Failed to update order');
         }
     });
-}
+    }
+})();
 {% endif %}
 </script>
 

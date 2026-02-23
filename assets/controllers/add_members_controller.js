@@ -244,11 +244,16 @@ export default class extends Controller {
     }
 
     showToast(message, type) {
-        // Use Toastr if available, otherwise fallback to alert
+        // Use Toastr if available, otherwise fallback to custom dialog
         if (typeof toastr !== 'undefined') {
             toastr[type](message);
         } else {
-            alert(message);
+            window.showConfirmDialog({
+                title: type === 'success' ? 'Success' : 'Notification',
+                message: message,
+                confirmText: 'OK',
+                type: type === 'success' ? 'info' : 'warning'
+            });
         }
     }
 

@@ -305,6 +305,9 @@
         </div>
     </div>
 
+    {# Global Confirm Dialog (Vue Component) #}
+    <div id="global-confirm-dialog"></div>
+
     {# Recurrence Modal #}
     <div id="recurrence-modal" class="fixed inset-0 z-[100] hidden">
         <div class="fixed inset-0 bg-gray-600 bg-opacity-50" onclick="closeRecurrenceModal()"></div>
@@ -617,9 +620,6 @@
     </style>
 
     <script>
-    // Base path for all API calls (handles proxy prefix)
-    window.BASE_PATH = '{{ app.request.basePath }}';
-
     // Panel stack tracks layered task IDs
     window._panelStack = [];
 
@@ -969,9 +969,10 @@
     }
 
     // Subtask completion modal state
-    let _pendingStatusUpdate = null;
+    (function() {
+        let _pendingStatusUpdate = null;
 
-    function openSubtaskCompletionModal(taskId, status, btn, openSubtaskCount) {
+        window.openSubtaskCompletionModal = function(taskId, status, btn, openSubtaskCount) {
         _pendingStatusUpdate = { taskId, status, btn };
         const message = document.getElementById('subtask-completion-message');
         message.textContent = `This task has ${openSubtaskCount} open subtask${openSubtaskCount > 1 ? 's' : ''}. How would you like to proceed?`;
@@ -979,34 +980,35 @@
         document.body.style.overflow = 'hidden';
     }
 
-    function closeSubtaskCompletionModal() {
-        document.getElementById('subtask-completion-modal').classList.add('hidden');
-        document.body.style.overflow = '';
-        _pendingStatusUpdate = null;
-    }
+        function closeSubtaskCompletionModal() {
+            document.getElementById('subtask-completion-modal').classList.add('hidden');
+            document.body.style.overflow = '';
+            _pendingStatusUpdate = null;
+        }
+        window.closeSubtaskCompletionModal = closeSubtaskCompletionModal;
 
-    async function confirmCompleteParentOnly() {
-        if (!_pendingStatusUpdate) return;
-        const { taskId, status, btn } = _pendingStatusUpdate;
-        closeSubtaskCompletionModal();
-        // Re-call with completeSubtasks=false to force completion
-        await doUpdateTaskStatus(taskId, status, btn, false, true);
-    }
+        window.confirmCompleteParentOnly = async function() {
+            if (!_pendingStatusUpdate) return;
+            const { taskId, status, btn } = _pendingStatusUpdate;
+            closeSubtaskCompletionModal();
+            // Re-call with completeSubtasks=false to force completion
+            await doUpdateTaskStatus(taskId, status, btn, false, true);
+        };
 
-    async function confirmCompleteWithSubtasks() {
-        if (!_pendingStatusUpdate) return;
-        const { taskId, status, btn } = _pendingStatusUpdate;
-        closeSubtaskCompletionModal();
-        // Complete parent and all subtasks
-        await doUpdateTaskStatus(taskId, status, btn, true, true);
-    }
+        window.confirmCompleteWithSubtasks = async function() {
+            if (!_pendingStatusUpdate) return;
+            const { taskId, status, btn } = _pendingStatusUpdate;
+            closeSubtaskCompletionModal();
+            // Complete parent and all subtasks
+            await doUpdateTaskStatus(taskId, status, btn, true, true);
+        };
 
-    // Update Task Status
-    async function updateTaskStatus(taskId, status, btn) {
-        await doUpdateTaskStatus(taskId, status, btn, false, false);
-    }
+        // Update Task Status
+        window.updateTaskStatus = async function(taskId, status, btn) {
+            await doUpdateTaskStatus(taskId, status, btn, false, false);
+        };
 
-    async function doUpdateTaskStatus(taskId, status, btn, completeSubtasks, forceComplete) {
+        async function doUpdateTaskStatus(taskId, status, btn, completeSubtasks, forceComplete) {
         // Get label and color from the clicked button (dynamic from database)
         const statusLabel = btn.textContent.trim();
         const statusColor = btn.getAttribute('data-color') || '#6B7280';
@@ -1070,6 +1072,7 @@
             Toastr.error('Failed to update status');
         }
     }
+    })();
 
     // Update Task Priority
     async function updateTaskPriority(taskId, priority, btn) {
@@ -1582,7 +1585,7 @@
     }
 
     // Promote task (move to parent's level)
-    async function promoteTask(taskId) {
+    async function promoteTask(taskId, parentParentId = null) {
         closeAllDropdowns();
         try {
             const response = await fetch(`${BASE_PATH}/tasks/${taskId}/parent`, {
@@ -1591,7 +1594,7 @@
                     'Content-Type': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest'
                 },
-                body: JSON.stringify({ parentId: null })
+                body: JSON.stringify({ parentId: parentParentId })
             });
 
             if (!response.ok) {
@@ -1600,18 +1603,13 @@
                 return;
             }
 
+            closeTaskPanel(false);
             Toastr.success('Task promoted to parent level');
 
-            // Refresh the panel to show updated state
-            const panelContent = document.getElementById('task-panel-content');
-            if (panelContent) {
-                openTaskPanel(taskId);
-            }
-
-            // Notify other components
-            document.dispatchEvent(new CustomEvent('task-updated', {
-                detail: { taskId, field: 'parent', value: null }
-            }));
+            // Small delay to ensure DB transaction is committed, then reload page
+            setTimeout(() => {
+                window.location.reload();
+            }, 300);
         } catch (error) {
             console.error('Error promoting task:', error);
             Toastr.error('Failed to promote task');
@@ -2063,7 +2061,15 @@
         }
         message += ' This action cannot be undone.';
 
-        if (!confirm(message)) {
+        const confirmed = await showConfirmDialog({
+            title: 'Delete Task',
+            message: message,
+            confirmText: 'Delete',
+            cancelText: 'Cancel',
+            type: 'danger'
+        });
+
+        if (!confirmed) {
             return;
         }
 
@@ -2083,6 +2089,17 @@
             }
 
             Toastr.success('Task deleted');
+
+            // Store deleted task ID for cross-page sync
+            try {
+                const deletedTasks = JSON.parse(sessionStorage.getItem('deleted_tasks') || '[]');
+                if (!deletedTasks.includes(taskId)) {
+                    deletedTasks.push(taskId);
+                    sessionStorage.setItem('deleted_tasks', JSON.stringify(deletedTasks));
+                }
+            } catch (e) {
+                console.error('Error storing deleted task:', e);
+            }
 
             // Close the panel
             closeTaskPanel();

@@ -309,7 +309,13 @@ export default {
         const deleteComment = async (comment) => {
             if (!canDelete(comment) || isLoading.value) return;
 
-            if (!confirm('Delete this comment?')) return;
+            const confirmed = await window.showConfirmDialog({
+                title: 'Delete Comment',
+                message: 'Are you sure you want to delete this comment?',
+                confirmText: 'Delete',
+                type: 'danger'
+            });
+            if (!confirmed) return;
 
             isLoading.value = true;
             try {
