@@ -87,7 +87,17 @@ export default {
     },
 
     setup(props) {
-        const tasks = ref(Array.isArray(props.initialTasks) ? [...props.initialTasks] : []);
+        // Filter out deleted tasks from sessionStorage
+        let initialTasks = Array.isArray(props.initialTasks) ? [...props.initialTasks] : [];
+        try {
+            const deletedTasks = JSON.parse(sessionStorage.getItem('deleted_tasks') || '[]');
+            if (deletedTasks.length > 0) {
+                initialTasks = initialTasks.filter(task => !deletedTasks.includes(task.id));
+            }
+        } catch (e) {
+            console.error('Error reading deleted tasks:', e);
+        }
+        const tasks = ref(initialTasks);
         const currentMode = ref('status');
         const collapsedKeys = ref(new Set());
         const draggedTask = ref(null);
@@ -419,6 +429,47 @@ export default {
         };
 
         // Live updates
+        const handleTaskDeleted = (e) => {
+            const { taskId } = e.detail || {};
+            const idx = tasks.value.findIndex(t => t.id == taskId);
+            if (idx === -1) return;
+
+            const deletedTask = tasks.value[idx];
+
+            // Update parent's subtask count if this was a subtask
+            if (deletedTask.depth > 0) {
+                // Find parent by looking for tasks with matching criteria
+                // In a flat list, we need to find the parent somehow
+                // For now, we'll skip this in kanban since it's not hierarchical
+            }
+
+            // Find the DOM card element
+            nextTick(() => {
+                const cardEl = document.querySelector(`.kanban-card[data-task-id="${taskId}"]`);
+                if (cardEl) {
+                    // Add red highlight and fade out animation
+                    cardEl.style.transition = 'background-color 0.3s ease, opacity 0.5s ease 0.3s, transform 0.5s ease 0.3s';
+                    cardEl.style.backgroundColor = '#fecaca'; // red-200
+                    cardEl.style.opacity = '1';
+                    cardEl.style.transform = 'scale(1)';
+
+                    // Start fade out and scale down after highlight
+                    setTimeout(() => {
+                        cardEl.style.opacity = '0';
+                        cardEl.style.transform = 'scale(0.8)';
+                    }, 300);
+
+                    // Remove from tasks array after animation
+                    setTimeout(() => {
+                        tasks.value.splice(idx, 1);
+                    }, 800);
+                } else {
+                    // Fallback: immediately remove if element not found
+                    tasks.value.splice(idx, 1);
+                }
+            });
+        };
+
         const handleTaskUpdate = (e) => {
             const { taskId, field, value, label, milestoneId } = e.detail || {};
             const idx = tasks.value.findIndex(t => t.id == taskId);
@@ -458,6 +509,7 @@ export default {
             loadMode();
             loadCollapseState();
             document.addEventListener('task-updated', handleTaskUpdate);
+            document.addEventListener('task-deleted', handleTaskDeleted);
             document.addEventListener('task-assignees-updated', handleAssigneesUpdate);
             document.addEventListener('kanban-set-mode', handleExternalModeChange);
             // Notify external switcher of initial mode
@@ -466,6 +518,7 @@ export default {
 
         onUnmounted(() => {
             document.removeEventListener('task-updated', handleTaskUpdate);
+            document.removeEventListener('task-deleted', handleTaskDeleted);
             document.removeEventListener('task-assignees-updated', handleAssigneesUpdate);
             document.removeEventListener('kanban-set-mode', handleExternalModeChange);
         });

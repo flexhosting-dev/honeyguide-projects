@@ -22,7 +22,7 @@
 {% set showAddButton = showAddButton|default(false) %}
 {% set storageKey = storageKey|default('task_view') %}
 
-<div class="space-y-4" id="task-page-container" data-storage-key="{{ storageKey }}">
+<div class="space-y-4" id="task-page-container" data-storage-key="{{ storageKey }}" data-turbo-cache="false">
     {# Page Header (optional) #}
     {% if showHeader and pageTitle is defined %}
     <div class="sm:flex sm:items-center sm:justify-between">
@@ -215,7 +215,37 @@
 
     const modeSwitcher = document.getElementById('kanban-mode-switcher');
 
-    window.showTaskView = function(index, save = true) {
+    window.showTaskView = function(index, save = true, reload = true) {
+        // Save preference immediately
+        if (save && storageKey) {
+            try {
+                localStorage.setItem(storageKey, index);
+            } catch (e) {}
+        }
+
+        // Show loading state on the panel being activated (only if we're going to reload)
+        if (reload) {
+            const targetPanel = document.querySelectorAll('.task-view-panel')[index];
+            if (targetPanel) {
+                // Add loading overlay
+                const loadingOverlay = document.createElement('div');
+                loadingOverlay.className = 'absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-50';
+                loadingOverlay.innerHTML = `
+                    <div class="text-center">
+                        <svg class="animate-spin h-8 w-8 text-primary-600 mx-auto mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <p class="text-sm text-gray-600">Loading fresh data...</p>
+                    </div>
+                `;
+                if (targetPanel.style.position !== 'relative') {
+                    targetPanel.style.position = 'relative';
+                }
+                targetPanel.appendChild(loadingOverlay);
+            }
+        }
+
         // Update view buttons
         document.querySelectorAll('.task-view-btn').forEach((btn, i) => {
             if (i === index) {
@@ -245,16 +275,15 @@
             }
         }
 
-        // Remount Vue components when switching views
-        if (typeof window.mountVueComponents === 'function') {
-            setTimeout(function() { window.mountVueComponents(); }, 0);
-        }
-
-        // Save to localStorage
-        if (save && storageKey) {
-            try {
-                localStorage.setItem(storageKey, index);
-            } catch (e) {}
+        // Reload the page to get fresh data (using Turbo for smooth transition)
+        if (reload) {
+            setTimeout(function() {
+                if (typeof Turbo !== 'undefined') {
+                    Turbo.visit(window.location.href, { action: 'replace' });
+                } else {
+                    window.location.reload();
+                }
+            }, 100);
         }
     };
 
@@ -299,7 +328,7 @@
                 let viewIndex = parseInt(savedView);
                 // 3 views: 0=Table, 1=Kanban, 2=Gantt
                 if (viewIndex >= 0 && viewIndex <= 2) {
-                    showTaskView(viewIndex, false);
+                    showTaskView(viewIndex, false, false);  // Don't save or reload when restoring
                 }
             }
         } catch (e) {}

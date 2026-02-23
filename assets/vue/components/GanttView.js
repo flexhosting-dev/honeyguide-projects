@@ -86,7 +86,17 @@ export default {
     },
 
     setup(props) {
-        const tasks = ref(Array.isArray(props.initialTasks) ? [...props.initialTasks] : []);
+        // Filter out deleted tasks from sessionStorage
+        let initialTasks = Array.isArray(props.initialTasks) ? [...props.initialTasks] : [];
+        try {
+            const deletedTasks = JSON.parse(sessionStorage.getItem('deleted_tasks') || '[]');
+            if (deletedTasks.length > 0) {
+                initialTasks = initialTasks.filter(task => !deletedTasks.includes(task.id));
+            }
+        } catch (e) {
+            console.error('Error reading deleted tasks:', e);
+        }
+        const tasks = ref(initialTasks);
         const ganttContainer = ref(null);
         const taskListRef = ref(null);
         const currentViewMode = ref(props.viewMode);
@@ -1149,6 +1159,57 @@ export default {
         }
 
         // Handle external task updates
+        function handleTaskDeleted(event) {
+            const { taskId } = event.detail || {};
+            if (!taskId) return;
+
+            const taskIndex = tasks.value.findIndex(t => t.id === taskId);
+            if (taskIndex === -1) return;
+
+            const deletedTask = tasks.value[taskIndex];
+            const parentId = deletedTask.parentId;
+
+            // Update parent's subtask count if this was a subtask
+            if (parentId) {
+                const parentIndex = tasks.value.findIndex(t => t.id === parentId);
+                if (parentIndex !== -1) {
+                    const parent = tasks.value[parentIndex];
+                    if (parent.subtaskCount > 0) {
+                        parent.subtaskCount--;
+                        if (deletedTask.status?.value === 'completed' && parent.completedSubtaskCount > 0) {
+                            parent.completedSubtaskCount--;
+                        }
+                    }
+                }
+            }
+
+            // Find the DOM row element in Gantt
+            nextTick(() => {
+                const rowEl = document.querySelector(`.gantt-row[data-task-id="${taskId}"]`);
+                if (rowEl) {
+                    // Add red highlight and fade out animation
+                    rowEl.style.transition = 'background-color 0.3s ease, opacity 0.5s ease 0.3s';
+                    rowEl.style.backgroundColor = '#fecaca'; // red-200
+                    rowEl.style.opacity = '1';
+
+                    // Start fade out after highlight
+                    setTimeout(() => {
+                        rowEl.style.opacity = '0';
+                    }, 300);
+
+                    // Remove from tasks array after animation and refresh Gantt
+                    setTimeout(() => {
+                        tasks.value.splice(taskIndex, 1);
+                        nextTick(() => initGantt());
+                    }, 800);
+                } else {
+                    // Fallback: immediately remove if element not found
+                    tasks.value.splice(taskIndex, 1);
+                    nextTick(() => initGantt());
+                }
+            });
+        }
+
         function handleTaskUpdate(event) {
             const { taskId, field, value, startDate, dueDate, label } = event.detail || {};
             if (!taskId) return;
@@ -1680,11 +1741,13 @@ export default {
 
             // Listen for task updates from other components
             document.addEventListener('task-updated', handleTaskUpdate);
+            document.addEventListener('task-deleted', handleTaskDeleted);
             window.addEventListener('resize', handleWindowResize);
         });
 
         onUnmounted(() => {
             document.removeEventListener('task-updated', handleTaskUpdate);
+            document.removeEventListener('task-deleted', handleTaskDeleted);
             cleanupScrollSync();
             window.removeEventListener('resize', handleWindowResize);
         });
