@@ -19,11 +19,16 @@ export function mountVueComponent(elementId, component, props = {}) {
 }
 
 // Auto-mount Vue components on elements with data-vue-component attribute
-export function autoMountVueComponents(components) {
+export function autoMountVueComponents(components, forceRemount = false) {
     document.querySelectorAll('[data-vue-component]').forEach(element => {
-        // Skip if already mounted
+        // Unmount if already mounted and forceRemount is true
         if (element.__vue_app__) {
-            return;
+            if (forceRemount) {
+                element.__vue_app__.unmount();
+                element.__vue_app__ = null;
+            } else {
+                return;
+            }
         }
 
         const componentName = element.dataset.vueComponent;
@@ -69,6 +74,8 @@ export function autoMountVueComponents(components) {
 
         const app = createApp(component, props);
         app.mount(element);
+        // Store app instance for potential unmounting
+        element.__vue_app__ = app;
     });
 }
 

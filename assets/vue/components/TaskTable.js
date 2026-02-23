@@ -111,8 +111,17 @@ export default {
     },
 
     setup(props) {
-        // Core state
-        const tasks = ref(Array.isArray(props.initialTasks) ? [...props.initialTasks] : []);
+        // Core state - filter out deleted tasks from sessionStorage
+        let initialTasks = Array.isArray(props.initialTasks) ? [...props.initialTasks] : [];
+        try {
+            const deletedTasks = JSON.parse(sessionStorage.getItem('deleted_tasks') || '[]');
+            if (deletedTasks.length > 0) {
+                initialTasks = initialTasks.filter(task => !deletedTasks.includes(task.id));
+            }
+        } catch (e) {
+            console.error('Error reading deleted tasks:', e);
+        }
+        const tasks = ref(initialTasks);
         const selectedIds = ref(new Set());
         const expandedIds = ref(new Set());
         const collapsedGroups = ref(new Set());
@@ -1182,11 +1191,17 @@ export default {
                     const task = tasks.value.find(t => t.id === id);
                     if (task) {
                         task.position = index;
+                        // Clear hierarchyKey so the new position is used for sorting
+                        // (hierarchyKey takes precedence over position in getSortValue)
+                        delete task.hierarchyKey;
                     }
                 });
 
                 // Force reactivity update
                 tasks.value = [...tasks.value];
+
+                // Refresh the filtered/sorted view to reflect new positions
+                refreshFilteredTasks();
 
                 if (typeof Toastr !== 'undefined') {
                     Toastr.success('Reordered', 'Task order updated');
@@ -1607,6 +1622,55 @@ export default {
         };
 
         // Live updates
+        const handleTaskDeleted = (e) => {
+            const { taskId } = e.detail || {};
+            const idx = tasks.value.findIndex(t => t.id == taskId);
+            if (idx === -1) return;
+
+            const deletedTask = tasks.value[idx];
+            const parentId = deletedTask.parentId;
+
+            // Update parent's subtask count if this was a subtask
+            if (parentId) {
+                const parentIdx = tasks.value.findIndex(t => t.id == parentId);
+                if (parentIdx !== -1) {
+                    const parent = tasks.value[parentIdx];
+                    if (parent.subtaskCount > 0) {
+                        parent.subtaskCount--;
+                        if (deletedTask.status?.value === 'completed' && parent.completedSubtaskCount > 0) {
+                            parent.completedSubtaskCount--;
+                        }
+                    }
+                }
+            }
+
+            // Find the DOM row element
+            nextTick(() => {
+                const rowEl = document.querySelector(`tr[data-task-id="${taskId}"]`);
+                if (rowEl) {
+                    // Add red highlight and fade out animation
+                    rowEl.style.transition = 'background-color 0.3s ease, opacity 0.5s ease 0.3s';
+                    rowEl.style.backgroundColor = '#fecaca'; // red-200
+                    rowEl.style.opacity = '1';
+
+                    // Start fade out after highlight
+                    setTimeout(() => {
+                        rowEl.style.opacity = '0';
+                    }, 300);
+
+                    // Remove from tasks array after animation
+                    setTimeout(() => {
+                        tasks.value.splice(idx, 1);
+                        refreshFilteredTasks();
+                    }, 800);
+                } else {
+                    // Fallback: immediately remove if element not found
+                    tasks.value.splice(idx, 1);
+                    refreshFilteredTasks();
+                }
+            });
+        };
+
         const handleTaskUpdate = (e) => {
             const { taskId, field, value, label, milestoneId } = e.detail || {};
             const idx = tasks.value.findIndex(t => t.id == taskId);
@@ -2566,6 +2630,7 @@ export default {
             // Then load from API to sync with database (may override localStorage)
             loadPreferencesFromApi();
             document.addEventListener('task-updated', handleTaskUpdate);
+            document.addEventListener('task-deleted', handleTaskDeleted);
             document.addEventListener('task-assignees-updated', handleAssigneesUpdate);
             document.addEventListener('keydown', handleGlobalKeydown);
             document.addEventListener('mousedown', handleGlobalMousedown);
@@ -2573,6 +2638,7 @@ export default {
 
         onUnmounted(() => {
             document.removeEventListener('task-updated', handleTaskUpdate);
+            document.removeEventListener('task-deleted', handleTaskDeleted);
             document.removeEventListener('task-assignees-updated', handleAssigneesUpdate);
             document.removeEventListener('keydown', handleGlobalKeydown);
             document.removeEventListener('mousedown', handleGlobalMousedown);

@@ -92,6 +92,25 @@ export default {
             return `Subtask (Level ${depth})`;
         });
 
+        // Generate depth icon rectangles dynamically
+        const depthIconRects = computed(() => {
+            const depth = taskDepth.value;
+            if (depth === 0) {
+                // Root task with children: 2 lines
+                return [
+                    { x: 2, y: 4, width: 6 },
+                    { x: 4, y: 8, width: 10 }
+                ];
+            } else {
+                // Subtasks: 1 parent line + depth indented lines
+                const rects = [{ x: 2, y: 2, width: 6 }];
+                for (let i = 1; i <= depth; i++) {
+                    rects.push({ x: 4, y: 2 + (i * 4), width: 10 });
+                }
+                return rects;
+            }
+        });
+
         // Methods
         const handleClick = (event) => {
             event.preventDefault();
@@ -144,6 +163,7 @@ export default {
             taskUrl,
             taskDepth,
             depthLabel,
+            depthIconRects,
             handleClick,
             handleDragStart,
             handleDragEnd,
@@ -227,23 +247,17 @@ export default {
                         class="flex items-center text-xs text-gray-500"
                         :title="depthLabel + (task.subtaskCount > 0 ? ' - ' + (task.completedSubtaskCount || 0) + '/' + task.subtaskCount + ' subtasks' : '')"
                     >
-                        <!-- Level 0: Top-level task icon (one child line) -->
-                        <svg v-if="taskDepth === 0" class="h-4 w-4" :class="{ 'mr-1': task.subtaskCount > 0 }" viewBox="0 0 16 16" fill="currentColor">
-                            <rect x="2" y="4" width="6" height="1.5" rx="0.5"/>
-                            <rect x="4" y="8" width="10" height="1.5" rx="0.5"/>
-                        </svg>
-                        <!-- Level 1: Two child lines -->
-                        <svg v-else-if="taskDepth === 1" class="h-4 w-4" :class="{ 'mr-1': task.subtaskCount > 0 }" viewBox="0 0 16 16" fill="currentColor">
-                            <rect x="2" y="2" width="6" height="1.5" rx="0.5"/>
-                            <rect x="4" y="6" width="10" height="1.5" rx="0.5"/>
-                            <rect x="4" y="10" width="10" height="1.5" rx="0.5"/>
-                        </svg>
-                        <!-- Level 2+: Three child lines -->
-                        <svg v-else class="h-4 w-4" :class="{ 'mr-1': task.subtaskCount > 0 }" viewBox="0 0 16 16" fill="currentColor">
-                            <rect x="2" y="1" width="6" height="1.5" rx="0.5"/>
-                            <rect x="4" y="5" width="10" height="1.5" rx="0.5"/>
-                            <rect x="4" y="9" width="10" height="1.5" rx="0.5"/>
-                            <rect x="4" y="13" width="10" height="1.5" rx="0.5"/>
+                        <!-- Dynamic depth icon -->
+                        <svg class="h-4 w-4" :class="{ 'mr-1': task.subtaskCount > 0 }" viewBox="0 0 16 16" fill="currentColor">
+                            <rect
+                                v-for="(rect, index) in depthIconRects"
+                                :key="index"
+                                :x="rect.x"
+                                :y="rect.y"
+                                :width="rect.width"
+                                height="1.5"
+                                rx="0.5"
+                            />
                         </svg>
                         <span v-if="task.subtaskCount > 0">{{ task.completedSubtaskCount || 0 }}/{{ task.subtaskCount }}</span>
                     </span>
