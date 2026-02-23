@@ -446,6 +446,11 @@
     }
     </script>
 
+    {# Set BASE_PATH before any modules load #}
+    <script>
+        window.BASE_PATH = '{{ app.request.basePath }}';
+    </script>
+
     {% block javascripts %}{% endblock %}
     {% block importmap %}{{ importmap('app') }}{% endblock %}
 

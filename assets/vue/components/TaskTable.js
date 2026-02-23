@@ -206,7 +206,8 @@ export default {
         // Load preferences from API, falling back to localStorage
         const loadPreferencesFromApi = async () => {
             try {
-                const response = await fetch(`/settings/task-table-preferences/${encodeURIComponent(props.storageKey)}`, {
+                const basePath = props.basePath || window.BASE_PATH || '';
+                const response = await fetch(`${basePath}/settings/task-table-preferences/${encodeURIComponent(props.storageKey)}`, {
                     headers: { 'X-Requested-With': 'XMLHttpRequest' }
                 });
                 const data = await response.json();
@@ -242,7 +243,8 @@ export default {
                         visible: c.visible,
                         width: c.width
                     }));
-                    await fetch(`/settings/task-table-preferences/${encodeURIComponent(props.storageKey)}`, {
+                    const basePath = props.basePath || window.BASE_PATH || '';
+                    await fetch(`${basePath}/settings/task-table-preferences/${encodeURIComponent(props.storageKey)}`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -1200,9 +1202,6 @@ export default {
                 // Force reactivity update
                 tasks.value = [...tasks.value];
 
-                // Refresh the filtered/sorted view to reflect new positions
-                refreshFilteredTasks();
-
                 if (typeof Toastr !== 'undefined') {
                     Toastr.success('Reordered', 'Task order updated');
                 }
@@ -1661,12 +1660,10 @@ export default {
                     // Remove from tasks array after animation
                     setTimeout(() => {
                         tasks.value.splice(idx, 1);
-                        refreshFilteredTasks();
                     }, 800);
                 } else {
                     // Fallback: immediately remove if element not found
                     tasks.value.splice(idx, 1);
-                    refreshFilteredTasks();
                 }
             });
         };
@@ -2957,7 +2954,7 @@ export default {
                                 :completed-count="item.completedCount"
                                 :is-collapsed="item.isCollapsed"
                                 :column-count="visibleColumnCount"
-                                :can-add="canEdit && createUrl"
+                                :can-add="canEdit && !!createUrl"
                                 @toggle="toggleGroupCollapse"
                                 @add-task="handleAddTaskInGroup"
                             />

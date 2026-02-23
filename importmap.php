@@ -85,6 +85,9 @@ return [
     'vue/components/GanttView' => [
         'path' => './assets/vue/components/GanttView.js',
     ],
+    'vue/components/ConfirmDialog' => [
+        'path' => './assets/vue/components/ConfirmDialog.js',
+    ],
     'vue' => [
         'path' => './assets/vendor/vue/vue.index.js',
     ],
