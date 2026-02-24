@@ -84,7 +84,7 @@ class ProjectController extends AbstractController
         $projects = [];
         foreach ($allProjects as $project) {
             // Only include projects where user has PROJECT_EDIT permission
-            if ($this->permissionChecker->hasPermission($user, $project, Permission::PROJECT_EDIT)) {
+            if ($this->permissionChecker->hasPermission($user, Permission::PROJECT_EDIT, $project)) {
                 $projects[] = [
                     'id' => $project->getId()->toString(),
                     'name' => $project->getName(),

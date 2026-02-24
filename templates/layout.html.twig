@@ -830,6 +830,40 @@
         }
     }
 
+    function closeAllPanels(updateUrl = true) {
+        const panel = document.getElementById('task-panel');
+        const overlay = document.getElementById('task-panel-overlay');
+        const stack = document.getElementById('task-panel-stack');
+
+        // Force close all panels at once
+        panel.classList.add('translate-x-full');
+        overlay.classList.add('opacity-0', 'pointer-events-none');
+        document.body.style.overflow = '';
+        _panelStack = [];
+
+        // Clean up all layers after transition
+        setTimeout(() => {
+            const extras = stack.querySelectorAll('.panel-layer:not(#task-panel-content)');
+            extras.forEach(el => el.remove());
+            // Reset the base layer
+            const base = document.getElementById('task-panel-content');
+            if (base) {
+                base.style.transform = '';
+                base.style.opacity = '';
+                base.style.pointerEvents = '';
+                base.style.transition = '';
+                base.dataset.taskId = '';
+            }
+        }, 350);
+
+        if (updateUrl) {
+            const url = new URL(window.location);
+            url.searchParams.delete('task');
+            url.searchParams.delete('create-task');
+            window.history.pushState({}, '', url);
+        }
+    }
+
     function openTaskCreatePanel(projectId, updateUrl = true, autoAssignToMe = false) {
         const panel = document.getElementById('task-panel');
         const overlay = document.getElementById('task-panel-overlay');
@@ -1766,7 +1800,7 @@
     let _moveToProjectTaskId = null;
     let _moveToProjectData = null;
 
-    async function openMoveToProjectModal(taskId) {
+    async function openMoveToProjectModal(taskId, currentProjectId) {
         closeAllDropdowns();
         _moveToProjectTaskId = taskId;
         _moveToProjectData = null;
@@ -1782,10 +1816,15 @@
 
             if (!response.ok) throw new Error('Failed to load projects');
 
-            const projects = await response.json();
+            let projects = await response.json();
+
+            // Filter out the current project (can't move to the same project)
+            if (currentProjectId) {
+                projects = projects.filter(p => p.id !== currentProjectId);
+            }
 
             if (!projects || projects.length === 0) {
-                container.innerHTML = '<div class="px-4 py-8 text-center text-gray-500">No projects available</div>';
+                container.innerHTML = '<div class="px-4 py-8 text-center text-gray-500">No other projects available</div>';
                 return;
             }
 
@@ -1837,7 +1876,8 @@
     function closeProjectPickerModal() {
         document.getElementById('project-picker-modal').classList.add('hidden');
         document.body.style.overflow = '';
-        _moveToProjectTaskId = null;
+        // Don't clear _moveToProjectTaskId here - it's still needed for milestone picker
+        // Only clear project data and search
         _moveToProjectData = null;
         document.getElementById('project-picker-search').value = '';
     }
@@ -1942,6 +1982,9 @@
     function closeMilestonePickerModal() {
         document.getElementById('milestone-picker-modal').classList.add('hidden');
         document.body.style.overflow = '';
+        // Clear the task ID now that the operation is complete or cancelled
+        _moveToProjectTaskId = null;
+        _moveToProjectData = null;
     }
 
     // Show assignee warning modal
