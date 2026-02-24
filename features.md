@@ -1451,6 +1451,318 @@ Display user profile information in hover cards throughout the application.
 
 ---
 
+---
+
+## 15. Project Guest Role
+**Priority:** High
+**Status:** Pending
+**Complexity:** Medium
+**Impact:** Improves permission granularity and simplifies guest user workflows
+
+### Overview
+
+Introduce a new "Project Guest" role that allows external collaborators or team members to be assigned specific tasks within a project while restricting their access to only the tasks assigned to them.
+
+### Role Characteristics
+
+**Project Guest:**
+- Can be assigned to tasks in a project
+- Can only view and edit tasks assigned to them
+- Cannot view or edit other tasks in the project
+- Cannot create new tasks
+- Cannot modify project settings
+- Cannot manage project members
+- Limited visibility of project structure (sees only relevant milestones)
+
+### Auto-Assignment Behavior
+
+When adding task assignees, the system should:
+
+1. **Display All Available Users**
+   - Show all current project members (top section)
+   - Show all other portal users (bottom section)
+   - Visual distinction between the two groups
+
+2. **Automatic Role Assignment**
+   - When a non-project member is assigned to a task
+   - Automatically add them as a "Project Guest"
+   - Show notification: "John Doe added as Project Guest"
+   - No interruption to assignment workflow
+
+3. **Role Upgrade Path**
+   - Project managers can upgrade guests to full members
+   - From Members page: Change role from "Guest" to "Member" or other role
+   - Guest retains access to previously assigned tasks
+
+### Assignee Picker UI
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Add Assignee                                           [×]  │
+├─────────────────────────────────────────────────────────────┤
+│ [Search users...]                                           │
+│                                                             │
+│ PROJECT MEMBERS                                             │
+│ ○ John Doe                       Project Manager           │
+│ ○ Jane Smith                     Member                     │
+│ ○ Bob Wilson                     Guest                      │
+│                                                             │
+│ ─────────────────────────────────────────────────────────── │
+│                                                             │
+│ OTHER PORTAL USERS                                          │
+│ ○ Alice Brown                    (Will be added as Guest)  │
+│ ○ Charlie Davis                  (Will be added as Guest)  │
+│ ○ Eve Martinez                   (Will be added as Guest)  │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Permission Matrix
+
+| Action | Project Guest | Member | Project Manager | Owner |
+|--------|---------------|--------|-----------------|-------|
+| View assigned tasks | ✅ | ✅ | ✅ | ✅ |
+| Edit assigned tasks | ✅ | ✅ | ✅ | ✅ |
+| View other tasks | ❌ | ✅ | ✅ | ✅ |
+| Edit other tasks | ❌ | ✅ | ✅ | ✅ |
+| Create tasks | ❌ | ✅ | ✅ | ✅ |
+| Delete tasks | ❌ | ❌ | ✅ | ✅ |
+| Assign tasks | ❌ | ✅ | ✅ | ✅ |
+| View project members | ❌ | ✅ | ✅ | ✅ |
+| Manage members | ❌ | ❌ | ✅ | ✅ |
+| Edit project settings | ❌ | ❌ | ✅ | ✅ |
+
+### Database Schema
+
+**Add to `role` table:**
+```sql
+INSERT INTO role (id, name, slug, permissions, created_at, updated_at)
+VALUES (
+    UUID(),
+    'Project Guest',
+    'guest',
+    JSON_ARRAY('task.view_assigned', 'task.edit_assigned', 'comment.view', 'comment.create_own'),
+    NOW(),
+    NOW()
+);
+```
+
+**Permissions:**
+- `task.view_assigned` - Can view tasks assigned to them
+- `task.edit_assigned` - Can edit tasks assigned to them
+- `comment.view` - Can view comments on assigned tasks
+- `comment.create_own` - Can add comments to assigned tasks
+
+### Backend Implementation
+
+**PermissionChecker Enhancement:**
+```php
+public function hasPermission(User $user, string $permission, ?object $subject = null): bool
+{
+    // ... existing portal admin checks ...
+
+    // Check if this is an "assigned" permission
+    if (str_ends_with($permission, '_assigned')) {
+        $task = $this->getTaskFromSubject($subject);
+        if (!$task) {
+            return false;
+        }
+
+        // Check if user is assigned to this task
+        return $task->hasAssignee($user);
+    }
+
+    // ... existing permission checks ...
+}
+```
+
+**TaskRepository Filter for Guests:**
+```php
+public function findByProject(Project $project, User $user): array
+{
+    $membership = $this->memberRepository->findOneBy([
+        'user' => $user,
+        'project' => $project
+    ]);
+
+    $qb = $this->createQueryBuilder('t')
+        ->where('t.milestone IN (SELECT m FROM Milestone m WHERE m.project = :project)')
+        ->setParameter('project', $project);
+
+    // If user is a guest, only show assigned tasks
+    if ($membership && $membership->getRole()->getSlug() === 'guest') {
+        $qb->join('t.assignees', 'a')
+           ->andWhere('a.user = :user')
+           ->setParameter('user', $user);
+    }
+
+    return $qb->getQuery()->getResult();
+}
+```
+
+### Frontend Implementation
+
+**Assignee Picker Component:**
+```javascript
+// TaskAssigneeSelector.js
+async loadUsers() {
+    const response = await fetch(`${basePath()}/projects/${projectId}/available-assignees`);
+    const data = await response.json();
+
+    this.projectMembers = data.members;
+    this.otherUsers = data.otherUsers;
+}
+
+async addAssignee(userId) {
+    const response = await fetch(`${basePath()}/tasks/${taskId}/assignees`, {
+        method: 'POST',
+        body: JSON.stringify({ userId })
+    });
+
+    const result = await response.json();
+
+    if (result.addedAsGuest) {
+        Toastr.info(`${result.userName} added as Project Guest`);
+    }
+}
+```
+
+### API Endpoints
+
+**New Endpoints:**
+```
+GET  /projects/{id}/available-assignees
+     Returns: { members: [...], otherUsers: [...] }
+
+POST /tasks/{id}/assignees
+     Body: { userId: "uuid" }
+     Returns: { success: true, addedAsGuest: bool, userName: string }
+```
+
+**Modified Endpoints:**
+```
+GET  /projects/{id}/tasks
+     Filters tasks based on user role (all tasks for members, assigned only for guests)
+
+GET  /tasks/{id}
+     Returns 403 if guest tries to access unassigned task
+```
+
+### Member Management UI
+
+**Members Page Enhancement:**
+
+Show role badge for each member:
+```
+John Doe          Project Manager    [Change Role ▼]  [Remove]
+Jane Smith        Member             [Change Role ▼]  [Remove]
+Bob Wilson        Guest              [Change Role ▼]  [Remove]
+  └─ Assigned to 3 tasks
+```
+
+**Change Role Dialog:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Change Role for Bob Wilson                            [×]  │
+├─────────────────────────────────────────────────────────────┤
+│ Current Role: Guest                                         │
+│                                                             │
+│ New Role:                                                   │
+│ ○ Guest         (Can only edit assigned tasks)             │
+│ ○ Member        (Can view and edit all tasks)              │
+│ ○ Project Manager (Full project management access)         │
+│                                                             │
+│ Note: Bob is currently assigned to 3 tasks                  │
+│                                                             │
+├─────────────────────────────────────────────────────────────┤
+│                              [Cancel]  [Change Role]       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Migration Strategy
+
+**Phase 1: Database**
+1. Add "Project Guest" role to roles table
+2. No migration of existing users needed
+
+**Phase 2: Backend**
+3. Update PermissionChecker for "_assigned" permissions
+4. Add auto-assignment logic to TaskController
+5. Filter task queries based on guest role
+
+**Phase 3: Frontend**
+6. Enhance assignee picker with two sections
+7. Add visual indicators for auto-assignment
+8. Update members page with role management
+
+### Edge Cases & Considerations
+
+| Case | Behavior |
+|------|----------|
+| Guest unassigned from all tasks | Remains in project with guest role (can be removed by PM) |
+| Guest upgraded to Member | Gains access to all project tasks |
+| Member downgraded to Guest | Loses access to unassigned tasks immediately |
+| Guest assigned to task in different project | Gets guest role in that project too |
+| Public project access | Guests still only see assigned tasks (role restriction) |
+| Task reassignment | If guest is removed as assignee, loses access to that task |
+
+### Implementation Phases
+
+1. **Database & Roles**
+   - Create migration for "Project Guest" role
+   - Define permission set for guests
+
+2. **Backend Permissions**
+   - Enhance PermissionChecker for "_assigned" suffix
+   - Update task queries to filter for guests
+   - Add available-assignees endpoint
+
+3. **Auto-Assignment Logic**
+   - Detect non-members in assignee add
+   - Auto-create guest membership
+   - Return appropriate feedback
+
+4. **Frontend UI**
+   - Redesign assignee picker with sections
+   - Add visual distinction for portal users
+   - Show "added as guest" notifications
+
+5. **Member Management**
+   - Add role badges to members list
+   - Implement role change functionality
+   - Show assigned task count for guests
+
+### Files Affected
+
+**Backend:**
+- New: `migrations/VersionXXXXXX.php` - Add Project Guest role
+- Modified: `src/Service/PermissionChecker.php` - Handle "_assigned" permissions
+- Modified: `src/Repository/TaskRepository.php` - Filter for guest users
+- Modified: `src/Controller/TaskController.php` - Auto-assignment logic
+- New: `src/Controller/ProjectMemberController.php::availableAssignees()`
+- Modified: `src/Controller/ProjectMemberController.php` - Role change endpoint
+
+**Frontend:**
+- Modified: `templates/task/_panel.html.twig` - Assignee picker UI
+- New: `assets/vue/components/AssigneeSelector.js` - Two-section picker
+- Modified: `templates/project/members.html.twig` - Role management
+- New: `templates/project/_change_role_modal.html.twig` - Role change dialog
+
+### Testing Checklist
+
+- [ ] Guest can view assigned tasks
+- [ ] Guest can edit assigned task title, description, status
+- [ ] Guest cannot view unassigned tasks (404/403)
+- [ ] Guest cannot create new tasks
+- [ ] Auto-assignment creates guest membership
+- [ ] Assignee picker shows correct sections
+- [ ] Project managers can upgrade guest to member
+- [ ] Upgraded guest gains full access immediately
+- [ ] Guest removed from all tasks still visible in members
+- [ ] Role badges display correctly
+
+---
+
 ## Implementation Priority Order
 
 Based on impact and dependencies:
@@ -1458,7 +1770,8 @@ Based on impact and dependencies:
 1. **Default "General" Milestone** ✅ - COMPLETED
 2. **Auto-assign Tasks in My Tasks** ✅ - COMPLETED
 3. **Move Task Options for Root Tasks** - High impact, frequently requested
-4. **Profile Hover Cards** - Enhances UX across entire app
+4. **Project Guest Role** - High impact, improves collaboration workflows
+5. **Profile Hover Cards** - Enhances UX across entire app
 
 ---
 
