@@ -181,11 +181,34 @@ class UserController extends AbstractController
             return $this->redirectToRoute('admin_users_index');
         }
 
-        $userName = $user->getFullName();
-        $this->entityManager->remove($user);
-        $this->entityManager->flush();
+        // Check if user owns any projects
+        $ownedProjects = $this->entityManager->getRepository(\App\Entity\Project::class)
+            ->findBy(['owner' => $user]);
 
-        $this->addFlash('success', $userName . ' has been removed from the portal.');
+        if (!empty($ownedProjects)) {
+            $projectNames = array_map(fn($p) => $p->getName(), array_slice($ownedProjects, 0, 3));
+            $message = sprintf(
+                'Cannot delete %s because they own %d project(s): %s%s. Please transfer ownership of their projects before deleting.',
+                $user->getFullName(),
+                count($ownedProjects),
+                implode(', ', $projectNames),
+                count($ownedProjects) > 3 ? ', ...' : ''
+            );
+            $this->addFlash('error', $message);
+            return $this->redirectToRoute('admin_users_index');
+        }
+
+        $userName = $user->getFullName();
+
+        try {
+            $this->entityManager->remove($user);
+            $this->entityManager->flush();
+
+            $this->addFlash('success', $userName . ' has been removed from the portal.');
+        } catch (\Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException $e) {
+            $this->addFlash('error', 'Cannot delete ' . $userName . '. They have associated data that must be removed or transferred first.');
+            return $this->redirectToRoute('admin_users_index');
+        }
 
         return $this->redirectToRoute('admin_users_index');
     }
