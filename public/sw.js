@@ -1,5 +1,5 @@
 // Service Worker for Honeyguide Projects PWA
-const CACHE_NAME = 'honeyguide-v3';
+const CACHE_NAME = 'honeyguide-v4';
 
 // Determine basePath from service worker location
 // If SW is at /zohoclone/sw.js, basePath is /zohoclone
@@ -74,6 +74,50 @@ self.addEventListener('fetch', (event) => {
       .catch(() => {
         // Network failed, try cache
         return caches.match(event.request);
+      })
+  );
+});
+
+// Push event - handle incoming push notifications
+self.addEventListener('push', (event) => {
+  const data = event.data ? event.data.json() : {};
+  const title = data.title || 'Honeyguide Projects';
+  const options = {
+    body: data.body || 'You have a new notification',
+    icon: basePath + (data.icon || '/icon-192.png'),
+    badge: basePath + '/icon-192.png',
+    data: data.data || {},
+    tag: data.tag || 'notification',
+    vibrate: [200, 100, 200],
+    requireInteraction: data.requireInteraction || false
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(title, options)
+  );
+});
+
+// Notification click event - handle notification clicks
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const urlToOpen = event.notification.data?.url
+    ? basePath + event.notification.data.url
+    : basePath + '/';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then((clientList) => {
+        // Check if there's already a window open
+        for (const client of clientList) {
+          if (client.url.startsWith(self.location.origin) && 'focus' in client) {
+            return client.focus().then(() => client.navigate(urlToOpen));
+          }
+        }
+        // If no window is open, open a new one
+        if (clients.openWindow) {
+          return clients.openWindow(urlToOpen);
+        }
       })
   );
 });

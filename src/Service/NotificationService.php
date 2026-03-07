@@ -13,6 +13,7 @@ class NotificationService
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly NotificationEmailService $emailService,
+        private readonly PushNotificationService $pushService,
     ) {
     }
 
@@ -48,6 +49,17 @@ class NotificationService
 
         // Send email notification if user has email notifications enabled
         $this->emailService->sendNotificationEmail(
+            $recipient,
+            $type,
+            $actor,
+            $entityType,
+            $entityId,
+            $entityName,
+            $data,
+        );
+
+        // Send push notification if user has push notifications enabled
+        $this->pushService->sendPushNotification(
             $recipient,
             $type,
             $actor,

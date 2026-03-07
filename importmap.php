@@ -16,6 +16,9 @@ return [
         'path' => './assets/app.js',
         'entrypoint' => true,
     ],
+    'push-notifications' => [
+        'path' => './assets/js/push-notifications.js',
+    ],
     '@hotwired/turbo' => [
         'version' => '8.0.21',
     ],

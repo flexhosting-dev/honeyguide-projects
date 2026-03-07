@@ -96,6 +96,7 @@ class SettingsController extends AbstractController
             $defaults[$type->value] = [
                 'in_app' => $type->defaultInApp(),
                 'email' => $type->defaultEmail(),
+                'push' => $type->defaultPush(),
             ];
             $labels[$type->value] = $type->label();
         }
