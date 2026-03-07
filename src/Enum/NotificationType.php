@@ -75,6 +75,15 @@ enum NotificationType: string
         };
     }
 
+    public function defaultPush(): bool
+    {
+        return match ($this) {
+            self::TASK_ASSIGNED, self::MENTIONED, self::PROJECT_INVITED, self::REGISTRATION_REQUEST,
+            self::PROJECT_INVITATION_APPROVAL_REQUIRED, self::PROJECT_INVITATION_APPROVED => true,
+            default => false,
+        };
+    }
+
     public function category(): string
     {
         return match ($this) {

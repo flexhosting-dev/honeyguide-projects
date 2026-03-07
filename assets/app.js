@@ -2,6 +2,7 @@ import './bootstrap.js';
 import '@hotwired/turbo';
 import './styles/app.css';
 import './js/notifications.js';
+import 'push-notifications';
 
 // Vue components
 import { autoMountVueComponents, createApp } from 'vue/index';

@@ -505,6 +505,13 @@
         window.BASE_PATH = '{{ app.request.basePath }}';
     </script>
 
+    {# VAPID public key for Web Push #}
+    {% if app.user %}
+    <script>
+        window.VAPID_PUBLIC_KEY = '{{ vapid_public_key }}';
+    </script>
+    {% endif %}
+
     {% block javascripts %}{% endblock %}
     {% block importmap %}{{ importmap('app') }}{% endblock %}
 

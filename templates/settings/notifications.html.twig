@@ -31,6 +31,7 @@
                         <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notification</th>
                         <th class="px-5 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">In-App</th>
                         <th class="px-5 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Email</th>
+                        <th class="px-5 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24" x-show="pushSupported">Push</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-50">
@@ -55,6 +56,15 @@
                                       class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out mt-0.5 ml-0.5"></span>
                             </button>
                         </td>
+                        <td class="px-5 py-3.5 text-center" x-show="pushSupported">
+                            <button type="button"
+                                @click="togglePush('{{ type.value }}')"
+                                :class="isEnabled('{{ type.value }}', 'push') ? 'bg-primary-600' : 'bg-gray-200'"
+                                class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
+                                <span :class="isEnabled('{{ type.value }}', 'push') ? 'translate-x-4' : 'translate-x-0'"
+                                      class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out mt-0.5 ml-0.5"></span>
+                            </button>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -62,6 +72,13 @@
         </div>
     </div>
     {% endfor %}
+
+    <div x-show="!pushSupported" class="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <p class="text-sm text-yellow-800">
+            <strong>Push notifications not supported</strong><br>
+            Your browser doesn't support push notifications. Please use Chrome, Firefox, Safari 16.4+, or Edge.
+        </p>
+    </div>
 
     <p class="text-sm text-gray-500 text-center mb-8">Changes are saved automatically</p>
     </div>
@@ -78,6 +95,27 @@ function notificationPreferences(initial, defaults, labels) {
         defaults: defaults || {},
         labels: labels || {},
         version: 0,
+        pushSupported: false,
+        pushPermission: 'default',
+
+        async init() {
+            // Check if push is supported (inline check to avoid module timing issues)
+            const isSupported = 'serviceWorker' in navigator &&
+                                'PushManager' in window &&
+                                'Notification' in window;
+
+            if (isSupported) {
+                this.pushSupported = true;
+                this.pushPermission = Notification.permission;
+            } else {
+                console.log('Push not supported. Checks:', {
+                    serviceWorker: 'serviceWorker' in navigator,
+                    pushManager: 'PushManager' in window,
+                    notification: 'Notification' in window
+                });
+            }
+        },
+
         isEnabled(type, channel) {
             this.version;
             if (_notificationPrefs[type] && _notificationPrefs[type][channel] !== undefined) {
@@ -88,6 +126,7 @@ function notificationPreferences(initial, defaults, labels) {
             }
             return channel === 'in_app';
         },
+
         toggle(type, channel) {
             if (!_notificationPrefs[type]) _notificationPrefs[type] = {};
             const newValue = !this.isEnabled(type, channel);
@@ -95,7 +134,7 @@ function notificationPreferences(initial, defaults, labels) {
             this.version++;
 
             const label = this.labels[type] || type;
-            const channelLabel = channel === 'email' ? 'email' : 'in-app';
+            const channelLabel = channel === 'email' ? 'email' : (channel === 'push' ? 'push' : 'in-app');
             const action = newValue ? 'enabled' : 'disabled';
 
             // Save immediately
@@ -122,6 +161,22 @@ function notificationPreferences(initial, defaults, labels) {
             .catch(() => {
                 Toastr.error('Error', 'Failed to save preference');
             });
+        },
+
+        async togglePush(type) {
+            // If first time enabling push, request permission
+            if (!this.isEnabled(type, 'push') && this.pushPermission !== 'granted') {
+                try {
+                    await window.subscribeToPush();
+                    this.pushPermission = 'granted';
+                } catch (error) {
+                    Toastr.error('Failed to enable push notifications: ' + error.message);
+                    return;
+                }
+            }
+
+            // Toggle the preference
+            this.toggle(type, 'push');
         }
     };
 }

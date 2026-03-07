@@ -517,8 +517,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         if (isset($prefs[$type->value][$channel])) {
             return (bool) $prefs[$type->value][$channel];
         }
-        // Default: use the enum defaults
-        return $channel === 'in_app' ? $type->defaultInApp() : $type->defaultEmail();
+        return match ($channel) {
+            'in_app' => $type->defaultInApp(),
+            'email' => $type->defaultEmail(),
+            'push' => $type->defaultPush(),
+            default => false,
+        };
     }
 
     public function getUiPreferences(): array
