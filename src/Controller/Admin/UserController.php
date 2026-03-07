@@ -185,14 +185,19 @@ class UserController extends AbstractController
         $ownedProjects = $this->entityManager->getRepository(\App\Entity\Project::class)
             ->findBy(['owner' => $user]);
 
-        if (!empty($ownedProjects)) {
-            $projectNames = array_map(fn($p) => $p->getName(), array_slice($ownedProjects, 0, 3));
+        // Separate personal projects from non-personal projects
+        $personalProjects = array_filter($ownedProjects, fn($p) => $p->isPersonal());
+        $nonPersonalProjects = array_filter($ownedProjects, fn($p) => !$p->isPersonal());
+
+        // If user owns non-personal projects, require transfer first
+        if (!empty($nonPersonalProjects)) {
+            $projectNames = array_map(fn($p) => $p->getName(), array_slice($nonPersonalProjects, 0, 5));
             $message = sprintf(
-                'Cannot delete %s because they own %d project(s): %s%s. Please transfer ownership of their projects before deleting.',
+                'Cannot delete %s because they own %d project(s): %s%s. Please transfer ownership of these projects to another user before deleting.',
                 $user->getFullName(),
-                count($ownedProjects),
+                count($nonPersonalProjects),
                 implode(', ', $projectNames),
-                count($ownedProjects) > 3 ? ', ...' : ''
+                count($nonPersonalProjects) > 5 ? ', and ' . (count($nonPersonalProjects) - 5) . ' more' : ''
             );
             $this->addFlash('error', $message);
             return $this->redirectToRoute('admin_users_index');
@@ -201,10 +206,20 @@ class UserController extends AbstractController
         $userName = $user->getFullName();
 
         try {
+            // Delete personal projects first (if any)
+            foreach ($personalProjects as $project) {
+                $this->entityManager->remove($project);
+            }
+
+            // Delete the user
             $this->entityManager->remove($user);
             $this->entityManager->flush();
 
-            $this->addFlash('success', $userName . ' has been removed from the portal.');
+            $successMessage = $userName . ' has been removed from the portal.';
+            if (!empty($personalProjects)) {
+                $successMessage .= ' Their personal project has also been deleted.';
+            }
+            $this->addFlash('success', $successMessage);
         } catch (\Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException $e) {
             $this->addFlash('error', 'Cannot delete ' . $userName . '. They have associated data that must be removed or transferred first.');
             return $this->redirectToRoute('admin_users_index');
