@@ -132,7 +132,7 @@ export default {
             const val = e.target.value;
             const pos = e.target.selectionStart;
 
-            if (val[pos - 1] === '#' && props.membersUrl) {
+            if (val[pos - 1] === '@' && props.membersUrl) {
                 triggerStart.value = pos - 1;
                 memberSearch.value = '';
                 showMemberDropdown.value = true;
@@ -142,7 +142,7 @@ export default {
                 return;
             }
 
-            if (val[pos - 1] === '@') {
+            if (val[pos - 1] === '#') {
                 showDateDropdown.value = true;
                 showMemberDropdown.value = false;
                 updateDropDirection();
@@ -568,7 +568,7 @@ export default {
                                    @input="handleInput"
                                    @keydown="handleKeydown"
                                    @focus="scrollInputIntoView"
-                                   placeholder="Add a subtask... (#assign, @date)"
+                                   placeholder="Add a subtask... (@assign, #date)"
                                    class="flex-1 min-w-[120px] text-sm border-0 outline-none bg-transparent p-0.5"
                                    :disabled="saving">
                         </div>

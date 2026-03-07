@@ -5,7 +5,7 @@
 {% block content %}
 <div class="space-y-8">
     {# Stats Grid with accent cards #}
-    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 fade-in-up">
         {# Total Projects #}
         <div class="card-accent-green rounded-lg px-5 py-5 shadow-soft">
             <div class="flex items-center">
@@ -77,7 +77,7 @@
 
     {# Tasks Due Today - Prominent Section #}
     {% if tasksDueToday|length > 0 %}
-    <div class="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 shadow-soft rounded-xl overflow-hidden">
+    <div class="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 shadow-soft rounded-xl overflow-hidden fade-in-up">
         <div class="px-5 py-4 border-b border-orange-200 bg-orange-100/50">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
@@ -183,7 +183,7 @@
         </div>
 
         {# Recent Activity #}
-        <div class="bg-white/80 backdrop-blur-sm shadow-soft rounded-xl overflow-hidden">
+        <div class="bg-white/80 backdrop-blur-sm shadow-soft rounded-xl overflow-hidden fade-in-up">
             <div class="px-5 py-4 border-b border-gray-100">
                 <h3 class="text-base font-semibold text-gray-900">Recent Activity</h3>
             </div>
@@ -199,15 +199,19 @@
                                         {% endif %}
                                         <div class="relative flex space-x-3">
                                             <div>
-                                                <span class="h-8 w-8 rounded-full bg-gradient-to-br from-green-100 to-blue-100 flex items-center justify-center ring-4 ring-white">
-                                                    <span class="text-xs font-medium text-gray-700">
-                                                        {{ activity.user.firstName|slice(0, 1)|upper }}{{ activity.user.lastName|slice(0, 1)|upper }}
-                                                    </span>
-                                                </span>
+                                                {% include 'components/_avatar.html.twig' with {
+                                                    user: activity.user,
+                                                    size: 'sm',
+                                                    ring: true,
+                                                    ringColor: 'ring-white ring-4'
+                                                } only %}
                                             </div>
                                             <div class="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
                                                 <div>
-                                                    <p class="text-sm text-gray-600">{{ activity.description }}</p>
+                                                    <p class="text-sm text-gray-600">
+                                                        <span class="font-medium text-gray-900 cursor-pointer hover:text-primary-600" data-user-id="{{ activity.user.id.toString }}">{{ activity.user.fullName }}</span>
+                                                        {{ activity.action.label }} {{ activity.entityName ?? activity.entityType }}
+                                                    </p>
                                                 </div>
                                                 <div class="whitespace-nowrap text-right text-xs text-gray-400">
                                                     <time>{{ activity.createdAt|date('M d, H:i') }}</time>
@@ -234,7 +238,7 @@
     </div>
 
     {# Task Status Overview #}
-    <div class="bg-white/80 backdrop-blur-sm shadow-soft rounded-xl overflow-hidden">
+    <div class="bg-white/80 backdrop-blur-sm shadow-soft rounded-xl overflow-hidden fade-in-up">
         <div class="px-5 py-4 border-b border-gray-100">
             <h3 class="text-base font-semibold text-gray-900">Tasks by Status</h3>
         </div>

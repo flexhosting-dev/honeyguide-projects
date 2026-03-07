@@ -64,4 +64,37 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * Count active projects for a user (owned + member of)
+     */
+    public function getActiveProjectsCount(User $user): int
+    {
+        $em = $this->getEntityManager();
+
+        // Count owned projects that are active
+        $ownedCount = $em->createQueryBuilder()
+            ->select('COUNT(p.id)')
+            ->from('App\Entity\Project', 'p')
+            ->where('p.owner = :user')
+            ->andWhere('p.status = :status')
+            ->setParameter('user', $user)
+            ->setParameter('status', 'active')
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        // Count projects where user is a member (and project is active)
+        $memberCount = $em->createQueryBuilder()
+            ->select('COUNT(DISTINCT pm.project)')
+            ->from('App\Entity\ProjectMember', 'pm')
+            ->join('pm.project', 'p')
+            ->where('pm.user = :user')
+            ->andWhere('p.status = :status')
+            ->setParameter('user', $user)
+            ->setParameter('status', 'active')
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return (int) $ownedCount + (int) $memberCount;
+    }
 }

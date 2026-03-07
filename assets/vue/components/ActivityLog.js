@@ -116,6 +116,13 @@ export default {
                 const data = await response.json();
                 activities.value = data.activities || [];
                 isLoaded.value = true;
+
+                // Reinitialize profile hover cards after rendering avatars
+                setTimeout(() => {
+                    if (window.initProfileHoverCards) {
+                        window.initProfileHoverCards();
+                    }
+                }, 100);
             } catch (err) {
                 console.error('Error loading activity:', err);
                 error.value = 'Failed to load activity';
@@ -201,7 +208,18 @@ export default {
                     class="activity-item flex gap-3 py-2"
                 >
                     <div class="flex-shrink-0">
-                        <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-100" v-html="getIcon(activity.action)">
+                        <!-- User Avatar with hover card -->
+                        <span class="inline-flex items-center justify-center rounded-full overflow-hidden h-8 w-8 cursor-pointer"
+                              :data-user-id="activity.user.id">
+                            <img v-if="activity.user.avatar"
+                                 :src="basePath + '/uploads/avatars/' + activity.user.avatar"
+                                 :alt="activity.user.fullName"
+                                 class="w-full h-full object-cover">
+                            <span v-else class="w-full h-full bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center">
+                                <span class="text-xs font-medium text-white">
+                                    {{ activity.user.initials }}
+                                </span>
+                            </span>
                         </span>
                     </div>
                     <div class="flex-1 min-w-0">

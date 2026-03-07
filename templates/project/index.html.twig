@@ -5,7 +5,7 @@
 {% block content %}
 <div class="space-y-6">
     {# Header #}
-    <div class="sm:flex sm:items-center sm:justify-between">
+    <div class="sm:flex sm:items-center sm:justify-between fade-in-up">
         <div>
             <h1 class="text-xl font-semibold text-gray-900">Projects</h1>
             <p class="mt-2 text-sm text-gray-700">A list of all projects you have access to.</p>
@@ -23,7 +23,7 @@
 
     {# Personal Project Section #}
     {% if personalProject is defined and personalProject %}
-    <div id="personal-project-section">
+    <div id="personal-project-section" class="fade-in-up">
         <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4">Personal Workspace</h2>
         <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {% include 'project/_card.html.twig' with {project: personalProject} %}

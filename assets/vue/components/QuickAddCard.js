@@ -278,8 +278,8 @@ export default {
             const val = e.target.value;
             const pos = e.target.selectionStart;
 
-            // Check for # trigger → member dropdown (skip for personal projects - auto-assigned)
-            if (val[pos - 1] === '#' && !isEffectivePersonalProject.value) {
+            // Check for @ trigger → member dropdown (skip for personal projects - auto-assigned)
+            if (val[pos - 1] === '@' && !isEffectivePersonalProject.value) {
                 triggerStart.value = pos - 1;
                 memberSearch.value = '';
                 showMemberDropdown.value = true;
@@ -289,12 +289,12 @@ export default {
                 return;
             }
 
-            // Check for @ trigger → date dropdown
-            if (val[pos - 1] === '@') {
+            // Check for # trigger → date dropdown
+            if (val[pos - 1] === '#') {
                 showDateDropdown.value = true;
                 showMemberDropdown.value = false;
                 updateDropDirection();
-                // Remove the @ from title
+                // Remove the # from title
                 title.value = val.slice(0, pos - 1) + val.slice(pos);
                 return;
             }
@@ -308,7 +308,7 @@ export default {
         const selectMember = (member) => {
             selectedAssignee.value = member;
             showMemberDropdown.value = false;
-            // Remove #search from title
+            // Remove @search from title
             if (triggerStart.value >= 0) {
                 const val = title.value;
                 const afterTrigger = val.indexOf(' ', triggerStart.value);
@@ -358,7 +358,7 @@ export default {
             if (e.key === 'Escape') {
                 if (showMemberDropdown.value) {
                     showMemberDropdown.value = false;
-                    // Remove the partial #search
+                    // Remove the partial @search
                     if (triggerStart.value >= 0) {
                         title.value = title.value.slice(0, triggerStart.value);
                         triggerStart.value = -1;
@@ -497,7 +497,7 @@ export default {
 
         // Computed placeholder based on project type
         const placeholder = computed(() => {
-            return isEffectivePersonalProject.value ? 'Task title... (@date, Assigned to you)' : 'Task title... (#assign, @date)';
+            return isEffectivePersonalProject.value ? 'Task title... (#date, Assigned to you)' : 'Task title... (@assign, #date)';
         });
 
         // Get selected project name for display
