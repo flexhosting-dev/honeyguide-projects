@@ -17,6 +17,10 @@ import QuickAddCard from 'vue/components/QuickAddCard';
 import TaskTable from 'vue/components/TaskTable';
 import GanttView from 'vue/components/GanttView';
 import ConfirmDialog from 'vue/components/ConfirmDialog';
+import ProfileHoverCard from 'vue/components/ProfileHoverCard';
+
+// Tippy.js for profile hover cards
+import tippy from 'tippy.js';
 
 // Register Vue components
 const vueComponents = {
@@ -90,3 +94,79 @@ document.addEventListener('turbo:load', () => {
 
 // Re-mount after Turbo frame loads (for AJAX-loaded content like task panel)
 document.addEventListener('turbo:frame-load', mountVueComponents);
+
+// Profile hover cards with Tippy.js
+function initProfileHoverCards() {
+    // Create singleton container for Vue-rendered content
+    let container = document.getElementById('profile-hover-card-content');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'profile-hover-card-content';
+        document.body.appendChild(container);
+    }
+
+    let currentVueApp = null;
+
+    // Get all elements with data-user-id
+    const elements = document.querySelectorAll('[data-user-id]');
+
+    // Destroy existing Tippy instances and initialize new ones
+    elements.forEach((el) => {
+        // Destroy existing instance if present
+        if (el._tippy) {
+            el._tippy.destroy();
+        }
+
+        // Create new Tippy instance for this element
+        tippy(el, {
+            content: '', // Will be set dynamically in onShow
+            allowHTML: true,
+            interactive: true,
+            arrow: true,
+            placement: 'top',
+            theme: 'profile-card',
+            animation: 'shift-away',
+            delay: [500, 0],
+            maxWidth: 'none',
+            appendTo: () => document.body,
+
+            onShow(instance) {
+                const userId = instance.reference.dataset.userId;
+
+                if (!userId) {
+                    return false;
+                }
+
+                // Set the shared container as content for this instance
+                instance.setContent(container);
+
+                // Unmount previous Vue app if exists
+                if (currentVueApp) {
+                    currentVueApp.unmount();
+                }
+
+                // Create new Vue app with ProfileHoverCard
+                currentVueApp = createApp(ProfileHoverCard, {
+                    userId: userId
+                });
+
+                currentVueApp.mount(container);
+            },
+
+            onHide() {
+                // Keep Vue app mounted for smooth transition
+                // Will be replaced on next show
+            }
+        });
+    });
+}
+
+// Make globally accessible for Vue components
+window.initProfileHoverCards = initProfileHoverCards;
+
+// Initialize profile hover cards on page load
+document.addEventListener('DOMContentLoaded', initProfileHoverCards);
+
+// Re-initialize after Turbo navigations
+document.addEventListener('turbo:load', initProfileHoverCards);
+document.addEventListener('turbo:frame-load', initProfileHoverCards);

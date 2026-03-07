@@ -63,6 +63,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 100, nullable: true)]
     private ?string $department = null;
 
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $bio = null;
+
     #[ORM\Column(type: 'json')]
     private array $hiddenRecentProjectIds = [];
 
@@ -328,6 +331,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setDepartment(?string $department): static
     {
         $this->department = $department;
+        return $this;
+    }
+
+    public function getBio(): ?string
+    {
+        return $this->bio;
+    }
+
+    public function setBio(?string $bio): static
+    {
+        $this->bio = $bio;
         return $this;
     }
 

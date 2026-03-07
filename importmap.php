@@ -88,7 +88,16 @@ return [
     'vue/components/ConfirmDialog' => [
         'path' => './assets/vue/components/ConfirmDialog.js',
     ],
+    'vue/components/ProfileHoverCard' => [
+        'path' => './assets/vue/components/ProfileHoverCard.js',
+    ],
     'vue' => [
         'path' => './assets/vendor/vue/vue.index.js',
+    ],
+    'tippy.js' => [
+        'version' => '6.3.7',
+    ],
+    '@popperjs/core' => [
+        'version' => '2.10.2',
     ],
 ];

@@ -79,6 +79,17 @@ export default {
 
         watch(commentCount, updateTabCount);
 
+        // Reinitialize hover cards when members are loaded (for existing mentions)
+        watch(membersLoaded, (loaded) => {
+            if (loaded) {
+                nextTick(() => {
+                    if (window.initProfileHoverCards) {
+                        window.initProfileHoverCards();
+                    }
+                });
+            }
+        });
+
         // Load project members for @mentions
         const loadMembers = async () => {
             if (membersLoaded.value || !props.projectId) return;
@@ -199,12 +210,12 @@ export default {
             if (!text) return '';
             let html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-            // Replace #Name with styled spans
+            // Replace #Name with styled spans that have hover cards
             for (const member of mentionMembers.value) {
                 const mention = '#' + member.fullName;
                 const escaped = mention.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 html = html.replace(new RegExp(escaped, 'g'),
-                    `<span class="text-primary-600 font-medium">${mention}</span>`
+                    `<span class="text-primary-600 font-medium cursor-pointer hover:text-primary-700" data-user-id="${member.id}">${mention}</span>`
                 );
             }
 
@@ -296,6 +307,10 @@ export default {
                         if (list) {
                             list.scrollTop = 0;
                         }
+                        // Reinitialize profile hover cards after rendering new comment
+                        if (window.initProfileHoverCards) {
+                            window.initProfileHoverCards();
+                        }
                     });
                 }
             } catch (error) {
@@ -357,6 +372,16 @@ export default {
 
         onMounted(() => {
             loadCommentAttachments();
+            // Load members to render mentions in existing comments
+            if (comments.value.length > 0) {
+                loadMembers();
+            }
+            // Initialize profile hover cards for initial comments
+            nextTick(() => {
+                if (window.initProfileHoverCards) {
+                    window.initProfileHoverCards();
+                }
+            });
         });
 
         // Load members on focus
@@ -472,7 +497,8 @@ export default {
                 >
                     <div class="flex items-center justify-between mb-2">
                         <div class="flex items-center">
-                            <span class="inline-flex h-6 w-6 items-center justify-center rounded-full overflow-hidden mr-2">
+                            <span class="inline-flex h-6 w-6 items-center justify-center rounded-full overflow-hidden mr-2 cursor-pointer"
+                                  :data-user-id="comment.authorId">
                                 <img v-if="comment.authorAvatar" :src="comment.authorAvatar" :alt="comment.authorName" class="w-full h-full object-cover">
                                 <span v-else class="w-full h-full bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center">
                                     <span class="text-xs font-medium text-white">{{ comment.authorInitials }}</span>

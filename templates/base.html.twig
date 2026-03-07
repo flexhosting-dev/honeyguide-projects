@@ -22,6 +22,9 @@
     <!-- Cropper.js for image cropping -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+    <!-- Tippy.js for profile hover cards -->
+    <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/dist/tippy.css">
+    <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/themes/light-border.css">
     <script>
         tailwind.config = {
             theme: {
@@ -337,6 +340,57 @@
             outline: 0;
             box-shadow: 0 0 0 1px #39f, 0 0 0 9999px rgba(0,0,0,0.5);
         }
+
+        /* Profile hover card Tippy theme - transparent box with styled arrow */
+        .tippy-box[data-theme~='profile-card'] {
+            background-color: transparent;
+            border: none;
+            box-shadow: none;
+            padding: 0;
+        }
+
+        .tippy-box[data-theme~='profile-card'] .tippy-content {
+            padding: 0;
+        }
+
+        .tippy-box[data-theme~='profile-card'][data-placement^='top'] > .tippy-arrow::before {
+            border-top-color: #10b981;
+        }
+
+        .tippy-box[data-theme~='profile-card'][data-placement^='bottom'] > .tippy-arrow::before {
+            border-bottom-color: #10b981;
+        }
+
+        .tippy-box[data-theme~='profile-card'][data-placement^='left'] > .tippy-arrow::before {
+            border-left-color: #10b981;
+        }
+
+        .tippy-box[data-theme~='profile-card'][data-placement^='right'] > .tippy-arrow::before {
+            border-right-color: #10b981;
+        }
+
+        /* Fade in up animation */
+        .fade-in-up {
+            animation: fadeInUp 0.6s ease-out backwards;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in-up:nth-child(1) { animation-delay: 0.1s; }
+        .fade-in-up:nth-child(2) { animation-delay: 0.2s; }
+        .fade-in-up:nth-child(3) { animation-delay: 0.3s; }
+        .fade-in-up:nth-child(4) { animation-delay: 0.4s; }
+        .fade-in-up:nth-child(5) { animation-delay: 0.5s; }
+        .fade-in-up:nth-child(6) { animation-delay: 0.6s; }
     </style>
 
     {% block stylesheets %}{% endblock %}

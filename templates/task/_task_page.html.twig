@@ -22,7 +22,7 @@
 {% set showAddButton = showAddButton|default(false) %}
 {% set storageKey = storageKey|default('task_view') %}
 
-<div class="space-y-4" id="task-page-container" data-storage-key="{{ storageKey }}" data-turbo-cache="false">
+<div class="space-y-4 fade-in-up" id="task-page-container" data-storage-key="{{ storageKey }}" data-turbo-cache="false">
     {# Page Header (optional) #}
     {% if showHeader and pageTitle is defined %}
     <div class="sm:flex sm:items-center sm:justify-between">

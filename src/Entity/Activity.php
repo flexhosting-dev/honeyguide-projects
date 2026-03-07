@@ -139,9 +139,17 @@ class Activity
     public function getDescription(): string
     {
         $userName = $this->user->getFullName();
+        $userId = $this->user->getId()->toString();
         $actionLabel = $this->action->label();
         $entityName = $this->entityName ?? $this->entityType;
 
-        return sprintf('%s %s %s', $userName, $actionLabel, $entityName);
+        // Wrap username with data-user-id for hover card
+        $userNameHtml = sprintf(
+            '<span class="font-medium cursor-pointer hover:text-primary-600 transition-colors" data-user-id="%s">%s</span>',
+            htmlspecialchars($userId, ENT_QUOTES, 'UTF-8'),
+            htmlspecialchars($userName, ENT_QUOTES, 'UTF-8')
+        );
+
+        return sprintf('%s %s %s', $userNameHtml, $actionLabel, $entityName);
     }
 }
