@@ -22,8 +22,8 @@ class Comment
     private Task $task;
 
     #[ORM\ManyToOne(targetEntity: User::class, inversedBy: 'comments')]
-    #[ORM\JoinColumn(nullable: false)]
-    private User $author;
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?User $author = null;
 
     #[ORM\Column(type: Types::TEXT)]
     #[Assert\NotBlank]
@@ -73,15 +73,20 @@ class Comment
         return $this;
     }
 
-    public function getAuthor(): User
+    public function getAuthor(): ?User
     {
         return $this->author;
     }
 
-    public function setAuthor(User $author): static
+    public function setAuthor(?User $author): static
     {
         $this->author = $author;
         return $this;
+    }
+
+    public function getAuthorName(): string
+    {
+        return $this->author?->getFullName() ?? 'Deleted User';
     }
 
     public function getContent(): string

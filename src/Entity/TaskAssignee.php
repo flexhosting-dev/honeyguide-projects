@@ -31,7 +31,7 @@ class TaskAssignee
     private \DateTimeImmutable $assignedAt;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
-    #[ORM\JoinColumn(nullable: true)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?User $assignedBy = null;
 
     public function __construct()
